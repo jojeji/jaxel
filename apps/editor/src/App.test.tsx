@@ -120,6 +120,17 @@ describe("Datei öffnen und Baumdarstellung", () => {
     expect(await screen.findByText("Dialog-Fehler")).toBeInTheDocument();
   });
 
+  it("Startscreen: Klick auf einen 'Zuletzt geöffnet'-Eintrag oeffnet die Datei", async () => {
+    localStorage.setItem("jaxel.recentFiles", JSON.stringify(["/fake/second.xml"]));
+    const user = userEvent.setup();
+    renderApp();
+    expect(screen.getByText("Zuletzt geöffnet")).toBeInTheDocument();
+    expect(screen.getByText("Tastenkürzel")).toBeInTheDocument();
+
+    await user.click(screen.getByText("second.xml"));
+    expect(await screen.findByText("inventory")).toBeInTheDocument();
+  });
+
   it("merkt sich den letzten Ordner und startet den Dialog dort", async () => {
     const user = await openSampleFile();
     expect(localStorage.getItem("jaxel.lastDir")).toBe("/fake");
@@ -498,11 +509,11 @@ describe("Einstellungen", () => {
     renderApp();
     await user.click(screen.getByRole("button", { name: "Einstellungen" }));
     expect(screen.getByText("Einstellungen", { selector: "h2" })).toBeInTheDocument();
-    expect(document.documentElement.dataset.theme).toBeUndefined(); // dark = Default, kein Attribut
+    expect(document.documentElement.dataset.theme).toBeUndefined(); // hell = Default, kein Attribut
 
-    await user.click(screen.getByRole("radio", { name: "Hell" }));
-    expect(document.documentElement.dataset.theme).toBe("light");
-    expect(JSON.parse(localStorage.getItem("jaxel.settings")!)).toMatchObject({ theme: "light" });
+    await user.click(screen.getByRole("radio", { name: "Dunkel" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(JSON.parse(localStorage.getItem("jaxel.settings")!)).toMatchObject({ theme: "dark" });
 
     await user.click(screen.getByRole("button", { name: "Schließen" }));
     expect(screen.queryByText("Einstellungen", { selector: "h2" })).not.toBeInTheDocument();

@@ -14,7 +14,7 @@ export interface Settings {
 }
 
 const STORAGE_KEY = "jaxel.settings";
-const DEFAULTS: Settings = { theme: "dark", windowMode: "tabs", filterIncludesSubtree: false };
+const DEFAULTS: Settings = { theme: "light", windowMode: "tabs", filterIncludesSubtree: false };
 
 function load(): Settings {
   try {

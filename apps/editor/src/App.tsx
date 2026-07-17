@@ -23,6 +23,17 @@ import {
   type SearchMatch,
   type SearchOptions,
 } from "@jaxel/core";
+import {
+  ClipboardText,
+  CopySimple,
+  FloppyDisk,
+  FolderOpen,
+  Gear,
+  ListNumbers,
+  MagnifyingGlass,
+  Plus,
+  Trash,
+} from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { useJaxelDocuments } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
@@ -34,6 +45,8 @@ import { AttributesPanel } from "./panels/AttributesPanel.js";
 import { SearchPanel } from "./search/SearchPanel.js";
 import { TabBar } from "./tabs/TabBar.js";
 import { SettingsDialog } from "./settings/SettingsDialog.js";
+import { WelcomeScreen } from "./welcome/WelcomeScreen.js";
+import { IconButton } from "./ui/IconButton.js";
 
 function isTextInput(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
@@ -53,13 +66,15 @@ export function App(): React.ReactElement {
   const [revealNodeId, setRevealNodeId] = useState<string | null>(null);
   /** null = filter off; otherwise the current search matches the tree is reduced to. */
   const [filterMatches, setFilterMatches] = useState<SearchMatch[] | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const root = activeDoc?.document.root ?? null;
   const revision = activeDoc?.document.revision ?? 0;
 
+  // Light is the CSS default (:root); only dark needs the data attribute.
   useEffect(() => {
-    if (settings.theme === "light") {
-      document.documentElement.dataset.theme = "light";
+    if (settings.theme === "dark") {
+      document.documentElement.dataset.theme = "dark";
     } else {
       delete document.documentElement.dataset.theme;
     }
@@ -73,6 +88,37 @@ export function App(): React.ReactElement {
       if (first) void openFile(first);
     });
   }, [openFile]);
+
+  // Drag&drop of files onto the window (Tauri webview event; unavailable — and silently
+  // skipped — outside a real Tauri window, e.g. in jsdom tests).
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { getCurrentWebview } = await import("@tauri-apps/api/webview");
+        const stop = await getCurrentWebview().onDragDropEvent((event) => {
+          if (event.payload.type === "enter" || event.payload.type === "over") {
+            setDragOver(true);
+          } else if (event.payload.type === "leave") {
+            setDragOver(false);
+          } else if (event.payload.type === "drop") {
+            setDragOver(false);
+            for (const path of event.payload.paths) void openPath(path);
+          }
+        });
+        if (cancelled) stop();
+        else unlisten = stop;
+      } catch {
+        // not running inside Tauri — drag&drop simply stays unavailable
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openPath only wraps the stable openFile
+  }, []);
 
   // Reset per-document view state whenever the active tab changes.
   useEffect(() => {
@@ -328,10 +374,19 @@ export function App(): React.ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
-      if (!activeDoc) return;
       const ctrl = event.ctrlKey || event.metaKey;
 
-      if (ctrl && !event.shiftKey && event.key.toLowerCase() === "z") {
+      if (ctrl && event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        void handleOpen();
+        return;
+      }
+      if (!activeDoc) return;
+
+      if (ctrl && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void handleSave();
+      } else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "z") {
         event.preventDefault();
         activeDoc.commandBus.undo();
       } else if (
@@ -485,18 +540,58 @@ export function App(): React.ReactElement {
           <span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>
         </div>
         <div className="app-titlebar__actions">
-          <button onClick={handleOpen}>{t("welcome.openFile")}</button>
-          {activeDoc && <button onClick={handleSave}>{t("welcome.save")}</button>}
-          {activeDoc && (
-            <button onClick={() => setSearchOpen((prevOpen) => !prevOpen)}>{t("toolbar.search")}</button>
-          )}
-          {selectedRow && <button onClick={handleAddChild}>{t("toolbar.addChild")}</button>}
-          {selectedRow && <button onClick={handleDelete}>{t("toolbar.delete")}</button>}
-          {selectedRow && <button onClick={() => handleCopyPath(true)}>{t("toolbar.copyPath")}</button>}
-          {selectedRow && (
-            <button onClick={() => handleCopyPath(false)}>{t("toolbar.copyPathStatic")}</button>
-          )}
-          <button onClick={() => setSettingsOpen(true)}>{t("toolbar.settings")}</button>
+          <IconButton icon={FolderOpen} label={t("welcome.openFile")} shortcut={`${t("key.ctrl")}+O`} onClick={handleOpen} />
+          <IconButton
+            icon={FloppyDisk}
+            label={t("welcome.save")}
+            shortcut={`${t("key.ctrl")}+S`}
+            disabled={!activeDoc}
+            onClick={() => void handleSave()}
+          />
+          <IconButton
+            icon={MagnifyingGlass}
+            label={t("toolbar.search")}
+            shortcut={`${t("key.ctrl")}+F`}
+            disabled={!activeDoc}
+            onClick={() => setSearchOpen((prevOpen) => !prevOpen)}
+          />
+          <span className="app-titlebar__sep" />
+          <IconButton
+            icon={Plus}
+            label={t("toolbar.addChild")}
+            shortcut={`${t("key.ctrl")}++`}
+            disabled={!selectedRow}
+            onClick={handleAddChild}
+          />
+          <IconButton
+            icon={CopySimple}
+            label={t("toolbar.duplicate")}
+            shortcut={`${t("key.ctrl")}+D`}
+            disabled={!selectedRow || selectedRow.ancestors.length === 0}
+            onClick={handleDuplicate}
+          />
+          <IconButton
+            icon={Trash}
+            label={t("toolbar.delete")}
+            shortcut={t("key.delete")}
+            disabled={!selectedRow || selectedRow.ancestors.length === 0}
+            onClick={handleDelete}
+          />
+          <span className="app-titlebar__sep" />
+          <IconButton
+            icon={ListNumbers}
+            label={t("toolbar.copyPath")}
+            disabled={!selectedRow}
+            onClick={() => handleCopyPath(true)}
+          />
+          <IconButton
+            icon={ClipboardText}
+            label={t("toolbar.copyPathStatic")}
+            disabled={!selectedRow}
+            onClick={() => handleCopyPath(false)}
+          />
+          <span className="app-titlebar__sep" />
+          <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
         </div>
       </header>
       <TabBar docs={docs} activePath={activeDoc?.filePath ?? null} onActivate={activate} onClose={handleCloseTab} />
@@ -521,11 +616,10 @@ export function App(): React.ReactElement {
             <AttributesPanel node={selectedRow?.node ?? null} onSetAttribute={handleSetAttribute} />
           </>
         ) : (
-          <button className="primary" onClick={handleOpen}>
-            {t("welcome.openFile")}
-          </button>
+          <WelcomeScreen onOpen={() => void handleOpen()} onOpenPath={(path) => void openPath(path)} />
         )}
       </main>
+      {dragOver && <div className="drop-overlay">{t("welcome.dropNow")}</div>}
       {searchOpen && activeDoc && (
         <SearchPanel
           onSearch={handleSearch}
