@@ -3,6 +3,50 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## 🚦 Hier weitermachen (Stand 2026-07-17)
+
+**AP0–AP5 sind fertig, getestet und committet** (6 Commits auf `main`, Arbeitsbaum sauber,
+`git status` zeigt nichts Offenes). Jaxel ist ein funktionierender XML/JSON-Editor: Baum öffnen,
+editieren (Wert/Name/Attribute), Undo/Redo, Suchen/Ersetzen, Pfad kopieren, mehrere Dokumente
+als Tabs, Grundeinstellungen. Details je AP unten, neueste zuerst.
+
+**Nächster Schritt: AP6 — Linux-Packaging.** Tauri-Bundle bauen (`tauri.conf.json` hat bereits
+`"targets": ["appimage", "deb", "rpm", "nsis"]` konfiguriert) und die erzeugten Artefakte auf
+einem sauberen System testen (AppImage sollte ohne Installation starten). Vermutlicher Befehl:
+`npm run tauri --workspace=@jaxel/editor -- build` im Projekt-Root, dann die Dateien unter
+`apps/editor/src-tauri/target/release/bundle/` prüfen. Windows/macOS-Packaging ist bewusst
+NICHT Teil von AP6 (siehe `docs/entscheidungen.md` #7: Linux zuerst).
+
+**Vor dem Weiterarbeiten unbedingt lesen:**
+1. `AGENTS.md` (Projektwurzel) — Pflichtlektüre-Reihenfolge und Invarianten.
+2. `docs/entscheidungen.md` — alle Grundsatzentscheidungen samt Begründung, inkl. „ausdrücklich
+   NICHT geplant"-Liste (XSD-Validierung, >RAM-Editing, Byte-Identität-Invariante).
+3. Dieses Dokument (`docs/status.md`), komplett — jede AP-Sektion enthält bewusste
+   Vereinfachungen und gefundene Bugs, die nicht nochmal gemacht werden sollten.
+
+**Kritische Stolperfalle beim Testen im echten Fenster:** `npm run dev` MUSS im
+Projekt-Wurzelverzeichnis laufen, NICHT in `apps/editor` (dort startet das gleichnamige
+`"dev"`-Skript nur Vite ohne Tauri-Fenster → `invoke()`-Aufrufe schlagen mit
+`Cannot read properties of undefined (reading 'invoke')` fehl). Details in README.md.
+
+**Wie verifizieren:**
+- `packages/core`: `cd packages/core && npx vitest run` (52 Tests) + `../../node_modules/.bin/tsc
+  --noEmit` (nicht bloßes `npx tsc` — greift auf dieser Maschine teils auf eine fremde
+  Alt-Version zu, siehe Subagent-Berichte in den Commit-Historien).
+- `apps/editor`: `cd apps/editor && npx vitest run` (21 Tests, jsdom + React Testing Library —
+  kein xdotool o.ä. in dieser Umgebung verfügbar, daher sind diese Tests der Ersatz für echtes
+  Klicken) + `../../node_modules/.bin/tsc --noEmit -p tsconfig.json`.
+- `apps/editor/src-tauri`: `cargo check`.
+- Echte App: `npm run dev` im Root, dann `gnome-screenshot` + `wmctrl -l`/`wmctrl -i -a <id>`
+  nutzen, um das Jaxel-Fenster (nicht andere gleichnamige Fenster/Tabs!) zu fokussieren und zu
+  screenshotten — Details siehe die Tool-Aufrufe in der Commit-Historie dieser Session.
+
+**Bewusst zurückgestellte Features** (nicht vergessen, aber kein Blocker für AP6):
+Tabellenansicht der Kindknoten, echter Multi-Fenster-Modus (eigene OS-Fenster), Namespace-
+Verwaltungsdialog, Windows-/macOS-Packaging, XSD-Validierung (dauerhaft ausgeschlossen).
+
+---
+
 ## AP5 — Tabs, Grundeinstellungen (abgeschlossen; „eigene Fenster"-Modus bewusst zurückgestellt)
 
 - **Tabs** (`apps/editor/src/state/document-store.ts` umgebaut auf `useJaxelDocuments()`,

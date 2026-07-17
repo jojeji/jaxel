@@ -19,7 +19,9 @@ Blick dorthin — aber **nicht blind kopieren**: Jaxel hat bewusst andere Invari
 2. `docs/entscheidungen.md` — Entscheidungslog, maßgeblich bei Widersprüchen. Enthält auch eine
    Liste "ausdrücklich NICHT geplant" — nicht versehentlich nachbauen.
 3. `docs/status.md` — Ist-Stand je Arbeitspaket.
-4. Ursprünglicher Kickoff-Plan (Grilling-Ergebnis): `~/.claude/plans/breezy-churning-heron.md`.
+4. Ursprünglicher Kickoff-Plan (Grilling-Ergebnis): `docs/archiv/00-kickoff-plan.md` (historisch —
+   `docs/entscheidungen.md` ist bei Widersprüchen maßgeblich, der Plan dient nur als Kontext für
+   *warum* die Grundentscheidungen so getroffen wurden).
 
 ## Zentrale Invarianten (nicht aufweichen)
 

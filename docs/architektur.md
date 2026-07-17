@@ -11,13 +11,22 @@ Codekultur: `../xdp-designer` (Schwesterprojekt, gleiche Firma).
 ## Schichten
 
 ```
-apps/editor/src-tauri  (Rust)     Datei-I/O, Encoding-Erkennung, Streaming-Parse (XML+JSON), Bundling
+apps/editor/src-tauri  (Rust)     Datei-I/O, Encoding-Erkennung (encoding_rs), Bundling
         ↕ Tauri-Commands (IPC)
 apps/editor/src        (React)    Baumansicht, Panels, Tabs, Settings, Hotkeys — reine Darstellung/Interaktion
         ↕ importiert
-packages/core/src      (TS)       DocNode-Modell, CommandBus/Undo, XML↔JSON-Mapping, Pfade, Suche
-                                    UI-frei, headless mit vitest getestet
+packages/core/src      (TS)       DocNode-Modell, CommandBus/Undo, XML/JSON-Parser+Serializer,
+                                   Pfade, Suche — UI-frei, headless mit vitest getestet
 ```
+
+**Abweichung vom Ursprungsplan:** Das Parsen von XML/JSON läuft entgegen der ursprünglichen
+Idee ("Rust parst streamend mit quick-xml") komplett in TypeScript in `packages/core`
+(selbstgebauter Pull-Parser, keine Runtime-Dependency) — das macht den Kern headless mit
+vitest testbar, ohne eine laufende Tauri-App zu brauchen. Rust hat aktuell **kein**
+XML-Parsing (kein `quick-xml` in `Cargo.toml`). Performance wurde real mit einer 184-MB-Datei
+verifiziert (~8s Parse-Zeit, siehe `docs/status.md` AP2) — für den aktuellen Bedarf
+ausreichend; ein nativer Rust-Parser bliebe eine spätere Optimierungsoption, falls größere
+Dateien das erfordern.
 
 ## Leitprinzipien
 
@@ -45,4 +54,4 @@ verfügbare RAM (bewusste Entscheidung, siehe `entscheidungen.md` #3).
 - Entscheidungslog: `docs/entscheidungen.md`
 - Ist-Stand je Arbeitspaket: `docs/status.md`
 - Benutzerhandbuch: `docs/benutzerhandbuch.md`
-- Ursprünglicher Plan (Grilling-Ergebnis): `~/.claude/plans/breezy-churning-heron.md`
+- Ursprünglicher Plan (Grilling-Ergebnis, historisch): `docs/archiv/00-kickoff-plan.md`
