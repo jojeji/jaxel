@@ -32,6 +32,8 @@ const SAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </person>
 </catalog>`;
 
+const writeText = vi.fn().mockResolvedValue(undefined);
+
 beforeEach(() => {
   localStorage.setItem("jaxel.locale", "de");
   vi.mocked(invoke).mockReset();
@@ -43,7 +45,23 @@ beforeEach(() => {
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
+  writeText.mockClear();
 });
+
+/**
+ * @testing-library/user-event's `setup()` installs its OWN clipboard stub on
+ * `navigator.clipboard` (via a getter, unconditionally — see its Clipboard.js), which runs
+ * AFTER our beforeEach and would silently shadow a mock installed there. Call this AFTER
+ * `openSampleFile()` (which calls `userEvent.setup()` internally) in any test that asserts
+ * on clipboard writes.
+ */
+function stubClipboard(): void {
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    writable: true,
+    configurable: true,
+  });
+}
 
 afterEach(() => {
   cleanup();
@@ -207,5 +225,70 @@ describe("Knoten einfuegen/loeschen", () => {
     await user.click(newNodes[0]!);
     await user.click(screen.getByRole("button", { name: "Löschen" }));
     expect(screen.queryByText("node")).not.toBeInTheDocument();
+  });
+});
+
+describe("Suchen und Ersetzen", () => {
+  it("findet einen Wert-Treffer, expandiert den Baum automatisch und selektiert ihn", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "berlin");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+
+    expect(await screen.findByText("1/1")).toBeInTheDocument();
+    // "city" saß in einem eingeklappten person-Knoten -- der Treffer muss ihn automatisch aufklappen.
+    expect(await screen.findByText("Berlin", { selector: ".tree-row__preview" })).toBeInTheDocument();
+    expect(screen.getByText("city", { selector: ".attributes-panel__node-name" })).toBeInTheDocument();
+  });
+
+  it("'Weiter'/'Zurück' navigiert zyklisch zwischen mehreren Treffern", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "person");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Weiter" }));
+    expect(await screen.findByText("2/2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Weiter" })); // wraps around
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Zurück" }));
+    expect(await screen.findByText("2/2")).toBeInTheDocument();
+  });
+
+  it("'Alle ersetzen' aendert den Wert live und ist mit Strg+Z als EIN Schritt rueckgaengig machbar", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "Anna");
+    await user.type(screen.getByPlaceholderText("Ersetzen durch…"), "Anne");
+    await user.click(screen.getByRole("button", { name: "Alle ersetzen" }));
+    expect(await screen.findByText(/1 Ersetzung/)).toBeInTheDocument();
+
+    const twisties = screen.getAllByText("▸");
+    await user.click(twisties[0]!);
+    expect(await screen.findByText("Anne")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(await screen.findByText("Anna")).toBeInTheDocument();
+  });
+});
+
+describe("Pfad kopieren", () => {
+  it("kopiert den indizierten und den statischen Pfad des ausgewaehlten Knotens in die Zwischenablage", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    const twisties = screen.getAllByText("▸");
+    await user.click(twisties[1]!); // zweiten person-Knoten (id="P-2") aufklappen
+    const cityValue = await screen.findByText("Hamburg");
+    await user.click(cityValue); // selektiert die "city"-Zeile
+
+    await user.click(screen.getByRole("button", { name: "Pfad kopieren" }));
+    expect(writeText).toHaveBeenCalledWith("person[1].city");
+    expect(await screen.findByText("Pfad kopiert")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pfad kopieren (statisch)" }));
+    expect(writeText).toHaveBeenCalledWith("person.city");
   });
 });

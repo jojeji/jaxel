@@ -3,6 +3,37 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## AP4 — Suchen/Ersetzen + Pfad-Kopieren (abgeschlossen; Tabellenansicht bewusst zurückgestellt)
+
+- **Suchen/Ersetzen** (`apps/editor/src/search/SearchBar.tsx`): Suchleiste mit Scope
+  (Name/Wert/Attribute/Alles), Groß-/Kleinschreibung, Regex, Treffer-Zähler ("3/7"),
+  Weiter/Zurück (zyklisch), Ersetzen-durch-Feld, „Alle ersetzen". Nutzt `findAll`/`replaceAll`
+  aus `packages/core`. `Strg+F` öffnet die Leiste.
+- **„Alle ersetzen" ist ein einziger, echter Undo-Schritt**: `replaceAll` mutiert direkt (siehe
+  AP1), daher wird vor dem Aufruf der Vorher-Zustand jedes betroffenen Feldes eingesammelt,
+  nach dem Aufruf zurückgesetzt und über die bestehenden Mutations-Commands
+  (`createRenameCommand`/`createSetValueCommand`/`createSetAttributeCommand`) innerhalb eines
+  `createCompositeCommand` neu angewendet — dadurch bleibt Undo/Redo für Massen-Ersetzungen
+  konsistent mit dem Rest der App, ohne `search.ts` selbst anzufassen.
+- **Treffer-Navigation expandiert automatisch**: `TreeView` hat jetzt eine `revealNodeId`-Prop
+  — beim Springen zu einem Treffer werden alle Vorfahren automatisch aufgeklappt und die
+  Zeile in den sichtbaren Bereich gescrollt (auch bei virtualisierter Darstellung).
+- **Pfad kopieren**: zwei Toolbar-Buttons für den ausgewählten Knoten (indiziert
+  `person[1].city` / statisch `person.city`), nutzt `computePaths` aus `packages/core` und
+  `navigator.clipboard.writeText`.
+- **Test-Stolperfalle gefunden und dokumentiert** (kein App-Bug): `@testing-library/user-event`s
+  `setup()` installiert unconditional einen eigenen Clipboard-Stub auf `navigator.clipboard`
+  (via Getter), der NACH einem in `beforeEach` gesetzten Mock läuft und diesen überschreibt.
+  Der Clipboard-Mock muss daher NACH `userEvent.setup()` (implizit in `openSampleFile()`)
+  gesetzt werden — siehe `stubClipboard()`-Kommentar in `App.test.tsx`.
+- **Verifikation**: 16/16 Editor-Tests grün (4 neu für Suche/Ersetzen, 1 neu für Pfad-Kopieren),
+  52/52 Kern-Tests weiterhin grün, `tsc --noEmit` sauber in beiden Paketen, `cargo check`
+  sauber. Real mit `tauri dev -- sample.xml` gestartet und die neue „Suchen"-Toolbar-Schaltfläche
+  per Screenshot bestätigt.
+- **Bewusst zurückgestellt**: die aus den Referenz-Screenshots inspirierte Tabellenansicht der
+  Kindknoten ("Daten in Tabelle") wurde NICHT gebaut — sie war kein expliziter Kernwunsch (im
+  Gegensatz zu Suchen/Ersetzen und Pfad-Kopieren) und wird als spätere Ausbaustufe geführt.
+
 ## AP3 — Editieren (abgeschlossen, per Screenshot + Interaktionstests verifiziert)
 
 - **Wert editieren**: Doppelklick auf einen Blattwert → Inline-Input, Enter/Blur übernimmt

@@ -138,6 +138,58 @@ button.primary {
   font-size: 12px;
 }
 
+.app-status {
+  padding: 6px 12px;
+  background: var(--accent-dim);
+  color: var(--text-0);
+  font-size: 12px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.search-bar input,
+.search-bar select {
+  font: var(--mono);
+  background: var(--bg-0);
+  color: var(--text-0);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 6px;
+}
+
+.search-bar label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-1);
+  white-space: nowrap;
+}
+
+.search-bar__query {
+  width: 160px;
+}
+
+.search-bar__replacement {
+  width: 140px;
+}
+
+.search-bar__count {
+  color: var(--text-2);
+  min-width: 70px;
+}
+
+.search-bar__error {
+  color: var(--warn);
+}
+
 .tree-view {
   flex: 1;
   overflow-y: auto;

@@ -1,9 +1,18 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { DocNode } from "@jaxel/core";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { findAncestorChain, type DocNode } from "@jaxel/core";
 import { flattenTree, type TreeRow } from "./flatten.js";
 
 const ROW_HEIGHT = 22;
 const OVERSCAN = 8;
+
+function findNodeById(node: DocNode, id: string): DocNode | null {
+  if (node.id === id) return node;
+  for (const child of node.children) {
+    const found = findNodeById(child, id);
+    if (found) return found;
+  }
+  return null;
+}
 
 export type EditingField = { nodeId: string; field: "name" | "value" };
 
@@ -25,6 +34,12 @@ interface TreeViewProps {
   onStartEditValue: (row: TreeRow) => void;
   onCommitEdit: (row: TreeRow, field: "name" | "value", newText: string) => void;
   onCancelEdit: () => void;
+  /**
+   * When set (e.g. by "next search match"), expands every ancestor of this node and
+   * scrolls it into view. One-shot by nature of the id changing — the consumer doesn't
+   * need to clear it, re-navigating to the same id again is a no-op (already expanded/visible).
+   */
+  revealNodeId?: string | null;
 }
 
 /**
@@ -41,11 +56,32 @@ export function TreeView({
   onStartEditValue,
   onCommitEdit,
   onCancelEdit,
+  revealNodeId,
 }: TreeViewProps): React.ReactElement {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set([root.id]));
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+
+  useEffect(() => {
+    if (!revealNodeId) return;
+    if (revealNodeId === root.id) return;
+    const target = findNodeById(root, revealNodeId);
+    if (!target) return;
+    const ancestors = findAncestorChain(root, target);
+    if (!ancestors) return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const ancestor of ancestors) {
+        if (!next.has(ancestor.id)) {
+          next.add(ancestor.id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [revealNodeId, root]);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -58,6 +94,20 @@ export function TreeView({
   }, []);
 
   const rows = useMemo(() => flattenTree(root, expanded), [root, expanded, revision]);
+
+  useEffect(() => {
+    if (!revealNodeId) return;
+    const index = rows.findIndex((row) => row.node.id === revealNodeId);
+    if (index === -1) return; // ancestors not expanded yet in this pass; the next effect run will catch it
+    const target = index * ROW_HEIGHT;
+    setScrollTop((current) => {
+      const viewBottom = current + viewportHeight;
+      if (target >= current && target + ROW_HEIGHT <= viewBottom) return current;
+      const next = Math.max(0, target - viewportHeight / 2);
+      if (containerRef.current) containerRef.current.scrollTop = next;
+      return next;
+    });
+  }, [revealNodeId, rows, viewportHeight]);
 
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;

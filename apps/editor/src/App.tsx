@@ -2,18 +2,28 @@ import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
+  computePaths,
+  createCompositeCommand,
   createInsertNodeCommand,
   createNode,
   createRemoveNodeCommand,
   createRenameCommand,
   createSetAttributeCommand,
   createSetValueCommand,
+  findAll,
+  findAncestorChain,
+  replaceAll,
+  type Command,
+  type DocNode,
+  type SearchMatch,
+  type SearchOptions,
 } from "@jaxel/core";
 import { useI18n } from "./i18n/index.js";
 import { useJaxelDocument } from "./state/document-store.js";
 import { TreeView, type EditingField } from "./tree/TreeView.js";
 import type { TreeRow } from "./tree/flatten.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
+import { SearchBar } from "./search/SearchBar.js";
 
 type Theme = "dark" | "light";
 
@@ -28,6 +38,9 @@ export function App(): React.ReactElement {
   const [selectedRow, setSelectedRow] = useState<TreeRow | null>(null);
   const [editingField, setEditingField] = useState<EditingField | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [revealNodeId, setRevealNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     if (theme === "light") {
@@ -72,6 +85,9 @@ export function App(): React.ReactElement {
       } else if ((event.key === "Delete" || event.key === "Backspace") && selectedRow) {
         event.preventDefault();
         handleDelete();
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        setSearchOpen(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -140,6 +156,100 @@ export function App(): React.ReactElement {
     setEditingField(null);
   }
 
+  function handleSearch(options: SearchOptions): SearchMatch[] {
+    if (!state) return [];
+    return findAll(state.document.root, options);
+  }
+
+  function handleNavigate(match: SearchMatch): void {
+    if (!state) return;
+    const ancestors = findAncestorChain(state.document.root, match.node);
+    if (!ancestors) return;
+    setSelectedRow({
+      node: match.node,
+      ancestors,
+      depth: ancestors.length,
+      hasChildren: match.node.children.length > 0,
+    });
+    setRevealNodeId(match.node.id);
+  }
+
+  /**
+   * Runs replaceAll (which mutates the tree directly, see search.ts), then reverses each
+   * touched field back to its pre-replace text and re-applies it through the matching
+   * mutation Command (createRenameCommand/createSetValueCommand/createSetAttributeCommand),
+   * wrapped in one CompositeCommand — so "Alle ersetzen" is a single, real undo step instead
+   * of an untracked direct mutation.
+   */
+  function handleReplaceAllInternal(options: SearchOptions, replacement: string): number {
+    if (!state) return 0;
+    const root = state.document.root;
+    const matches = findAll(root, options);
+    if (matches.length === 0) return 0;
+
+    interface Touched {
+      node: DocNode;
+      ancestors: DocNode[];
+      kind: "name" | "value" | "attribute";
+      attributeName?: string;
+      before: string;
+    }
+    const touched = new Map<string, Touched>();
+    for (const match of matches) {
+      const key = `${match.node.id}|${match.matchedIn}|${match.attributeName ?? ""}`;
+      if (touched.has(key)) continue;
+      const ancestors = findAncestorChain(root, match.node) ?? [];
+      if (match.matchedIn === "name") {
+        touched.set(key, { node: match.node, ancestors, kind: "name", before: match.node.name });
+      } else if (match.matchedIn === "value") {
+        touched.set(key, { node: match.node, ancestors, kind: "value", before: match.node.value ?? "" });
+      } else if (match.matchedIn === "attribute" && match.attributeName) {
+        const attr = match.node.attributes.find((a) => a.name === match.attributeName);
+        touched.set(key, {
+          node: match.node,
+          ancestors,
+          kind: "attribute",
+          attributeName: match.attributeName,
+          before: attr?.value ?? "",
+        });
+      }
+    }
+
+    const count = replaceAll(root, options, replacement); // mutates directly, see search.ts
+
+    const commands: Command[] = [];
+    for (const entry of touched.values()) {
+      if (entry.kind === "name") {
+        const after = entry.node.name;
+        entry.node.name = entry.before; // revert so the Command's own do() re-applies cleanly
+        commands.push(createRenameCommand(entry.node, after, entry.ancestors));
+      } else if (entry.kind === "value") {
+        const after = entry.node.value ?? "";
+        entry.node.value = entry.before;
+        commands.push(createSetValueCommand(entry.node, after, entry.node.jsonType, entry.ancestors));
+      } else if (entry.kind === "attribute" && entry.attributeName) {
+        const attr = entry.node.attributes.find((a) => a.name === entry.attributeName);
+        if (!attr) continue;
+        const after = attr.value;
+        attr.value = entry.before;
+        commands.push(createSetAttributeCommand(entry.node, entry.attributeName, after, entry.ancestors));
+      }
+    }
+    if (commands.length > 0) {
+      state.commandBus.execute(createCompositeCommand(t("search.replaceAll"), commands));
+    }
+    return count;
+  }
+
+  function handleCopyPath(indexed: boolean): void {
+    if (!state || !selectedRow) return;
+    const paths = computePaths(state.document.root, selectedRow.node);
+    void navigator.clipboard.writeText(indexed ? paths.indexed : paths.static).then(
+      () => setStatus(t("toolbar.pathCopied")),
+      (err) => setError(err instanceof Error ? err.message : String(err)),
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="app-titlebar">
@@ -150,8 +260,13 @@ export function App(): React.ReactElement {
         <div className="app-titlebar__actions">
           <button onClick={handleOpen}>{t("welcome.openFile")}</button>
           {state && <button onClick={handleSave}>{t("welcome.save")}</button>}
+          {state && <button onClick={() => setSearchOpen((open) => !open)}>{t("toolbar.search")}</button>}
           {selectedRow && <button onClick={handleAddChild}>{t("toolbar.addChild")}</button>}
           {selectedRow && <button onClick={handleDelete}>{t("toolbar.delete")}</button>}
+          {selectedRow && <button onClick={() => handleCopyPath(true)}>{t("toolbar.copyPath")}</button>}
+          {selectedRow && (
+            <button onClick={() => handleCopyPath(false)}>{t("toolbar.copyPathStatic")}</button>
+          )}
           <button onClick={() => setLocale(locale === "de" ? "en" : "de")}>
             {locale === "de" ? "DE" : "EN"}
           </button>
@@ -160,7 +275,16 @@ export function App(): React.ReactElement {
           </button>
         </div>
       </header>
+      {searchOpen && state && (
+        <SearchBar
+          onSearch={handleSearch}
+          onNavigate={handleNavigate}
+          onReplaceAll={handleReplaceAllInternal}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
       {error && <div className="app-error">{error}</div>}
+      {status && <div className="app-status">{status}</div>}
       <main className="app-main">
         {state ? (
           <>
@@ -174,6 +298,7 @@ export function App(): React.ReactElement {
               onStartEditValue={(row) => setEditingField({ nodeId: row.node.id, field: "value" })}
               onCommitEdit={handleCommitEdit}
               onCancelEdit={() => setEditingField(null)}
+              revealNodeId={revealNodeId}
             />
             <AttributesPanel node={selectedRow?.node ?? null} onSetAttribute={handleSetAttribute} />
           </>
