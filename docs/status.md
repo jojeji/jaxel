@@ -3,6 +3,29 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## AP5 — Tabs, Grundeinstellungen (abgeschlossen; „eigene Fenster"-Modus bewusst zurückgestellt)
+
+- **Tabs** (`apps/editor/src/state/document-store.ts` umgebaut auf `useJaxelDocuments()`,
+  `apps/editor/src/tabs/TabBar.tsx`): mehrere Dokumente gleichzeitig offen, je Dateipfad ein
+  Tab. Datei erneut öffnen aktiviert den vorhandenen Tab statt einen Duplikat-Tab zu erzeugen.
+  Tab schließen aktiviert automatisch den Nachbar-Tab. Undo/Redo, Suche, Auswahl etc. beziehen
+  sich immer auf den AKTIVEN Tab (`activeDoc`); Auswahl/Editier-Zustand wird beim Tab-Wechsel
+  zurückgesetzt.
+- **Grundeinstellungen** (`apps/editor/src/state/settings-store.ts`, `.../settings/
+  SettingsDialog.tsx`): Theme und Fenster-Modus jetzt in `localStorage` persistiert (`jaxel.
+  settings`) statt nur als React-State (Theme ging bisher bei jedem Neuladen verloren — Sprache
+  war bereits über den i18n-Provider persistiert). Dialog bündelt Theme, Sprache,
+  Fenster-Modus an einer Stelle statt einzelner Toolbar-Buttons.
+- **„Eigene Fenster"-Modus bewusst NICHT implementiert**: die Einstellung ist im Dialog
+  sichtbar, aber als Radio-Option deaktiviert mit Hinweistext „kommt in einer späteren
+  Version" — echte OS-Fenster pro Dokument brauchen Tauris `WebviewWindow`-API und eine
+  pro-Fenster-State-Architektur, was den Rahmen dieses Arbeitspakets gesprengt hätte. Bewusst
+  ehrlich sichtbar statt stillschweigend weggelassen, damit die Anforderung nicht vergessen wird.
+- **Verifikation**: 21/21 Editor-Tests grün (3 neu für Tabs: öffnen/wechseln/schließen, 2 neu
+  für Einstellungen: Theme-Persistenz, deaktivierte Fenster-Option), 52/52 Kern-Tests weiterhin
+  grün, `tsc --noEmit` sauber in beiden Paketen, `cargo check` sauber. Real mit `tauri dev`
+  gestartet und die neue Tab-Leiste + der „Einstellungen"-Button per Screenshot bestätigt.
+
 ## AP4 — Suchen/Ersetzen + Pfad-Kopieren (abgeschlossen; Tabellenansicht bewusst zurückgestellt)
 
 - **Suchen/Ersetzen** (`apps/editor/src/search/SearchBar.tsx`): Suchleiste mit Scope

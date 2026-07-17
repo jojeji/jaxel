@@ -19,36 +19,38 @@ import {
   type SearchOptions,
 } from "@jaxel/core";
 import { useI18n } from "./i18n/index.js";
-import { useJaxelDocument } from "./state/document-store.js";
+import { useJaxelDocuments } from "./state/document-store.js";
+import { useSettings } from "./state/settings-store.js";
 import { TreeView, type EditingField } from "./tree/TreeView.js";
 import type { TreeRow } from "./tree/flatten.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
 import { SearchBar } from "./search/SearchBar.js";
-
-type Theme = "dark" | "light";
+import { TabBar } from "./tabs/TabBar.js";
+import { SettingsDialog } from "./settings/SettingsDialog.js";
 
 function isTextInput(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
 export function App(): React.ReactElement {
-  const { locale, setLocale, t } = useI18n();
-  const [theme, setTheme] = useState<Theme>("dark");
-  const { state, openFile, saveFile } = useJaxelDocument();
+  const { t } = useI18n();
+  const { settings, setSettings } = useSettings();
+  const { docs, activeDoc, openFile, saveFile, closeTab, activate } = useJaxelDocuments();
   const [selectedRow, setSelectedRow] = useState<TreeRow | null>(null);
   const [editingField, setEditingField] = useState<EditingField | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [revealNodeId, setRevealNodeId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (theme === "light") {
+    if (settings.theme === "light") {
       document.documentElement.dataset.theme = "light";
     } else {
       delete document.documentElement.dataset.theme;
     }
-  }, [theme]);
+  }, [settings.theme]);
 
   // Files passed on the command line (`jaxel some.xml`) or a future "open with" file
   // association arrive here — the backend queues them until the frontend is ready to pull them.
@@ -59,26 +61,26 @@ export function App(): React.ReactElement {
     });
   }, [openFile]);
 
-  // Clear selection/editing whenever a new document is opened.
+  // Clear selection/editing whenever the active tab changes.
   useEffect(() => {
     setSelectedRow(null);
     setEditingField(null);
-  }, [state?.filePath]);
+  }, [activeDoc?.filePath]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
-      if (!state) return;
+      if (!activeDoc) return;
 
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
         event.preventDefault();
-        state.commandBus.undo();
+        activeDoc.commandBus.undo();
       } else if (
         ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "z") ||
         ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y")
       ) {
         event.preventDefault();
-        state.commandBus.redo();
+        activeDoc.commandBus.redo();
       } else if (event.key === "F2" && selectedRow) {
         event.preventDefault();
         setEditingField({ nodeId: selectedRow.node.id, field: "name" });
@@ -92,7 +94,7 @@ export function App(): React.ReactElement {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [state, selectedRow]);
+  }, [activeDoc, selectedRow]);
 
   async function handleOpen(): Promise<void> {
     setError(null);
@@ -119,51 +121,51 @@ export function App(): React.ReactElement {
   }
 
   function handleCommitEdit(row: TreeRow, field: "name" | "value", newText: string): void {
-    if (!state) return;
+    if (!activeDoc) return;
     setEditingField(null);
     if (field === "name") {
       if (newText === row.node.name || newText.trim() === "") return;
-      state.commandBus.execute(createRenameCommand(row.node, newText, row.ancestors));
+      activeDoc.commandBus.execute(createRenameCommand(row.node, newText, row.ancestors));
     } else {
       if (newText === (row.node.value ?? "")) return;
-      state.commandBus.execute(createSetValueCommand(row.node, newText, row.node.jsonType, row.ancestors));
+      activeDoc.commandBus.execute(createSetValueCommand(row.node, newText, row.node.jsonType, row.ancestors));
     }
   }
 
   function handleSetAttribute(name: string, value: string | null): void {
-    if (!state || !selectedRow) return;
-    state.commandBus.execute(
+    if (!activeDoc || !selectedRow) return;
+    activeDoc.commandBus.execute(
       createSetAttributeCommand(selectedRow.node, name, value, selectedRow.ancestors),
     );
   }
 
   function handleAddChild(): void {
-    if (!state || !selectedRow) return;
+    if (!activeDoc || !selectedRow) return;
     const child = createNode({ name: "node" });
-    state.commandBus.execute(
+    activeDoc.commandBus.execute(
       createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, child, selectedRow.ancestors),
     );
   }
 
   function handleDelete(): void {
-    if (!state || !selectedRow || selectedRow.ancestors.length === 0) return; // can't delete the root
+    if (!activeDoc || !selectedRow || selectedRow.ancestors.length === 0) return; // can't delete the root
     const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
     const parentAncestors = selectedRow.ancestors.slice(0, -1);
     const index = parent.children.indexOf(selectedRow.node);
     if (index === -1) return;
-    state.commandBus.execute(createRemoveNodeCommand(parent, index, parentAncestors));
+    activeDoc.commandBus.execute(createRemoveNodeCommand(parent, index, parentAncestors));
     setSelectedRow(null);
     setEditingField(null);
   }
 
   function handleSearch(options: SearchOptions): SearchMatch[] {
-    if (!state) return [];
-    return findAll(state.document.root, options);
+    if (!activeDoc) return [];
+    return findAll(activeDoc.document.root, options);
   }
 
   function handleNavigate(match: SearchMatch): void {
-    if (!state) return;
-    const ancestors = findAncestorChain(state.document.root, match.node);
+    if (!activeDoc) return;
+    const ancestors = findAncestorChain(activeDoc.document.root, match.node);
     if (!ancestors) return;
     setSelectedRow({
       node: match.node,
@@ -182,8 +184,8 @@ export function App(): React.ReactElement {
    * of an untracked direct mutation.
    */
   function handleReplaceAllInternal(options: SearchOptions, replacement: string): number {
-    if (!state) return 0;
-    const root = state.document.root;
+    if (!activeDoc) return 0;
+    const root = activeDoc.document.root;
     const matches = findAll(root, options);
     if (matches.length === 0) return 0;
 
@@ -236,18 +238,22 @@ export function App(): React.ReactElement {
       }
     }
     if (commands.length > 0) {
-      state.commandBus.execute(createCompositeCommand(t("search.replaceAll"), commands));
+      activeDoc.commandBus.execute(createCompositeCommand(t("search.replaceAll"), commands));
     }
     return count;
   }
 
   function handleCopyPath(indexed: boolean): void {
-    if (!state || !selectedRow) return;
-    const paths = computePaths(state.document.root, selectedRow.node);
+    if (!activeDoc || !selectedRow) return;
+    const paths = computePaths(activeDoc.document.root, selectedRow.node);
     void navigator.clipboard.writeText(indexed ? paths.indexed : paths.static).then(
       () => setStatus(t("toolbar.pathCopied")),
       (err) => setError(err instanceof Error ? err.message : String(err)),
     );
+  }
+
+  function handleCloseTab(path: string): void {
+    closeTab(path);
   }
 
   return (
@@ -255,27 +261,25 @@ export function App(): React.ReactElement {
       <header className="app-titlebar">
         <div className="app-titlebar__brand">
           <strong>{t("app.title")}</strong>
-          <span>{state ? state.filePath : t("app.tagline")}</span>
+          <span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>
         </div>
         <div className="app-titlebar__actions">
           <button onClick={handleOpen}>{t("welcome.openFile")}</button>
-          {state && <button onClick={handleSave}>{t("welcome.save")}</button>}
-          {state && <button onClick={() => setSearchOpen((open) => !open)}>{t("toolbar.search")}</button>}
+          {activeDoc && <button onClick={handleSave}>{t("welcome.save")}</button>}
+          {activeDoc && (
+            <button onClick={() => setSearchOpen((prevOpen) => !prevOpen)}>{t("toolbar.search")}</button>
+          )}
           {selectedRow && <button onClick={handleAddChild}>{t("toolbar.addChild")}</button>}
           {selectedRow && <button onClick={handleDelete}>{t("toolbar.delete")}</button>}
           {selectedRow && <button onClick={() => handleCopyPath(true)}>{t("toolbar.copyPath")}</button>}
           {selectedRow && (
             <button onClick={() => handleCopyPath(false)}>{t("toolbar.copyPathStatic")}</button>
           )}
-          <button onClick={() => setLocale(locale === "de" ? "en" : "de")}>
-            {locale === "de" ? "DE" : "EN"}
-          </button>
-          <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-            {theme === "dark" ? "Dark" : "Light"}
-          </button>
+          <button onClick={() => setSettingsOpen(true)}>{t("toolbar.settings")}</button>
         </div>
       </header>
-      {searchOpen && state && (
+      <TabBar docs={docs} activePath={activeDoc?.filePath ?? null} onActivate={activate} onClose={handleCloseTab} />
+      {searchOpen && activeDoc && (
         <SearchBar
           onSearch={handleSearch}
           onNavigate={handleNavigate}
@@ -286,11 +290,11 @@ export function App(): React.ReactElement {
       {error && <div className="app-error">{error}</div>}
       {status && <div className="app-status">{status}</div>}
       <main className="app-main">
-        {state ? (
+        {activeDoc ? (
           <>
             <TreeView
-              root={state.document.root}
-              revision={state.document.revision}
+              root={activeDoc.document.root}
+              revision={activeDoc.document.revision}
               selectedId={selectedRow?.node.id ?? null}
               onSelect={setSelectedRow}
               editingField={editingField}
@@ -308,6 +312,9 @@ export function App(): React.ReactElement {
           </button>
         )}
       </main>
+      {settingsOpen && (
+        <SettingsDialog settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   );
 }

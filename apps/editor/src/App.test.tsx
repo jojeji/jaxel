@@ -32,15 +32,30 @@ const SAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </person>
 </catalog>`;
 
+const SECOND_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<inventory>
+  <item id="I-1">
+    <label>Schraube</label>
+  </item>
+</inventory>`;
+
+const FILES: Record<string, string> = {
+  "/fake/sample.xml": SAMPLE_XML,
+  "/fake/second.xml": SECOND_XML,
+};
+
 const writeText = vi.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
   localStorage.setItem("jaxel.locale", "de");
   vi.mocked(invoke).mockReset();
   vi.mocked(open).mockReset();
-  vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+  vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
     if (cmd === "take_pending_open_paths") return [];
-    if (cmd === "read_text_file") return { content: SAMPLE_XML, encoding: "UTF-8" };
+    if (cmd === "read_text_file") {
+      const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+      return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8" };
+    }
     if (cmd === "write_text_file") return undefined;
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
@@ -66,6 +81,7 @@ function stubClipboard(): void {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  delete document.documentElement.dataset.theme; // App writes this directly on document.documentElement
 });
 
 function renderApp() {
@@ -290,5 +306,68 @@ describe("Pfad kopieren", () => {
 
     await user.click(screen.getByRole("button", { name: "Pfad kopieren (statisch)" }));
     expect(writeText).toHaveBeenCalledWith("person.city");
+  });
+});
+
+describe("Tabs (mehrere Dokumente)", () => {
+  it("oeffnet ein zweites Dokument als weiteren Tab und aktiviert ihn", async () => {
+    const user = await openSampleFile();
+    expect(screen.getByText("catalog")).toBeInTheDocument();
+
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    expect(await screen.findByText("inventory")).toBeInTheDocument();
+
+    // Beide Tabs existieren, das zweite Dokument ist aktiv (Titelleiste zeigt seinen Pfad).
+    expect(screen.getByText("sample.xml")).toBeInTheDocument();
+    expect(screen.getByText("second.xml")).toBeInTheDocument();
+    expect(screen.getByText("/fake/second.xml")).toBeInTheDocument();
+  });
+
+  it("Klick auf einen Tab wechselt das angezeigte Dokument", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+
+    await user.click(screen.getByText("sample.xml"));
+    expect(await screen.findByText("catalog")).toBeInTheDocument();
+    expect(screen.queryByText("inventory")).not.toBeInTheDocument();
+  });
+
+  it("Tab schliessen entfernt das Dokument und aktiviert den Nachbar-Tab", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+
+    await user.click(screen.getByTitle("/fake/second.xml").querySelector(".tab__close")!);
+    expect(screen.queryByText("second.xml")).not.toBeInTheDocument();
+    expect(await screen.findByText("catalog")).toBeInTheDocument();
+  });
+});
+
+describe("Einstellungen", () => {
+  it("oeffnet den Dialog, wechselt das Theme und persistiert es", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    expect(screen.getByText("Einstellungen", { selector: "h2" })).toBeInTheDocument();
+    expect(document.documentElement.dataset.theme).toBeUndefined(); // dark = Default, kein Attribut
+
+    await user.click(screen.getByRole("radio", { name: "Hell" }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(JSON.parse(localStorage.getItem("jaxel.settings")!)).toMatchObject({ theme: "light" });
+
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(screen.queryByText("Einstellungen", { selector: "h2" })).not.toBeInTheDocument();
+  });
+
+  it("die 'eigene Fenster'-Option ist sichtbar, aber deaktiviert", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    const windowsOption = screen.getByRole("radio", { name: /Als eigene Fenster/ });
+    expect(windowsOption).toBeDisabled();
   });
 });

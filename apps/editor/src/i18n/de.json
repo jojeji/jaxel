@@ -30,5 +30,17 @@
   "search.replacement": "Ersetzen durch…",
   "search.replaceAll": "Alle ersetzen",
   "search.replacedCount": "{n} Ersetzung(en) vorgenommen",
-  "search.close": "Suche schließen"
+  "search.close": "Suche schließen",
+  "toolbar.settings": "Einstellungen",
+  "settings.title": "Einstellungen",
+  "settings.theme": "Theme",
+  "settings.theme.dark": "Dunkel",
+  "settings.theme.light": "Hell",
+  "settings.language": "Sprache",
+  "settings.windowMode": "Mehrere Dokumente",
+  "settings.windowMode.tabs": "Als Tabs in einem Fenster",
+  "settings.windowMode.windows": "Als eigene Fenster",
+  "settings.windowMode.comingSoon": "kommt in einer späteren Version",
+  "settings.close": "Schließen",
+  "tabs.close": "Tab schließen"
 }

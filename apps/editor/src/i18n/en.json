@@ -30,5 +30,17 @@
   "search.replacement": "Replace with…",
   "search.replaceAll": "Replace all",
   "search.replacedCount": "{n} replacement(s) made",
-  "search.close": "Close search"
+  "search.close": "Close search",
+  "toolbar.settings": "Settings",
+  "settings.title": "Settings",
+  "settings.theme": "Theme",
+  "settings.theme.dark": "Dark",
+  "settings.theme.light": "Light",
+  "settings.language": "Language",
+  "settings.windowMode": "Multiple documents",
+  "settings.windowMode.tabs": "As tabs in one window",
+  "settings.windowMode.windows": "As separate windows",
+  "settings.windowMode.comingSoon": "coming in a later version",
+  "settings.close": "Close",
+  "tabs.close": "Close tab"
 }
