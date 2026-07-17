@@ -5,19 +5,20 @@ Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
 ## 🚦 Hier weitermachen (Stand 2026-07-17)
 
-**AP0–AP7 sind fertig, getestet und committet.** Jaxel ist ein funktionierender XML/JSON-Editor
-mit überarbeiteter Optik (helles Minimal-Theme, Startscreen, Icon-Toolbar) und vollständiger
-Tastatur-Bedienung (Pfeiltasten, Strg+D/C/V/+, Enter/F2, Filter-Suche unten). Details je AP
-unten, neueste zuerst.
+**AP0–AP8 sind fertig, getestet und committet.** Jaxel ist ein funktionierender XML/JSON-Editor
+mit Minimal-Theme, Startscreen, eigenem Logo, Kontextmenü, vollständiger Tastatur-Bedienung
+und Drag&Drop im Baum. Details je AP unten, neueste zuerst.
 
-**Nächster Schritt: PO-Review des AP7-Feinschliffs am echten Fenster.** Dabei gezielt die zwei
-Punkte prüfen, die mangels Klick-Automation (kein xdotool) nur per jsdom-Test bzw. Code-Review
-abgesichert sind: (1) **Strg+V** — `navigator.clipboard.readText()` könnte in WebKitGTK
-eingeschränkt sein; falls es real scheitert, auf `@tauri-apps/plugin-clipboard-manager`
-umstellen. (2) **Drag&Drop** einer Datei aufs Fenster. Danach Kandidaten wie gehabt:
-Artefakte auf sauberem System testen, zurückgestellte Features (Liste unten),
-Windows-Packaging, echtes Branding-Icon. Die AP6-Bundles sind VOR AP7 gebaut — für eine
-Weitergabe frisch bauen (`npm run tauri -- build --bundles appimage,deb,rpm`).
+**Nächster Schritt: PO-Review von AP8 am echten Fenster.** Mangels Klick-Automation (kein
+xdotool) nur per jsdom-Test abgesichert und daher real zu prüfen: (1) **Kontextmenü**
+(Rechtsklick auf Baumzeile), (2) **Baum-Drag&Drop** (Einfüge-Linie/Als-Kind-Highlight),
+(3) aus AP7 weiterhin offen: **Strg+V** (`navigator.clipboard.readText()` könnte in WebKitGTK
+eingeschränkt sein — dann auf `@tauri-apps/plugin-clipboard-manager` umstellen) und
+**Datei-Drag&Drop aufs Fenster** (die „Zuletzt geöffnet"-Liste beweist immerhin, dass der
+PO mit dem neuen Build schon Dateien geöffnet hat). Danach Kandidaten wie gehabt: Artefakte
+auf sauberem System testen, zurückgestellte Features (Liste unten), Windows-Packaging. Die
+AP6-Bundles sind VOR AP7/AP8 gebaut — für eine Weitergabe frisch bauen
+(`npm run tauri -- build --bundles appimage,deb,rpm`).
 
 **Vor dem Weiterarbeiten unbedingt lesen:**
 1. `AGENTS.md` (Projektwurzel) — Pflichtlektüre-Reihenfolge und Invarianten.
@@ -48,6 +49,48 @@ Tabellenansicht der Kindknoten, echter Multi-Fenster-Modus (eigene OS-Fenster), 
 Verwaltungsdialog, Windows-/macOS-Packaging, XSD-Validierung (dauerhaft ausgeschlossen).
 
 ---
+
+## AP8 — Kontextmenü, voller Pfad, Attribut-Editing, Baum-DnD, Logo (abgeschlossen)
+
+Vom PO per Grilling festgelegt (2026-07-17): voller Pfad = alle Ebenen inkl. Wurzel, keine
+Indizes, Namespace-Präfixe abgeschnitten, als DRITTE Variante; Kontextmenü mit allen
+Knoten-Aktionen; DnD mit Einfüge-Linie UND „auf Zeile = als Kind"; Logo Variante B
+(Markup-Klammern) mit profiforms-Orange als Punkt.
+
+- **Voller Pfad** (`b71b709`): `formatFullPath` in core (`path.ts`), `computePaths` liefert
+  jetzt `{indexed, static, full}`. UI: Strg+Shift+C, Kontextmenü, dritter Toolbar-Button.
+  Achtung: der Strg+C-Handler (Knoten kopieren) prüft jetzt explizit `!shiftKey`.
+- **Kontextmenü** (`apps/editor/src/ui/ContextMenu.tsx`): Rechtsklick selektiert die Zeile
+  und öffnet das Menü (Pfad-Varianten, Kind anlegen, Duplizieren, Kopieren/Einfügen, Löschen,
+  je mit Shortcut-Hinweis; Wurzel-Aktionen deaktiviert). Schließt bei Klick/Esc/Rechtsklick
+  daneben, klemmt sich an Viewport-Ränder.
+- **Attribut-Editing**: Namen sind editierbar (`createRenameAttributeCommand`, adressiert per
+  Index, damit Live-Tippen dasselbe Attribut trifft); neues Attribut entsteht SOFORT beim
+  Tippen im Namensfeld (kein „+"-Button mehr), Fokus springt in die neue Zeile.
+  **Neu im CommandBus: `coalesceKey`** — aufeinanderfolgende Commands mit gleichem Schlüssel
+  verschmelzen zu EINEM Undo-Schritt. Damit ist die Tipp-Kette „Attribut anlegen + Name
+  tippen" ein Schritt, Wert-Tippen ein zweiter — und das vorher schon bestehende
+  Ein-Undo-pro-Buchstabe-Verhalten der Wert-Felder ist mitrepariert (Invariante „ein
+  sichtbarer Nutzerschritt = ein Undo-Schritt"). Bewusste Vereinfachung: die Kette bricht
+  erst beim nächsten anderen Command, nicht beim Fokusverlust — zwei getrennte
+  Tipp-Sitzungen am selben Feld ohne Aktion dazwischen verschmelzen zu einem Schritt.
+- **Baum-DnD**: HTML5-DnD in `TreeView` über das vorhandene `createMoveNodeCommand`.
+  Oberes/unteres Viertel der Zeile = Einfüge-Linie davor/danach (Geschwister, Linie eingerückt
+  auf Zielebene via `--indent`-CSS-Variable), Mitte = Zeile hervorgehoben, Ablegen als letztes
+  Kind (Ziel wird auto-expandiert). Gesperrt: Wurzel ziehen, in den eigenen Unterbaum,
+  Geschwister der Wurzel. Same-Parent-Index-Korrektur gemäß Command-Contract beachtet.
+  **Test-Stolperfalle**: jsdom kennt kein `DragEvent` — `fireEvent.dragOver` verwirft
+  `clientY`; im Test daher ein `MouseEvent("dragover")` mit manuell angehängtem
+  `dataTransfer` dispatchen (siehe App.test.tsx).
+- **Logo** (`0cf643a`): drei Entwürfe (`assets/logo-drafts/`, Vorschau `preview.png`), PO
+  wählte Variante B (weiße Spitzklammern auf Petrol, Punkt in profiforms-Orange #ED6C13).
+  Rasterisierung SVG→1024px-PNG via **headless Chrome** (`--default-background-color=00000000`
+  für Transparenz — rsvg/inkscape/cairosvg fehlen auf dieser Maschine), Icon-Satz per
+  `npm run tauri -- icon` (Android/iOS-Output verworfen). Logo auch auf dem Startscreen.
+- **Verifikation**: 41/41 Editor-Tests (7 neue), 59/59 Core-Tests (5 neue: Coalescing,
+  rename-attribute, formatFullPath), `tsc` sauber. Real: App gestartet, neues Fenster-Icon
+  (`_NET_WM_ICON` gesetzt) und Startscreen mit Logo per Screenshot bestätigt; Kontextmenü und
+  DnD real klicken steht als PO-Review aus (kein Klick-Automationswerkzeug, siehe oben).
 
 ## AP7 — Feinschliff Optik + Bedienung (abgeschlossen; 2 Punkte für PO-Klick-Review offen)
 

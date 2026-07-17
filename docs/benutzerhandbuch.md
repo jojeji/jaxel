@@ -1,6 +1,6 @@
 # Benutzerhandbuch — Jaxel
 
-> Stand: AP7 (Feinschliff Optik + Bedienung).
+> Stand: AP8 (Kontextmenü, vollständiger Pfad, Attribut-Editing, Drag&Drop im Baum, Logo).
 
 ## Was ist Jaxel?
 
@@ -23,10 +23,17 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 ## Baumansicht und Navigation
 
 - **Klick** auf einen Knoten: auswählen und (bei Containern) auf-/zuklappen.
+- **Rechtsklick** öffnet das Kontextmenü mit allen Knoten-Aktionen (Pfade kopieren, Kind
+  anlegen, Duplizieren, Kopieren/Einfügen, Löschen).
 - **Pfeiltasten**: `↑`/`↓` bewegen die Auswahl, `→` klappt auf bzw. springt ins erste Kind,
   `←` klappt zu bzw. springt zum Elternknoten.
-- Das rechte Seitenpanel zeigt die **Attribute** des ausgewählten Knotens: Werte direkt ändern,
-  `×` entfernt ein Attribut, die unterste Zeile fügt ein neues hinzu.
+- **Verschieben per Drag&Drop**: Knoten einfach ziehen. Eine Linie zwischen den Zeilen zeigt
+  die Ziel-Position als Geschwister; landet der Mauszeiger mittig auf einer Zeile, wird sie
+  hervorgehoben und der Knoten dort als Kind eingehängt. Nicht möglich: die Wurzel ziehen
+  oder einen Knoten in seinen eigenen Unterbaum verschieben.
+- Das rechte Seitenpanel zeigt die **Attribute** des ausgewählten Knotens: Namen UND Werte
+  direkt ändern, `×` entfernt ein Attribut. Ein neues Attribut entsteht, sobald du im
+  Namensfeld der letzten Zeile zu tippen beginnst — es erscheint sofort im Baum.
 
 ## Bearbeiten
 
@@ -56,8 +63,10 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 
 ## Pfad kopieren
 
-Für den ausgewählten Knoten über die Toolbar:
+Für den ausgewählten Knoten über Toolbar oder Kontextmenü:
 
+- **Vollständiger Pfad** (`Strg+Shift+C`): `catalog.person.name` — ALLE Ebenen inklusive
+  Wurzel, ohne Indizes, Namespace-Präfixe (`ns:`) werden abgeschnitten.
 - **Indizierter Pfad**: `person[0].name` — mit Positionen, eindeutig referenzierbar.
 - **Statischer Pfad**: `person.name` — ohne Indizes, für Schema-/Struktur-Beschreibungen.
 
@@ -80,5 +89,6 @@ ist angekündigt, aber noch nicht verfügbar).
 | `Strg` + `+` | Kind anlegen |
 | `Strg+D` | Duplizieren |
 | `Strg+C` / `Strg+V` | Knoten kopieren / einfügen |
+| `Strg+Shift+C` | Vollständigen Pfad kopieren |
 | `Entf` | Löschen |
 | `Strg+Z` / `Strg+Y` | Rückgängig / Wiederholen |
