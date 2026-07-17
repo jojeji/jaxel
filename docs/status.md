@@ -5,17 +5,16 @@ Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
 ## 🚦 Hier weitermachen (Stand 2026-07-17)
 
-**AP0–AP5 sind fertig, getestet und committet** (6 Commits auf `main`, Arbeitsbaum sauber,
-`git status` zeigt nichts Offenes). Jaxel ist ein funktionierender XML/JSON-Editor: Baum öffnen,
-editieren (Wert/Name/Attribute), Undo/Redo, Suchen/Ersetzen, Pfad kopieren, mehrere Dokumente
-als Tabs, Grundeinstellungen. Details je AP unten, neueste zuerst.
+**AP0–AP6 sind fertig, getestet und committet.** Jaxel ist ein funktionierender XML/JSON-Editor:
+Baum öffnen, editieren (Wert/Name/Attribute), Undo/Redo, Suchen/Ersetzen, Pfad kopieren, mehrere
+Dokumente als Tabs, Grundeinstellungen — und baut jetzt Linux-Pakete (AppImage/deb/rpm, siehe
+AP6 unten). Details je AP unten, neueste zuerst.
 
-**Nächster Schritt: AP6 — Linux-Packaging.** Tauri-Bundle bauen (`tauri.conf.json` hat bereits
-`"targets": ["appimage", "deb", "rpm", "nsis"]` konfiguriert) und die erzeugten Artefakte auf
-einem sauberen System testen (AppImage sollte ohne Installation starten). Vermutlicher Befehl:
-`npm run tauri --workspace=@jaxel/editor -- build` im Projekt-Root, dann die Dateien unter
-`apps/editor/src-tauri/target/release/bundle/` prüfen. Windows/macOS-Packaging ist bewusst
-NICHT Teil von AP6 (siehe `docs/entscheidungen.md` #7: Linux zuerst).
+**Nächster Schritt: mit dem PO klären.** Kandidaten (kein AP7 definiert): AppImage/deb/rpm auf
+einem SAUBEREN System testen (bisher nur auf der Dev-Maschine verifiziert, siehe AP6),
+zurückgestellte Features (Liste unten), Windows-Packaging (`nsis`-Target ist konfiguriert,
+braucht aber einen Windows-Build-Host oder Cross-Build-Toolchain), echtes Branding-Icon
+(aktuell Platzhalter aus AP0).
 
 **Vor dem Weiterarbeiten unbedingt lesen:**
 1. `AGENTS.md` (Projektwurzel) — Pflichtlektüre-Reihenfolge und Invarianten.
@@ -46,6 +45,31 @@ Tabellenansicht der Kindknoten, echter Multi-Fenster-Modus (eigene OS-Fenster), 
 Verwaltungsdialog, Windows-/macOS-Packaging, XSD-Validierung (dauerhaft ausgeschlossen).
 
 ---
+
+## AP6 — Linux-Packaging (abgeschlossen; Test auf sauberem System noch offen)
+
+- **Build**: `npm run tauri -- build --bundles appimage,deb,rpm` im Projekt-Root. Das
+  `--bundles`-Flag ist Absicht: `tauri.conf.json` listet auch `nsis` (Windows-Installer), das auf
+  einem Linux-Host ohne Cross-Build-Toolchain nicht baubar ist — statt die Config zu ändern, wird
+  das Ziel beim Linux-Build per Flag eingeschränkt. Build-Dauer: ca. 2 Minuten (Rust-Release-
+  Compile), Frontend-`tsc`+`vite build` laufen automatisch vorher (`beforeBuildCommand`).
+- **Artefakte** unter `apps/editor/src-tauri/target/release/bundle/`:
+  `appimage/Jaxel_0.1.0_amd64.AppImage` (76 MB, portabel), `deb/Jaxel_0.1.0_amd64.deb` (4 MB),
+  `rpm/Jaxel-0.1.0-1.x86_64.rpm` (4 MB).
+- **Verifikation**: AppImage direkt (ohne Installation) mit einer XML-Datei als Argument
+  gestartet — Fenster öffnet, Baum wird korrekt angezeigt, Toolbar/Tabs/Attribute-Panel da,
+  per Screenshot bestätigt. Das CLI-Argument-Öffnen aus AP2 funktioniert also auch im
+  Release-Bundle. deb-Inhalt geprüft (`dpkg-deb -c`): `/usr/bin/jaxel`, `Jaxel.desktop`,
+  Icons 32/128/256px — vollständig.
+- **Stolperfalle beim Screenshot-Verifizieren (erneut bestätigt)**: `wmctrl | grep -i jaxel`
+  traf zuerst einen alten Browser-Tab namens „Jaxel" — immer die Fenster-ID des echten
+  Tauri-Fensters (exakter Titel `Jaxel`, passende PID via `wmctrl -lp`) verwenden.
+- **Offen / bewusst nicht gemacht**: Test auf einem sauberen System ohne Dev-Toolchain steht
+  aus (auf dieser Maschine nicht möglich — kein VM-/Container-Setup mit Display eingerichtet);
+  rpm-Inhalt nicht inspiziert (`rpm`-CLI hier nicht installiert), das Paket wurde aber vom
+  selben Bundler-Lauf erzeugt wie das geprüfte deb; keine Signierung/kein Update-Mechanismus
+  (nicht gefordert); Windows/macOS-Packaging bewusst NICHT Teil von AP6
+  (`docs/entscheidungen.md` #7: Linux zuerst).
 
 ## AP5 — Tabs, Grundeinstellungen (abgeschlossen; „eigene Fenster"-Modus bewusst zurückgestellt)
 
