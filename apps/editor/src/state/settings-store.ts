@@ -9,10 +9,12 @@ export type WindowMode = "tabs" | "windows";
 export interface Settings {
   theme: Theme;
   windowMode: WindowMode;
+  /** Filter mode in the search panel: also keep the whole subtree below a match visible. */
+  filterIncludesSubtree: boolean;
 }
 
 const STORAGE_KEY = "jaxel.settings";
-const DEFAULTS: Settings = { theme: "dark", windowMode: "tabs" };
+const DEFAULTS: Settings = { theme: "dark", windowMode: "tabs", filterIncludesSubtree: false };
 
 function load(): Settings {
   try {

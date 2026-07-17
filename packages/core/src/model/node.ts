@@ -50,3 +50,20 @@ export function createNode(partial: Omit<Partial<DocNode>, "id"> & { name: strin
     synthetic: partial.synthetic,
   };
 }
+
+/**
+ * Deep-clones a subtree for duplicate/paste: every node gets a FRESH id (ids must stay
+ * unique within a document) and NO byteRange (a clone never corresponds to original
+ * source bytes — a stale byteRange would make minimal-invasive save copy the wrong span).
+ */
+export function cloneSubtree(node: DocNode): DocNode {
+  return {
+    id: createNodeId(),
+    name: node.name,
+    attributes: node.attributes.map((a) => ({ ...a })),
+    value: node.value,
+    jsonType: node.jsonType,
+    children: node.children.map((child) => cloneSubtree(child)),
+    synthetic: node.synthetic,
+  };
+}

@@ -51,6 +51,18 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
         </fieldset>
 
         <fieldset>
+          <legend>{t("settings.search")}</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.filterIncludesSubtree}
+              onChange={(event) => onChange({ filterIncludesSubtree: event.target.checked })}
+            />
+            {t("settings.filterSubtree")}
+          </label>
+        </fieldset>
+
+        <fieldset>
           <legend>{t("settings.windowMode")}</legend>
           <label>
             <input

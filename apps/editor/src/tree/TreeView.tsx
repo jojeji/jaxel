@@ -1,43 +1,29 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { findAncestorChain, type DocNode } from "@jaxel/core";
-import { flattenTree, type TreeRow } from "./flatten.js";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { TreeRow } from "./flatten.js";
 
 const ROW_HEIGHT = 22;
 const OVERSCAN = 8;
 
-function findNodeById(node: DocNode, id: string): DocNode | null {
-  if (node.id === id) return node;
-  for (const child of node.children) {
-    const found = findNodeById(child, id);
-    if (found) return found;
-  }
-  return null;
-}
-
 export type EditingField = { nodeId: string; field: "name" | "value" };
 
 interface TreeViewProps {
-  root: DocNode;
   /**
-   * Commands mutate the tree in place, so `root` never changes reference on edits —
-   * `revision` (bumped by CommandBus on every execute/undo/redo) is what actually
-   * invalidates the flattened row list. Without it, structural changes (insert/remove)
-   * would not appear (name/value edits still "work" only because each already-rendered
-   * row reads its live DocNode's fields directly at render time).
+   * Already-flattened visible rows. Expanded/collapsed state (and filter mode) live in
+   * App, which computes this list — TreeView only virtualizes and renders it.
    */
-  revision: number;
+  rows: TreeRow[];
+  expanded: ReadonlySet<string>;
   selectedId: string | null;
+  onToggle: (row: TreeRow) => void;
   onSelect: (row: TreeRow) => void;
   editingField: EditingField | null;
-  /** Click on the name of an ALREADY-selected row (Finder-style rename-on-second-click). */
   onStartEditName: (row: TreeRow) => void;
   onStartEditValue: (row: TreeRow) => void;
   onCommitEdit: (row: TreeRow, field: "name" | "value", newText: string) => void;
   onCancelEdit: () => void;
   /**
-   * When set (e.g. by "next search match"), expands every ancestor of this node and
-   * scrolls it into view. One-shot by nature of the id changing — the consumer doesn't
-   * need to clear it, re-navigating to the same id again is a no-op (already expanded/visible).
+   * When set (e.g. by "next search match" or keyboard navigation), scrolls this node's
+   * row into view. Expanding its ancestors is App's job (it owns the expanded set).
    */
   revealNodeId?: string | null;
 }
@@ -47,9 +33,10 @@ interface TreeViewProps {
  * mounted, so this stays responsive for documents with tens/hundreds of thousands of nodes.
  */
 export function TreeView({
-  root,
-  revision,
+  rows,
+  expanded,
   selectedId,
+  onToggle,
   onSelect,
   editingField,
   onStartEditName,
@@ -58,30 +45,9 @@ export function TreeView({
   onCancelEdit,
   revealNodeId,
 }: TreeViewProps): React.ReactElement {
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set([root.id]));
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
-
-  useEffect(() => {
-    if (!revealNodeId) return;
-    if (revealNodeId === root.id) return;
-    const target = findNodeById(root, revealNodeId);
-    if (!target) return;
-    const ancestors = findAncestorChain(root, target);
-    if (!ancestors) return;
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      let changed = false;
-      for (const ancestor of ancestors) {
-        if (!next.has(ancestor.id)) {
-          next.add(ancestor.id);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [revealNodeId, root]);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -92,8 +58,6 @@ export function TreeView({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-
-  const rows = useMemo(() => flattenTree(root, expanded), [root, expanded, revision]);
 
   useEffect(() => {
     if (!revealNodeId) return;
@@ -114,15 +78,6 @@ export function TreeView({
   const endIndex = Math.min(rows.length, startIndex + visibleCount);
   const visibleRows = rows.slice(startIndex, endIndex);
 
-  function toggle(id: string): void {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   return (
     <div
       ref={containerRef}
@@ -138,7 +93,7 @@ export function TreeView({
             expanded={expanded.has(row.node.id)}
             selected={row.node.id === selectedId}
             editingField={editingField?.nodeId === row.node.id ? editingField.field : null}
-            onToggle={() => toggle(row.node.id)}
+            onToggle={() => onToggle(row)}
             onSelect={() => onSelect(row)}
             onStartEditName={() => onStartEditName(row)}
             onStartEditValue={() => onStartEditValue(row)}
@@ -181,16 +136,24 @@ function TreeRowView({
   const { node, depth, hasChildren } = row;
   const preview = hasChildren ? `(${node.children.length})` : (node.value ?? "");
 
+  // Single click selects AND toggles (double-click fires two clicks first, so a toggle
+  // pair cancels itself out before the name/value editor opens — net-neutral by design).
+  function handleRowClick(): void {
+    onSelect();
+    if (hasChildren) onToggle();
+  }
+
   return (
     <div
       className={`tree-row${selected ? " tree-row--selected" : ""}`}
       style={{ top, height: ROW_HEIGHT, paddingLeft: depth * 16 }}
-      onClick={onSelect}
+      onClick={handleRowClick}
     >
       <span
         className="tree-row__twisty"
         onClick={(event) => {
           event.stopPropagation();
+          onSelect();
           onToggle();
         }}
       >
@@ -206,11 +169,10 @@ function TreeRowView({
       ) : (
         <span
           className="tree-row__name"
-          onClick={(event) => {
-            if (selected) {
-              event.stopPropagation();
-              onStartEditName();
-            }
+          onDoubleClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+            onStartEditName();
           }}
         >
           {node.name}
@@ -236,6 +198,7 @@ function TreeRowView({
             onDoubleClick={(event) => {
               if (hasChildren) return; // only leaf values are directly editable
               event.stopPropagation();
+              onSelect();
               onStartEditValue();
             }}
           >

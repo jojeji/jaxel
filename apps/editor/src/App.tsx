@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
+  cloneSubtree,
   computePaths,
   createCompositeCommand,
   createInsertNodeCommand,
@@ -12,7 +13,11 @@ import {
   createSetValueCommand,
   findAll,
   findAncestorChain,
+  parseJson,
+  parseXml,
   replaceAll,
+  serializeJson,
+  serializeXml,
   type Command,
   type DocNode,
   type SearchMatch,
@@ -21,10 +26,12 @@ import {
 import { useI18n } from "./i18n/index.js";
 import { useJaxelDocuments } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
+import { getLastDir, rememberLastDir, addRecentFile } from "./state/local-prefs.js";
 import { TreeView, type EditingField } from "./tree/TreeView.js";
-import type { TreeRow } from "./tree/flatten.js";
+import { flattenTree, type TreeRow } from "./tree/flatten.js";
+import { buildFilterKeepSet, flattenFiltered } from "./tree/filter.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
-import { SearchBar } from "./search/SearchBar.js";
+import { SearchPanel } from "./search/SearchPanel.js";
 import { TabBar } from "./tabs/TabBar.js";
 import { SettingsDialog } from "./settings/SettingsDialog.js";
 
@@ -36,13 +43,19 @@ export function App(): React.ReactElement {
   const { t } = useI18n();
   const { settings, setSettings } = useSettings();
   const { docs, activeDoc, openFile, saveFile, closeTab, activate } = useJaxelDocuments();
-  const [selectedRow, setSelectedRow] = useState<TreeRow | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [revealNodeId, setRevealNodeId] = useState<string | null>(null);
+  /** null = filter off; otherwise the current search matches the tree is reduced to. */
+  const [filterMatches, setFilterMatches] = useState<SearchMatch[] | null>(null);
+
+  const root = activeDoc?.document.root ?? null;
+  const revision = activeDoc?.document.revision ?? 0;
 
   useEffect(() => {
     if (settings.theme === "light") {
@@ -61,54 +74,85 @@ export function App(): React.ReactElement {
     });
   }, [openFile]);
 
-  // Clear selection/editing whenever the active tab changes.
+  // Reset per-document view state whenever the active tab changes.
   useEffect(() => {
-    setSelectedRow(null);
+    setSelectedId(null);
     setEditingField(null);
+    setFilterMatches(null);
+    setExpanded(activeDoc ? new Set([activeDoc.document.root.id]) : new Set());
   }, [activeDoc?.filePath]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent): void {
-      if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
-      if (!activeDoc) return;
-
-      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        activeDoc.commandBus.undo();
-      } else if (
-        ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "z") ||
-        ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y")
-      ) {
-        event.preventDefault();
-        activeDoc.commandBus.redo();
-      } else if (event.key === "F2" && selectedRow) {
-        event.preventDefault();
-        setEditingField({ nodeId: selectedRow.node.id, field: "name" });
-      } else if ((event.key === "Delete" || event.key === "Backspace") && selectedRow) {
-        event.preventDefault();
-        handleDelete();
-      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        setSearchOpen(true);
-      }
+  /**
+   * The flattened, currently visible row list. Normal mode: expand/collapse driven.
+   * Filter mode (search panel): reduced to matches + ancestors (+ subtree per setting),
+   * ignoring the expanded set. `revision` invalidates on every mutation (commands
+   * mutate the tree in place, `root`'s reference never changes — see TreeView docs).
+   */
+  const rows = useMemo<TreeRow[]>(() => {
+    if (!root) return [];
+    if (filterMatches) {
+      const matchedIds = new Set(filterMatches.map((m) => m.node.id));
+      const keep = buildFilterKeepSet(root, matchedIds, settings.filterIncludesSubtree);
+      return flattenFiltered(root, keep);
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeDoc, selectedRow]);
+    return flattenTree(root, expanded);
+  }, [root, expanded, revision, filterMatches, settings.filterIncludesSubtree]);
+
+  const selectedRow = useMemo<TreeRow | null>(
+    () => rows.find((row) => row.node.id === selectedId) ?? null,
+    [rows, selectedId],
+  );
+
+  function toggleRow(row: TreeRow): void {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.node.id)) next.delete(row.node.id);
+      else next.add(row.node.id);
+      return next;
+    });
+  }
+
+  function selectRow(row: TreeRow): void {
+    setSelectedId(row.node.id);
+  }
+
+  function expandAncestorsOf(node: DocNode): void {
+    if (!root) return;
+    const ancestors = findAncestorChain(root, node);
+    if (!ancestors) return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (const ancestor of ancestors) next.add(ancestor.id);
+      return next;
+    });
+  }
+
+  function selectAndReveal(node: DocNode): void {
+    expandAncestorsOf(node);
+    setSelectedId(node.id);
+    setRevealNodeId(node.id);
+  }
 
   async function handleOpen(): Promise<void> {
     setError(null);
     try {
       const path = await open({
         multiple: false,
+        defaultPath: getLastDir() ?? undefined,
         filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
       });
       if (typeof path === "string") {
-        await openFile(path);
+        await openPath(path);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  async function openPath(path: string): Promise<void> {
+    await openFile(path);
+    rememberLastDir(path);
+    addRecentFile(path);
   }
 
   async function handleSave(): Promise<void> {
@@ -139,12 +183,17 @@ export function App(): React.ReactElement {
     );
   }
 
+  /** Strg+Plus / toolbar: insert a child and jump straight into naming it. */
   function handleAddChild(): void {
     if (!activeDoc || !selectedRow) return;
     const child = createNode({ name: "node" });
     activeDoc.commandBus.execute(
       createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, child, selectedRow.ancestors),
     );
+    setExpanded((prev) => new Set(prev).add(selectedRow.node.id));
+    setSelectedId(child.id);
+    setRevealNodeId(child.id);
+    setEditingField({ nodeId: child.id, field: "name" });
   }
 
   function handleDelete(): void {
@@ -154,9 +203,184 @@ export function App(): React.ReactElement {
     const index = parent.children.indexOf(selectedRow.node);
     if (index === -1) return;
     activeDoc.commandBus.execute(createRemoveNodeCommand(parent, index, parentAncestors));
-    setSelectedRow(null);
+    setSelectedId(null);
     setEditingField(null);
   }
+
+  /** Strg+D: deep-copy the selected node and insert it as its next sibling. */
+  function handleDuplicate(): void {
+    if (!activeDoc || !selectedRow || selectedRow.ancestors.length === 0) return; // root can't be duplicated
+    const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
+    const parentAncestors = selectedRow.ancestors.slice(0, -1);
+    const index = parent.children.indexOf(selectedRow.node);
+    if (index === -1) return;
+    const copy = cloneSubtree(selectedRow.node);
+    activeDoc.commandBus.execute(createInsertNodeCommand(parent, index + 1, copy, parentAncestors));
+    setSelectedId(copy.id);
+    setRevealNodeId(copy.id);
+  }
+
+  /** Strg+C: serialize the selected subtree (XML fragment / single-key JSON) to the system clipboard. */
+  function handleCopyNode(): void {
+    if (!activeDoc || !selectedRow) return;
+    const indent = activeDoc.document.indent;
+    const text =
+      activeDoc.format === "xml"
+        ? serializeXml({ root: selectedRow.node, indent }).trimEnd()
+        : serializeJson({ root: selectedRow.node, indent });
+    void navigator.clipboard.writeText(text).then(
+      () => setStatus(t("clipboard.nodeCopied")),
+      (err) => setError(err instanceof Error ? err.message : String(err)),
+    );
+  }
+
+  /**
+   * Strg+V: parse the clipboard as a fragment of the document's own format and insert
+   * it as the selection's next sibling (root selected: appended as last child instead,
+   * the root can't have siblings). Fresh ids / no byteRanges via cloneSubtree.
+   */
+  async function handlePasteNode(): Promise<void> {
+    if (!activeDoc || !selectedRow || !root) return;
+    setError(null);
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      setError(t("clipboard.readFailed"));
+      return;
+    }
+    let fragmentRoot: DocNode;
+    try {
+      fragmentRoot = activeDoc.format === "xml" ? parseXml(text).root : parseJson(text).root;
+    } catch {
+      setError(t("clipboard.invalidFragment"));
+      return;
+    }
+    if (fragmentRoot.synthetic) {
+      // A bare JSON array/primitive/multi-key object has no name to insert under.
+      setError(t("clipboard.invalidFragment"));
+      return;
+    }
+    const pasted = cloneSubtree(fragmentRoot);
+    if (selectedRow.ancestors.length === 0) {
+      activeDoc.commandBus.execute(
+        createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, pasted, selectedRow.ancestors),
+      );
+      setExpanded((prev) => new Set(prev).add(selectedRow.node.id));
+    } else {
+      const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
+      const parentAncestors = selectedRow.ancestors.slice(0, -1);
+      const index = parent.children.indexOf(selectedRow.node);
+      if (index === -1) return;
+      activeDoc.commandBus.execute(createInsertNodeCommand(parent, index + 1, pasted, parentAncestors));
+    }
+    setSelectedId(pasted.id);
+    setRevealNodeId(pasted.id);
+  }
+
+  function moveSelection(delta: number): void {
+    if (rows.length === 0) return;
+    const currentIndex = selectedRow ? rows.findIndex((row) => row.node.id === selectedRow.node.id) : -1;
+    const nextIndex =
+      currentIndex === -1
+        ? delta > 0
+          ? 0
+          : rows.length - 1
+        : Math.min(rows.length - 1, Math.max(0, currentIndex + delta));
+    const next = rows[nextIndex];
+    if (next) {
+      setSelectedId(next.node.id);
+      setRevealNodeId(next.node.id);
+    }
+  }
+
+  function handleArrowRight(): void {
+    if (!selectedRow) return;
+    if (!selectedRow.hasChildren) return;
+    if (!expanded.has(selectedRow.node.id)) {
+      setExpanded((prev) => new Set(prev).add(selectedRow.node.id));
+    } else {
+      const firstChild = selectedRow.node.children[0];
+      if (firstChild) {
+        setSelectedId(firstChild.id);
+        setRevealNodeId(firstChild.id);
+      }
+    }
+  }
+
+  function handleArrowLeft(): void {
+    if (!selectedRow) return;
+    if (selectedRow.hasChildren && expanded.has(selectedRow.node.id)) {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedRow.node.id);
+        return next;
+      });
+      return;
+    }
+    const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1];
+    if (parent) {
+      setSelectedId(parent.id);
+      setRevealNodeId(parent.id);
+    }
+  }
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent): void {
+      if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
+      if (!activeDoc) return;
+      const ctrl = event.ctrlKey || event.metaKey;
+
+      if (ctrl && !event.shiftKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        activeDoc.commandBus.undo();
+      } else if (
+        (ctrl && event.shiftKey && event.key.toLowerCase() === "z") ||
+        (ctrl && event.key.toLowerCase() === "y")
+      ) {
+        event.preventDefault();
+        activeDoc.commandBus.redo();
+      } else if (event.key === "F2" && selectedRow) {
+        event.preventDefault();
+        setEditingField({ nodeId: selectedRow.node.id, field: "name" });
+      } else if (event.key === "Enter" && selectedRow && !selectedRow.hasChildren) {
+        event.preventDefault();
+        setEditingField({ nodeId: selectedRow.node.id, field: "value" });
+      } else if ((event.key === "Delete" || event.key === "Backspace") && selectedRow) {
+        event.preventDefault();
+        handleDelete();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveSelection(1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveSelection(-1);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        handleArrowRight();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        handleArrowLeft();
+      } else if (ctrl && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        handleDuplicate();
+      } else if (ctrl && event.key.toLowerCase() === "c" && selectedRow) {
+        event.preventDefault();
+        handleCopyNode();
+      } else if (ctrl && event.key.toLowerCase() === "v" && selectedRow) {
+        event.preventDefault();
+        void handlePasteNode();
+      } else if (ctrl && (event.key === "+" || event.code === "NumpadAdd")) {
+        event.preventDefault();
+        handleAddChild();
+      } else if (ctrl && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   function handleSearch(options: SearchOptions): SearchMatch[] {
     if (!activeDoc) return [];
@@ -165,15 +389,12 @@ export function App(): React.ReactElement {
 
   function handleNavigate(match: SearchMatch): void {
     if (!activeDoc) return;
-    const ancestors = findAncestorChain(activeDoc.document.root, match.node);
-    if (!ancestors) return;
-    setSelectedRow({
-      node: match.node,
-      ancestors,
-      depth: ancestors.length,
-      hasChildren: match.node.children.length > 0,
-    });
-    setRevealNodeId(match.node.id);
+    selectAndReveal(match.node);
+  }
+
+  function getMatchPath(match: SearchMatch): string {
+    if (!root) return "";
+    return computePaths(root, match.node).indexed;
   }
 
   /**
@@ -185,8 +406,8 @@ export function App(): React.ReactElement {
    */
   function handleReplaceAllInternal(options: SearchOptions, replacement: string): number {
     if (!activeDoc) return 0;
-    const root = activeDoc.document.root;
-    const matches = findAll(root, options);
+    const docRoot = activeDoc.document.root;
+    const matches = findAll(docRoot, options);
     if (matches.length === 0) return 0;
 
     interface Touched {
@@ -200,7 +421,7 @@ export function App(): React.ReactElement {
     for (const match of matches) {
       const key = `${match.node.id}|${match.matchedIn}|${match.attributeName ?? ""}`;
       if (touched.has(key)) continue;
-      const ancestors = findAncestorChain(root, match.node) ?? [];
+      const ancestors = findAncestorChain(docRoot, match.node) ?? [];
       if (match.matchedIn === "name") {
         touched.set(key, { node: match.node, ancestors, kind: "name", before: match.node.name });
       } else if (match.matchedIn === "value") {
@@ -217,7 +438,7 @@ export function App(): React.ReactElement {
       }
     }
 
-    const count = replaceAll(root, options, replacement); // mutates directly, see search.ts
+    const count = replaceAll(docRoot, options, replacement); // mutates directly, see search.ts
 
     const commands: Command[] = [];
     for (const entry of touched.values()) {
@@ -244,8 +465,8 @@ export function App(): React.ReactElement {
   }
 
   function handleCopyPath(indexed: boolean): void {
-    if (!activeDoc || !selectedRow) return;
-    const paths = computePaths(activeDoc.document.root, selectedRow.node);
+    if (!activeDoc || !selectedRow || !root) return;
+    const paths = computePaths(root, selectedRow.node);
     void navigator.clipboard.writeText(indexed ? paths.indexed : paths.static).then(
       () => setStatus(t("toolbar.pathCopied")),
       (err) => setError(err instanceof Error ? err.message : String(err)),
@@ -279,24 +500,17 @@ export function App(): React.ReactElement {
         </div>
       </header>
       <TabBar docs={docs} activePath={activeDoc?.filePath ?? null} onActivate={activate} onClose={handleCloseTab} />
-      {searchOpen && activeDoc && (
-        <SearchBar
-          onSearch={handleSearch}
-          onNavigate={handleNavigate}
-          onReplaceAll={handleReplaceAllInternal}
-          onClose={() => setSearchOpen(false)}
-        />
-      )}
       {error && <div className="app-error">{error}</div>}
       {status && <div className="app-status">{status}</div>}
       <main className="app-main">
         {activeDoc ? (
           <>
             <TreeView
-              root={activeDoc.document.root}
-              revision={activeDoc.document.revision}
-              selectedId={selectedRow?.node.id ?? null}
-              onSelect={setSelectedRow}
+              rows={rows}
+              expanded={expanded}
+              selectedId={selectedId}
+              onToggle={toggleRow}
+              onSelect={selectRow}
               editingField={editingField}
               onStartEditName={(row) => setEditingField({ nodeId: row.node.id, field: "name" })}
               onStartEditValue={(row) => setEditingField({ nodeId: row.node.id, field: "value" })}
@@ -312,6 +526,16 @@ export function App(): React.ReactElement {
           </button>
         )}
       </main>
+      {searchOpen && activeDoc && (
+        <SearchPanel
+          onSearch={handleSearch}
+          onNavigate={handleNavigate}
+          onReplaceAll={handleReplaceAllInternal}
+          onFilterChange={setFilterMatches}
+          getMatchPath={getMatchPath}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
       {settingsOpen && (
         <SettingsDialog settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
       )}

@@ -42,5 +42,12 @@
   "settings.windowMode.windows": "Als eigene Fenster",
   "settings.windowMode.comingSoon": "kommt in einer späteren Version",
   "settings.close": "Schließen",
-  "tabs.close": "Tab schließen"
+  "tabs.close": "Tab schließen",
+  "search.filter": "Filtern",
+  "search.moreResults": "… {n} weitere Treffer",
+  "clipboard.nodeCopied": "Knoten kopiert",
+  "clipboard.readFailed": "Zwischenablage konnte nicht gelesen werden",
+  "clipboard.invalidFragment": "Zwischenablage enthält kein gültiges, benanntes Fragment",
+  "settings.search": "Suche",
+  "settings.filterSubtree": "Filter zeigt auch den Unterbaum der Treffer"
 }

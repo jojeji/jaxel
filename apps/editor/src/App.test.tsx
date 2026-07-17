@@ -45,6 +45,7 @@ const FILES: Record<string, string> = {
 };
 
 const writeText = vi.fn().mockResolvedValue(undefined);
+const readText = vi.fn().mockResolvedValue("");
 
 beforeEach(() => {
   localStorage.setItem("jaxel.locale", "de");
@@ -61,6 +62,8 @@ beforeEach(() => {
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
   writeText.mockClear();
+  readText.mockClear();
+  readText.mockResolvedValue("");
 });
 
 /**
@@ -68,11 +71,11 @@ beforeEach(() => {
  * `navigator.clipboard` (via a getter, unconditionally — see its Clipboard.js), which runs
  * AFTER our beforeEach and would silently shadow a mock installed there. Call this AFTER
  * `openSampleFile()` (which calls `userEvent.setup()` internally) in any test that asserts
- * on clipboard writes.
+ * on clipboard reads/writes.
  */
 function stubClipboard(): void {
   Object.defineProperty(navigator, "clipboard", {
-    value: { writeText },
+    value: { writeText, readText },
     writable: true,
     configurable: true,
   });
@@ -116,14 +119,28 @@ describe("Datei öffnen und Baumdarstellung", () => {
     await user.click(openButtons[0]!);
     expect(await screen.findByText("Dialog-Fehler")).toBeInTheDocument();
   });
+
+  it("merkt sich den letzten Ordner und startet den Dialog dort", async () => {
+    const user = await openSampleFile();
+    expect(localStorage.getItem("jaxel.lastDir")).toBe("/fake");
+    expect(JSON.parse(localStorage.getItem("jaxel.recentFiles")!)).toEqual(["/fake/sample.xml"]);
+
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    expect(vi.mocked(open).mock.calls.at(-1)![0]).toMatchObject({ defaultPath: "/fake" });
+  });
 });
 
-describe("Auswahl und Attribute-Panel", () => {
-  it("zeigt beim Auswählen eines Knotens dessen Attribute im Seitenpanel", async () => {
+describe("Auswahl, Auf-/Zuklappen per Klick und Attribute-Panel", () => {
+  it("Klick auf einen Container selektiert UND klappt ihn auf, zweiter Klick zu", async () => {
     const user = await openSampleFile();
     await user.click(screen.getAllByText("person")[0]!);
-    expect(screen.getByText("Attribute")).toBeInTheDocument();
+    // person P-1 ist jetzt aufgeklappt: Kinder sichtbar, Attribute-Panel zeigt die Auswahl.
+    expect(await screen.findByText("Anna")).toBeInTheDocument();
     expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
+
+    await user.click(screen.getAllByText("person")[0]!);
+    expect(screen.queryByText("Anna")).not.toBeInTheDocument();
   });
 
   it("zeigt 'Kein Knoten ausgewählt' ohne Auswahl", async () => {
@@ -132,11 +149,10 @@ describe("Auswahl und Attribute-Panel", () => {
   });
 });
 
-describe("Umbenennen (Klick auf Namen / F2)", () => {
-  it("zweiter Klick auf den bereits ausgewählten Namen aktiviert Umbenennen; Enter uebernimmt", async () => {
+describe("Umbenennen (Doppelklick auf Namen / F2)", () => {
+  it("Doppelklick auf den Namen aktiviert Umbenennen; Enter uebernimmt", async () => {
     const user = await openSampleFile();
-    await user.click(screen.getAllByText("person")[0]!); // 1. Klick: auswaehlen
-    await user.click(screen.getAllByText("person")[0]!); // 2. Klick: umbenennen
+    await user.dblClick(screen.getAllByText("person")[0]!);
     const input = screen.getByDisplayValue("person");
     await user.clear(input);
     await user.type(input, "human");
@@ -150,8 +166,7 @@ describe("Umbenennen (Klick auf Namen / F2)", () => {
 
   it("Escape bricht das Umbenennen ohne Aenderung ab", async () => {
     const user = await openSampleFile();
-    await user.click(screen.getAllByText("person")[0]!);
-    await user.click(screen.getAllByText("person")[0]!);
+    await user.dblClick(screen.getAllByText("person")[0]!);
     const input = screen.getByDisplayValue("person");
     await user.clear(input);
     await user.type(input, "human");
@@ -168,10 +183,9 @@ describe("Umbenennen (Klick auf Namen / F2)", () => {
   });
 });
 
-describe("Wert editieren (Doppelklick) und Undo/Redo", () => {
+describe("Wert editieren (Doppelklick / Enter) und Undo/Redo", () => {
   async function expandFirstPerson(user: ReturnType<typeof userEvent.setup>) {
-    const twisties = screen.getAllByText("▸");
-    await user.click(twisties[0]!);
+    await user.click(screen.getAllByText("person")[0]!);
     return screen.findByText("Berlin");
   }
 
@@ -185,6 +199,14 @@ describe("Wert editieren (Doppelklick) und Undo/Redo", () => {
     fireEvent.blur(input);
     expect(await screen.findByText("München")).toBeInTheDocument();
     expect(screen.queryByText("Berlin")).not.toBeInTheDocument();
+  });
+
+  it("Enter editiert den Wert des ausgewaehlten Blattknotens", async () => {
+    const user = await openSampleFile();
+    const cityValue = await expandFirstPerson(user);
+    await user.click(cityValue); // selektiert die city-Zeile
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(screen.getByDisplayValue("Berlin")).toBeInTheDocument();
   });
 
   it("Strg+Z macht die letzte Bearbeitung rueckgaengig, Strg+Y stellt sie wieder her", async () => {
@@ -202,6 +224,38 @@ describe("Wert editieren (Doppelklick) und Undo/Redo", () => {
 
     fireEvent.keyDown(window, { key: "y", ctrlKey: true });
     expect(await screen.findByText("München")).toBeInTheDocument();
+  });
+});
+
+describe("Pfeiltasten-Navigation", () => {
+  it("Auf/Ab bewegt die Auswahl durch sichtbare Zeilen", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByText("catalog")); // selektiert + klappt zu
+    fireEvent.keyDown(window, { key: "ArrowRight" }); // wieder aufklappen
+    fireEvent.keyDown(window, { key: "ArrowDown" }); // -> person P-1
+    expect(screen.getByText("person", { selector: ".attributes-panel__node-name" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowDown" }); // -> person P-2
+    expect(screen.getByDisplayValue("P-2")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowUp" }); // -> zurueck zu P-1
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
+  });
+
+  it("Rechts klappt auf bzw. geht ins erste Kind, Links klappt zu bzw. geht zum Elternknoten", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // selektiert + expandiert P-1
+    await screen.findByText("Anna");
+
+    fireEvent.keyDown(window, { key: "ArrowRight" }); // bereits offen -> erstes Kind ("name")
+    expect(screen.getByText("name", { selector: ".attributes-panel__node-name" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" }); // Blatt -> zurueck zum Elternknoten
+    expect(screen.getByText("person", { selector: ".attributes-panel__node-name" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" }); // offener Container -> zuklappen
+    expect(screen.queryByText("Anna")).not.toBeInTheDocument();
   });
 });
 
@@ -230,21 +284,82 @@ describe("Attribute hinzufuegen/aendern/entfernen", () => {
   });
 });
 
-describe("Knoten einfuegen/loeschen", () => {
-  it("'Kind hinzufuegen' fuegt einen Knoten ein, 'Loeschen' entfernt den ausgewaehlten Knoten", async () => {
+describe("Knoten einfuegen/loeschen/duplizieren", () => {
+  it("'Kind hinzufuegen' springt direkt in die Namens-Eingabe; 'Loeschen' entfernt den Knoten", async () => {
     const user = await openSampleFile();
     await user.click(screen.getByText("catalog"));
     await user.click(screen.getByRole("button", { name: "Kind hinzufügen" }));
-    const newNodes = await screen.findAllByText("node");
-    expect(newNodes).toHaveLength(1);
 
-    await user.click(newNodes[0]!);
+    // Der neue Knoten steht sofort im Namens-Editor (vorbelegt mit "node").
+    const input = screen.getByDisplayValue("node");
+    await user.clear(input);
+    await user.type(input, "extra");
+    await user.keyboard("{Enter}");
+    const created = await screen.findByText("extra", { selector: ".tree-row__name" });
+
+    await user.click(created);
     await user.click(screen.getByRole("button", { name: "Löschen" }));
-    expect(screen.queryByText("node")).not.toBeInTheDocument();
+    expect(screen.queryByText("extra")).not.toBeInTheDocument();
+  });
+
+  it("Strg+Plus legt ein Kind an und startet die Namens-Eingabe", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByText("catalog"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true });
+    expect(screen.getByDisplayValue("node")).toBeInTheDocument();
+  });
+
+  it("Strg+D dupliziert den ausgewaehlten Knoten samt Unterbaum als naechstes Geschwister", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "d", ctrlKey: true });
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(3);
+    expect(screen.getAllByText(/id="P-1"/)).toHaveLength(2);
+
+    // EIN Undo-Schritt entfernt das Duplikat wieder.
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
   });
 });
 
-describe("Suchen und Ersetzen", () => {
+describe("Knoten kopieren/einfuegen ueber die System-Zwischenablage", () => {
+  it("Strg+C serialisiert den Knoten als XML-Fragment in die Zwischenablage", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const copied = writeText.mock.calls[0]![0] as string;
+    expect(copied).toContain('<person id="P-1">');
+    expect(copied).toContain("<city>Berlin</city>");
+  });
+
+  it("Strg+V parst die Zwischenablage und fuegt sie als naechstes Geschwister ein", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    readText.mockResolvedValue('<extra flag="x"><sub>1</sub></extra>');
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+
+    expect(await screen.findByText("extra", { selector: ".tree-row__name" })).toBeInTheDocument();
+    expect(screen.getByText('flag="x"')).toBeInTheDocument();
+  });
+
+  it("ungueltiger Zwischenablage-Inhalt zeigt eine Fehlermeldung statt einzufuegen", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    readText.mockResolvedValue("kein xml <<<");
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+
+    expect(
+      await screen.findByText("Zwischenablage enthält kein gültiges, benanntes Fragment"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+});
+
+describe("Suchen und Ersetzen (Panel unten)", () => {
   it("findet einen Wert-Treffer, expandiert den Baum automatisch und selektiert ihn", async () => {
     const user = await openSampleFile();
     await user.click(screen.getByRole("button", { name: "Suchen" }));
@@ -255,6 +370,20 @@ describe("Suchen und Ersetzen", () => {
     // "city" saß in einem eingeklappten person-Knoten -- der Treffer muss ihn automatisch aufklappen.
     expect(await screen.findByText("Berlin", { selector: ".tree-row__preview" })).toBeInTheDocument();
     expect(screen.getByText("city", { selector: ".attributes-panel__node-name" })).toBeInTheDocument();
+  });
+
+  it("zeigt die Treffer als klickbare Liste; Klick springt zum Knoten", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "person");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    // Zwei Ergebniszeilen mit indiziertem Pfad; Klick auf die zweite selektiert P-2.
+    const second = screen.getByText("person[1]", { selector: ".search-panel__result-path" });
+    await user.click(second);
+    expect(screen.getByDisplayValue("P-2")).toBeInTheDocument();
+    expect(await screen.findByText("2/2")).toBeInTheDocument();
   });
 
   it("'Weiter'/'Zurück' navigiert zyklisch zwischen mehreren Treffern", async () => {
@@ -274,6 +403,24 @@ describe("Suchen und Ersetzen", () => {
     expect(await screen.findByText("2/2")).toBeInTheDocument();
   });
 
+  it("Filtermodus reduziert den Baum auf Treffer + Vorfahren", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "Berlin");
+    await user.click(screen.getByRole("checkbox", { name: "Filtern" }));
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+
+    // Sichtbar: catalog (Vorfahre), person P-1 (Vorfahre), city (Treffer) — sonst nichts.
+    expect(await screen.findByText("Berlin", { selector: ".tree-row__preview" })).toBeInTheDocument();
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(1);
+    expect(screen.queryByText("Anna")).not.toBeInTheDocument();
+    expect(screen.queryByText("Hamburg")).not.toBeInTheDocument();
+
+    // Filter-Haken raus -> voller Baum wieder da (person P-2 wieder sichtbar).
+    await user.click(screen.getByRole("checkbox", { name: "Filtern" }));
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+
   it("'Alle ersetzen' aendert den Wert live und ist mit Strg+Z als EIN Schritt rueckgaengig machbar", async () => {
     const user = await openSampleFile();
     await user.click(screen.getByRole("button", { name: "Suchen" }));
@@ -282,8 +429,7 @@ describe("Suchen und Ersetzen", () => {
     await user.click(screen.getByRole("button", { name: "Alle ersetzen" }));
     expect(await screen.findByText(/1 Ersetzung/)).toBeInTheDocument();
 
-    const twisties = screen.getAllByText("▸");
-    await user.click(twisties[0]!);
+    await user.click(screen.getAllByText("person")[0]!);
     expect(await screen.findByText("Anne")).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
@@ -295,8 +441,7 @@ describe("Pfad kopieren", () => {
   it("kopiert den indizierten und den statischen Pfad des ausgewaehlten Knotens in die Zwischenablage", async () => {
     const user = await openSampleFile();
     stubClipboard();
-    const twisties = screen.getAllByText("▸");
-    await user.click(twisties[1]!); // zweiten person-Knoten (id="P-2") aufklappen
+    await user.click(screen.getAllByText("person")[1]!); // zweiten person-Knoten (id="P-2") aufklappen
     const cityValue = await screen.findByText("Hamburg");
     await user.click(cityValue); // selektiert die "city"-Zeile
 
@@ -369,5 +514,15 @@ describe("Einstellungen", () => {
     await user.click(screen.getByRole("button", { name: "Einstellungen" }));
     const windowsOption = screen.getByRole("radio", { name: /Als eigene Fenster/ });
     expect(windowsOption).toBeDisabled();
+  });
+
+  it("die Filter-Unterbaum-Option wird persistiert", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: /Unterbaum/ }));
+    expect(JSON.parse(localStorage.getItem("jaxel.settings")!)).toMatchObject({
+      filterIncludesSubtree: true,
+    });
   });
 });

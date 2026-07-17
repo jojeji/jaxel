@@ -42,5 +42,12 @@
   "settings.windowMode.windows": "As separate windows",
   "settings.windowMode.comingSoon": "coming in a later version",
   "settings.close": "Close",
-  "tabs.close": "Close tab"
+  "tabs.close": "Close tab",
+  "search.filter": "Filter",
+  "search.moreResults": "… {n} more matches",
+  "clipboard.nodeCopied": "Node copied",
+  "clipboard.readFailed": "Could not read the clipboard",
+  "clipboard.invalidFragment": "Clipboard does not contain a valid named fragment",
+  "settings.search": "Search",
+  "settings.filterSubtree": "Filter also shows the subtree of matches"
 }

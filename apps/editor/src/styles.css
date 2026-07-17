@@ -145,18 +145,26 @@ button.primary {
   font-size: 12px;
 }
 
-.search-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: var(--bg-2);
-  border-bottom: 1px solid var(--border);
+.search-panel {
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-top: 1px solid var(--border);
   font-size: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
-.search-bar input,
-.search-bar select {
+.search-panel__controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.search-panel__controls input[type="text"],
+.search-panel__controls input:not([type]),
+.search-panel__controls select {
   font: var(--mono);
   background: var(--bg-0);
   color: var(--text-0);
@@ -165,7 +173,7 @@ button.primary {
   padding: 3px 6px;
 }
 
-.search-bar label {
+.search-panel__controls label {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -173,21 +181,68 @@ button.primary {
   white-space: nowrap;
 }
 
-.search-bar__query {
-  width: 160px;
+.search-panel__query {
+  width: 180px;
 }
 
-.search-bar__replacement {
+.search-panel__replacement {
   width: 140px;
 }
 
-.search-bar__count {
+.search-panel__count {
   color: var(--text-2);
   min-width: 70px;
 }
 
-.search-bar__error {
+.search-panel__message {
   color: var(--warn);
+}
+
+.search-panel__results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.search-panel__result {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 3px 12px;
+  font: var(--mono);
+  cursor: pointer;
+}
+
+.search-panel__result:hover {
+  background: var(--bg-2);
+}
+
+.search-panel__result--current {
+  background: var(--accent-dim);
+}
+
+.search-panel__result-path {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.search-panel__result-text {
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-panel__more {
+  padding: 3px 12px;
+  color: var(--text-2);
 }
 
 .tab-bar {
