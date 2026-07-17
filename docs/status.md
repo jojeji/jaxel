@@ -5,16 +5,19 @@ Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
 ## 🚦 Hier weitermachen (Stand 2026-07-17)
 
-**AP0–AP6 sind fertig, getestet und committet.** Jaxel ist ein funktionierender XML/JSON-Editor:
-Baum öffnen, editieren (Wert/Name/Attribute), Undo/Redo, Suchen/Ersetzen, Pfad kopieren, mehrere
-Dokumente als Tabs, Grundeinstellungen — und baut jetzt Linux-Pakete (AppImage/deb/rpm, siehe
-AP6 unten). Details je AP unten, neueste zuerst.
+**AP0–AP7 sind fertig, getestet und committet.** Jaxel ist ein funktionierender XML/JSON-Editor
+mit überarbeiteter Optik (helles Minimal-Theme, Startscreen, Icon-Toolbar) und vollständiger
+Tastatur-Bedienung (Pfeiltasten, Strg+D/C/V/+, Enter/F2, Filter-Suche unten). Details je AP
+unten, neueste zuerst.
 
-**Nächster Schritt: mit dem PO klären.** Kandidaten (kein AP7 definiert): AppImage/deb/rpm auf
-einem SAUBEREN System testen (bisher nur auf der Dev-Maschine verifiziert, siehe AP6),
-zurückgestellte Features (Liste unten), Windows-Packaging (`nsis`-Target ist konfiguriert,
-braucht aber einen Windows-Build-Host oder Cross-Build-Toolchain), echtes Branding-Icon
-(aktuell Platzhalter aus AP0).
+**Nächster Schritt: PO-Review des AP7-Feinschliffs am echten Fenster.** Dabei gezielt die zwei
+Punkte prüfen, die mangels Klick-Automation (kein xdotool) nur per jsdom-Test bzw. Code-Review
+abgesichert sind: (1) **Strg+V** — `navigator.clipboard.readText()` könnte in WebKitGTK
+eingeschränkt sein; falls es real scheitert, auf `@tauri-apps/plugin-clipboard-manager`
+umstellen. (2) **Drag&Drop** einer Datei aufs Fenster. Danach Kandidaten wie gehabt:
+Artefakte auf sauberem System testen, zurückgestellte Features (Liste unten),
+Windows-Packaging, echtes Branding-Icon. Die AP6-Bundles sind VOR AP7 gebaut — für eine
+Weitergabe frisch bauen (`npm run tauri -- build --bundles appimage,deb,rpm`).
 
 **Vor dem Weiterarbeiten unbedingt lesen:**
 1. `AGENTS.md` (Projektwurzel) — Pflichtlektüre-Reihenfolge und Invarianten.
@@ -45,6 +48,55 @@ Tabellenansicht der Kindknoten, echter Multi-Fenster-Modus (eigene OS-Fenster), 
 Verwaltungsdialog, Windows-/macOS-Packaging, XSD-Validierung (dauerhaft ausgeschlossen).
 
 ---
+
+## AP7 — Feinschliff Optik + Bedienung (abgeschlossen; 2 Punkte für PO-Klick-Review offen)
+
+Vom PO per Grilling festgelegt (AskUserQuestion-Runde, 2026-07-17): Minimal-Stil mit Petrol als
+einzigem Akzent, Hell als Default-Theme, Startscreen mit allen drei Elementen, Suchpanel per
+Strg+F einblendbar, Filter = Treffer+Vorfahren (Unterbaum als Einstellung), Doppelklick
+kontextabhängig, Clipboard über System-Zwischenablage, Toolbar als Icons+Tooltips.
+
+**AP7a — Bedienung** (`f5b506c`):
+- Klick selektiert + klappt auf/zu; Doppelklick editiert kontextabhängig (Name/Wert);
+  Pfeiltasten-Navigation (↑↓ Zeilen, → auf/ins Kind, ← zu/zum Eltern); Enter=Wert, F2=Name.
+- Strg+D dupliziert (neues `cloneSubtree` in core: frische Ids, KEINE byteRanges — ein Klon mit
+  altem byteRange würde beim minimal-invasiven Speichern fremde Bytes kopieren). Strg+C/V über
+  die System-Zwischenablage: Copy serialisiert das Fragment (XML via `serializeXml` ohne
+  Deklaration, JSON als Ein-Schlüssel-Objekt `{"name": …}` — rundreisefähig durch `parseJson`),
+  Paste parst, klont und fügt als nächstes Geschwister ein (Wurzel: als letztes Kind);
+  synthetische JSON-Wurzeln (`$root`) werden mit Fehlermeldung abgelehnt. Strg+Plus legt ein
+  Kind an und springt SOFORT in die Namens-Eingabe.
+- Suche als unten angedocktes Panel: klickbare Trefferliste (indizierter Pfad + Fundstelle,
+  gedeckelt auf 200 gerenderte Einträge), Filtermodus (`tree/filter.ts`), Ersetzen wie gehabt.
+- Datei-Dialog startet im zuletzt benutzten Ordner (`state/local-prefs.ts`, localStorage).
+- **Architektur-Refactor**: `expanded`-State und die abgeflachte Zeilenliste sind von TreeView
+  nach App gewandert (TreeView bekommt fertige `rows`) — nötig, damit Pfeiltasten-Navigation
+  und Filter dieselbe sichtbare Liste sehen. Virtualisierung unverändert.
+
+**AP7b — Optik** (`0e10701`):
+- Theme-Rework beider Modi: warm-neutrale Flächen, 1px-Trennlinien, Petrol als EINZIGER Akzent
+  (Orange entfernt), **Hell ist neuer Default** (CSS `:root`; Dunkel via `data-theme="dark"` —
+  Logik in App.tsx entsprechend gedreht). Fokus-Ringe, Hover/Active-Feedback.
+- Startscreen: Marke, normal großer Öffnen-Button, „Zuletzt geöffnet"-Liste, Tastenkürzel-
+  Übersicht, Drag&Drop (Tauri `onDragDropEvent`, außerhalb Tauris automatisch inaktiv).
+  Der bisherige Riesen-Button war ein CSS-Bug (`align-items: stretch` auf `.app-main`).
+- Toolbar: Phosphor-Icon-Buttons (einzige neue Dependency `@phosphor-icons/react`) mit
+  Tooltip inkl. Shortcut, immer sichtbar + deaktiviert statt versteckt; neu: Duplizieren-Button,
+  Strg+O/Strg+S.
+- **Verifikation**: 34/34 Editor-Tests (13 neue), 54/54 Core-Tests, `tsc` sauber. Real mit
+  `tauri dev` verifiziert: Startscreen hell, Baum hell + dunkel per Screenshot; beim dunklen
+  Screenshot sah die Tab-Leiste in der VERKLEINERTEN Vorschau hell aus — Pixelprobe (PIL) ergab
+  korrektes `#191e24`, also kein Theme-Bruch. Dark-Theme-Test via direktem Schreiben von
+  `jaxel.settings` in die WebKit-localStorage-SQLite (`~/.local/share/de.profiforms.jaxel/
+  localstorage/…`), danach zurückgesetzt.
+- **Bewusste Vereinfachungen / offen**: Strg+V und Drag&Drop real noch nicht geklickt (siehe
+  „Hier weitermachen"); Strg+Plus erzeugt zwei Undo-Schritte (Einfügen + Umbenennen); Auswahl
+  geht verloren, wenn ein Vorfahre zugeklappt wird; kein Kontextmenü (weiterhin offen);
+  „Zuletzt geöffnet" füllt sich erst durch Öffnen mit der neuen Version.
+- **Stolperfalle Dev-Server**: `npm run dev` scheitert mit „Port 1420 is already in use", wenn
+  ein verwaister Vite aus einer früheren Session läuft — Prozess auf Port 1420 finden
+  (`ss -tlnp | grep 1420`) und beenden. Tauri startet die App trotzdem kurz an (Fenster ohne
+  funktionierenden Dev-Server) — dieses Zombie-Fenster ebenfalls schließen.
 
 ## AP6 — Linux-Packaging (abgeschlossen; Test auf sauberem System noch offen)
 
