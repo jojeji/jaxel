@@ -1,0 +1,125 @@
+/*
+ * Jaxel — Theme an das profiforms-CI angelehnt, konsistent zu xdp-designer:
+ * Petrol #00A3A2 als Primär-/Interaktionsfarbe, Orange #ED6C13 als sparsamer
+ * Zweit-Akzent, sehr dunkles Navy #071229 als Dunkel-Grundton bzw. Textfarbe
+ * im hellen Theme. `App.tsx` setzt `document.documentElement.dataset.theme`
+ * passend zu den Einstellungen ('light' | 'dark', dark ist Default).
+ */
+
+:root {
+  color-scheme: dark;
+  --bg-0: #0b1526;
+  --bg-1: #101c30;
+  --bg-2: #16233a;
+  --bg-3: #1f2e49;
+  --border: #2d3c58;
+  --text-0: #e8ecf2;
+  --text-1: #a9b3c3;
+  --text-2: #74819a;
+  --accent: #1fb5b3;
+  --accent-dim: #134b52;
+  --accent-2: #f58220;
+  --warn: #dfa94f;
+  --danger: #eb6955;
+  --font: 13px/1.4 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 12px/1.5 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-0: #f5f7f8;
+  --bg-1: #ffffff;
+  --bg-2: #edf0f2;
+  --bg-3: #e2e6e9;
+  --border: #ccd3d8;
+  --text-0: #071229;
+  --text-1: #414c5e;
+  --text-2: #6e7987;
+  --accent: #009593;
+  --accent-dim: #d3eeed;
+  --accent-2: #ed6c13;
+  --warn: #93601f;
+  --danger: #a3382a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-0);
+  color: var(--text-0);
+  font: var(--font);
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  height: 40px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.app-titlebar__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.app-titlebar__brand strong {
+  color: var(--accent);
+}
+
+.app-titlebar__brand span {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.app-titlebar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-1);
+}
+
+button {
+  font: var(--font);
+  color: var(--text-0);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--bg-3);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-0);
+}

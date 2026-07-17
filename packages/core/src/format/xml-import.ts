@@ -1,0 +1,292 @@
+/**
+ * Hand-rolled XML parser: turns well-formed XML source text into a `DocNode` tree
+ * (see `packages/core/src/model/node.ts`). No npm dependency — packages/core has no
+ * runtime dependencies by design (see AGENTS.md).
+ *
+ * Implementation notes:
+ * - Uses a single forward-moving character cursor (never re-scans from position 0),
+ *   so parsing a document with tens of thousands of elements stays roughly linear
+ *   instead of degrading into repeated-`indexOf`-from-start quadratic behavior.
+ * - `byteRange` on every node is computed in UTF-8 *bytes*, not UTF-16 code units,
+ *   via a precomputed char-index -> byte-offset table built once with `TextEncoder`
+ *   (see `buildByteOffsetTable`). This matters for any source containing multi-byte
+ *   characters (e.g. "ä", "€") before or inside an element.
+ *
+ * Known V1 limitations (deliberately not solved here, see docs/entscheidungen.md):
+ * - True mixed content (non-whitespace text interleaved with child elements) is not
+ *   representable in `DocNode` (no text-child node type in V1). Such stray text is
+ *   silently dropped once an element is found to have child elements. Pure
+ *   whitespace between child elements is dropped too (not treated as content).
+ * - Comments, processing instructions (other than the leading XML declaration) and
+ *   the CDATA *markers* are not represented as tree nodes — the model has no slot
+ *   for them. They are parsed (so they can't crash the parser or corrupt byte
+ *   offsets) and then discarded, except CDATA *content*, which is kept as raw,
+ *   non-entity-decoded text.
+ * - Namespace prefixes are treated as plain text within `name`/attribute `name`;
+ *   there is no prefix-to-`xmlns`-URI resolution (per docs/entscheidungen.md #6).
+ * - Unknown named entities (i.e. anything beyond the five XML-predefined entities
+ *   and numeric character references) would require DTD support we don't have;
+ *   they are left untouched verbatim rather than rejected or resolved.
+ */
+
+import { createNode, type DocAttribute, type DocNode } from "../model/node.js";
+
+export interface ParseXmlResult {
+  root: DocNode;
+  xmlDeclaration?: string;
+}
+
+// Permissive Unicode allowance beyond the ASCII XML Name grammar (covers accented
+// letters etc. in real-world tag/attribute names) without implementing the full
+// XML Name production.
+const NAME_START = /[A-Za-z_:À-￿]/;
+const NAME_CHAR = /[A-Za-z0-9_:.\-À-￿]/;
+const WHITESPACE = /\s/;
+const ENTITY_RE = /&(#[xX][0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos);/g;
+
+/** Decodes the five XML-predefined entities plus numeric character references. */
+function decodeEntities(text: string): string {
+  return text.replace(ENTITY_RE, (match, body: string) => {
+    switch (body) {
+      case "amp":
+        return "&";
+      case "lt":
+        return "<";
+      case "gt":
+        return ">";
+      case "quot":
+        return '"';
+      case "apos":
+        return "'";
+      default: {
+        const isHex = body[1] === "x" || body[1] === "X";
+        const code = isHex ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+        return Number.isNaN(code) ? match : String.fromCodePoint(code);
+      }
+    }
+  });
+}
+
+/**
+ * Builds a char-index -> UTF-8-byte-offset lookup table for `source`, using
+ * `TextEncoder` per code point. Linear in the length of `source`: each `encode`
+ * call operates on a tiny (1-2 UTF-16 unit) string, not a growing prefix, so this
+ * does not degrade to quadratic behavior on large documents.
+ */
+function buildByteOffsetTable(source: string): number[] {
+  const encoder = new TextEncoder();
+  const table = new Array<number>(source.length + 1);
+  let byteOffset = 0;
+  let i = 0;
+  while (i < source.length) {
+    const codePoint = source.codePointAt(i) ?? 0;
+    const isAstral = codePoint > 0xffff;
+    table[i] = byteOffset;
+    if (isAstral) {
+      // Mid-surrogate index is never queried by the parser (all cursor positions
+      // land on token boundaries, which are always ASCII characters), so an
+      // approximate value here is harmless.
+      table[i + 1] = byteOffset;
+    }
+    byteOffset += encoder.encode(String.fromCodePoint(codePoint)).length;
+    i += isAstral ? 2 : 1;
+  }
+  table[source.length] = byteOffset;
+  return table;
+}
+
+export function parseXml(source: string): ParseXmlResult {
+  const len = source.length;
+  const byteAt = buildByteOffsetTable(source);
+
+  function fail(message: string, at: number): never {
+    const line = source.slice(0, at).split("\n").length;
+    throw new Error(`XML parse error at line ${line}: ${message}`);
+  }
+
+  function peekAt(needle: string, at: number): boolean {
+    return source.startsWith(needle, at);
+  }
+
+  function skipWhitespace(p: number): number {
+    let i = p;
+    while (i < len && WHITESPACE.test(source.charAt(i))) i++;
+    return i;
+  }
+
+  function skipDoctype(p: number): number {
+    // "<!DOCTYPE".length === 9
+    let i = p + 9;
+    let depth = 0;
+    let quote: string | null = null;
+    for (; i < len; i++) {
+      const c = source.charAt(i);
+      if (quote) {
+        if (c === quote) quote = null;
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        quote = c;
+      } else if (c === "[") {
+        depth++;
+      } else if (c === "]") {
+        depth--;
+      } else if (c === ">" && depth <= 0) {
+        return i + 1;
+      }
+    }
+    fail("unterminated DOCTYPE declaration", p);
+  }
+
+  function skipMisc(p: number): number {
+    let i = p;
+    for (;;) {
+      i = skipWhitespace(i);
+      if (peekAt("<!--", i)) {
+        const end = source.indexOf("-->", i + 4);
+        if (end === -1) fail("unterminated comment", i);
+        i = end + 3;
+        continue;
+      }
+      if (peekAt("<!DOCTYPE", i) || peekAt("<!doctype", i)) {
+        i = skipDoctype(i);
+        continue;
+      }
+      if (peekAt("<?", i)) {
+        const end = source.indexOf("?>", i + 2);
+        if (end === -1) fail("unterminated processing instruction", i);
+        i = end + 2;
+        continue;
+      }
+      break;
+    }
+    return i;
+  }
+
+  function parseName(p: number, what: string): { name: string; end: number } {
+    if (!NAME_START.test(source.charAt(p))) fail(`expected ${what}`, p);
+    let i = p + 1;
+    while (i < len && NAME_CHAR.test(source.charAt(i))) i++;
+    return { name: source.slice(p, i), end: i };
+  }
+
+  function parseAttributes(p: number): { attributes: DocAttribute[]; end: number } {
+    const attributes: DocAttribute[] = [];
+    let i = p;
+    for (;;) {
+      const beforeWs = i;
+      i = skipWhitespace(i);
+      const c = source.charAt(i);
+      if (c === "/" || c === ">") break;
+      if (i >= len) fail("unexpected end of input in start tag", i);
+      if (i === beforeWs) fail("expected whitespace before attribute", i);
+      const { name: attrName, end: nameEnd } = parseName(i, "attribute name");
+      i = skipWhitespace(nameEnd);
+      if (source.charAt(i) !== "=") fail(`expected '=' after attribute name "${attrName}"`, i);
+      i = skipWhitespace(i + 1);
+      const quote = source.charAt(i);
+      if (quote !== '"' && quote !== "'") fail("expected quoted attribute value", i);
+      const valueStart = i + 1;
+      const closeQuote = source.indexOf(quote, valueStart);
+      if (closeQuote === -1) fail(`unterminated attribute value for "${attrName}"`, i);
+      attributes.push({ name: attrName, value: decodeEntities(source.slice(valueStart, closeQuote)) });
+      i = closeQuote + 1;
+    }
+    return { attributes, end: i };
+  }
+
+  function parseElement(start: number): { node: DocNode; end: number } {
+    if (source.charAt(start) !== "<") fail("expected '<'", start);
+    const { name, end: nameEnd } = parseName(start + 1, "element name");
+    const { attributes, end: attrEnd } = parseAttributes(nameEnd);
+    let p = attrEnd;
+
+    if (source.charAt(p) === "/") {
+      if (source.charAt(p + 1) !== ">") fail("expected '>' after '/'", p + 1);
+      p += 2;
+      const node = createNode({
+        name,
+        attributes,
+        value: "",
+        children: [],
+        byteRange: [byteAt[start]!, byteAt[p]!],
+      });
+      return { node, end: p };
+    }
+    if (source.charAt(p) !== ">") fail("expected '>' to close start tag", p);
+    p += 1;
+
+    const children: DocNode[] = [];
+    let text = "";
+
+    for (;;) {
+      if (p >= len) fail(`unexpected end of input, unclosed element "${name}"`, p);
+      if (peekAt("</", p)) {
+        const closeTagStart = p;
+        const { name: closeName, end: closeNameEnd } = parseName(p + 2, "closing tag name");
+        const afterWs = skipWhitespace(closeNameEnd);
+        if (source.charAt(afterWs) !== ">") fail(`expected '>' to close end tag "</${closeName}>"`, afterWs);
+        const endPos = afterWs + 1;
+        if (closeName !== name) {
+          fail(`mismatched closing tag: expected "</${name}>" but found "</${closeName}>"`, closeTagStart);
+        }
+        const node =
+          children.length > 0
+            ? createNode({ name, attributes, value: null, children, byteRange: [byteAt[start]!, byteAt[endPos]!] })
+            : createNode({ name, attributes, value: text, children: [], byteRange: [byteAt[start]!, byteAt[endPos]!] });
+        return { node, end: endPos };
+      }
+      if (peekAt("<!--", p)) {
+        const end = source.indexOf("-->", p + 4);
+        if (end === -1) fail("unterminated comment", p);
+        p = end + 3;
+        continue;
+      }
+      if (peekAt("<![CDATA[", p)) {
+        const end = source.indexOf("]]>", p + 9);
+        if (end === -1) fail("unterminated CDATA section", p);
+        text += source.slice(p + 9, end); // raw content, no entity decoding inside CDATA
+        p = end + 3;
+        continue;
+      }
+      if (peekAt("<?", p)) {
+        const end = source.indexOf("?>", p + 2);
+        if (end === -1) fail("unterminated processing instruction", p);
+        p = end + 2;
+        continue;
+      }
+      if (source.charAt(p) === "<") {
+        // Known limitation: true mixed content (non-whitespace text alongside child
+        // elements) is dropped here rather than modeled — see module doc comment.
+        text = "";
+        const { node: child, end: childEnd } = parseElement(p);
+        children.push(child);
+        p = childEnd;
+        continue;
+      }
+      const next = source.indexOf("<", p);
+      const stop = next === -1 ? len : next;
+      text += decodeEntities(source.slice(p, stop));
+      p = stop;
+    }
+  }
+
+  let pos = 0;
+  let xmlDeclaration: string | undefined;
+  if (peekAt("<?xml", 0)) {
+    const afterTarget = source.charAt(5);
+    if (WHITESPACE.test(afterTarget) || peekAt("?>", 5)) {
+      const end = source.indexOf("?>", 5);
+      if (end === -1) fail("unterminated XML declaration", 0);
+      xmlDeclaration = source.slice(0, end + 2);
+      pos = end + 2;
+    }
+  }
+
+  pos = skipMisc(pos);
+  if (pos >= len || source.charAt(pos) !== "<") {
+    fail("expected root element", pos);
+  }
+  const { node: root } = parseElement(pos);
+  return { root, xmlDeclaration };
+}
