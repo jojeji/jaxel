@@ -45,7 +45,12 @@ immer als Annahme kennzeichnen und in `docs/status.md` dokumentieren.
 1. Vorher `git status` prüfen: fremde/uncommittete Änderungen respektieren, nie `git add -A` —
    explizite Pfade stagen.
 2. Nach jeder Änderung: `npm test` (vitest in `packages/core`), `tsc --noEmit` in betroffenen
-   Paketen, bei UI-Änderungen `npm run dev` real ausprobieren (nicht nur Typecheck).
+   Paketen, bei UI-Änderungen `npm run dev` real ausprobieren (nicht nur Typecheck). **Falle:**
+   `npm run dev` MUSS im Wurzelverzeichnis laufen (startet Tauri + Vite zusammen). `apps/editor`
+   hat ein eigenes, gleichnamiges `"dev"`-Skript, das NUR Vite startet — die URL dann in einem
+   normalen Browser statt im Tauri-Fenster zu öffnen lässt jeden `invoke()`-Aufruf mit
+   `Cannot read properties of undefined (reading 'invoke')` scheitern (`window.__TAURI_INTERNALS__`
+   fehlt dort). Siehe README.md.
 3. **Doku-Pflicht:** Abschluss-Absatz in `docs/status.md` (was, warum, bewusste Vereinfachungen,
    offene Punkte); bei sichtbaren Feature-Änderungen `docs/benutzerhandbuch.md` nachziehen; neue
    grundsätzliche Entscheidungen in `docs/entscheidungen.md` anhängen (nicht bestehende Einträge

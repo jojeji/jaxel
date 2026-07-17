@@ -34,14 +34,15 @@ Vereinfachungen, offene Punkte. Neueste Einträge oben.
      Surrogatpaare statt Objekterzeugung pro Zeichen. Ergebnis: komplettes `parseXml` auf der
      184-MB-Datei jetzt in ca. 8s (Node/tsx, ohne Bundling-Optimierung), korrekte Knotenzahl.
   Beide Fixes committet, alle 52 Kern-Tests weiterhin grün, `tsc --noEmit` fehlerfrei.
-- **Verifikationsstatus**: `cargo check` und `tsc --noEmit` sauber für Rust- und TS-Seite. Die
-  App wurde mit der 184-MB-Datei per `tauri dev -- huge.xml` gestartet; Prozess lief >150s
-  stabil ohne Absturz/Panik, kein Fehler im Log, WebKit-Renderprozess lief mit plausiblem
-  Speicherverbrauch. **Die finale visuelle Bestätigung (tatsächlich gerenderter, scrollbarer
-  Baum mit 1,2 Mio. sichtbaren Zeilen) konnte in dieser Sitzung nicht per Screenshot bestätigt
-  werden, weil der Bildschirm des PO währenddessen gesperrt war** — sollte bei Gelegenheit
-  nachgeholt werden (`npm run dev` im `apps/editor`-Ordner, oder `cd apps/editor && npx tauri
-  dev -- <pfad-zu-xml-oder-json>`).
+- **Verifikationsstatus**: `cargo check` und `tsc --noEmit` sauber für Rust- und TS-Seite.
+  Vom PO live bestätigt: Baumansicht funktioniert.
+- **Stolperfalle beim Start (behoben in der Doku, kein Code-Bug)**: `apps/editor/package.json`
+  hat ein eigenes `"dev": "vite"`-Skript, das NUR den Vite-Server ohne Tauri-Fenster startet.
+  Wird die resultierende URL (`localhost:1420`) dann in einem normalen Browser statt im
+  Tauri-Fenster geöffnet, fehlt `window.__TAURI_INTERNALS__` und jeder `invoke()`-Aufruf
+  (z.B. beim Klick auf „Datei öffnen") schlägt mit `Cannot read properties of undefined
+  (reading 'invoke')` fehl. **Richtig ist `npm run dev` im Projekt-Wurzelverzeichnis** (startet
+  Tauri inkl. eingebettetem Vite). In README.md und AGENTS.md als Warnung ergänzt.
 - **Noch offen für AP3+**: Editieren ist noch nicht verdrahtet (Baum ist reine Anzeige), Attribute
   werden zwar angezeigt aber nicht editierbar, kein Kontextmenü, keine Pfad-Kopieren-UI.
 
