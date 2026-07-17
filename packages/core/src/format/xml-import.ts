@@ -68,30 +68,59 @@ function decodeEntities(text: string): string {
 }
 
 /**
- * Builds a char-index -> UTF-8-byte-offset lookup table for `source`, using
- * `TextEncoder` per code point. Linear in the length of `source`: each `encode`
- * call operates on a tiny (1-2 UTF-16 unit) string, not a growing prefix, so this
- * does not degrade to quadratic behavior on large documents.
+ * Builds a char-index -> UTF-8-byte-offset lookup table for `source`.
+ *
+ * Two things matter for documents in the "several hundred MB" range this parser is
+ * meant to handle (see docs/entscheidungen.md #3):
+ *
+ * 1. **Storage**: a plain `Array` (`new Array(n)`), even pre-sized, hits a real V8
+ *    limit around ~11M sequential writes on a large declared length — filling it
+ *    throws `RangeError: Invalid array length` well before reaching the end (verified
+ *    empirically against a 184 MB / ~193M-character fixture; unrelated to available
+ *    heap size). A `Uint32Array` has no such holey/packed transition and is also far
+ *    more memory-compact (4 bytes/entry vs. a boxed-number Array). Byte offsets are
+ *    assumed to stay under 2^32 (~4.29 GB) — comfortably true for anything in scope
+ *    (see docs/entscheidungen.md: no >RAM editing).
+ * 2. **Speed**: computing each character's UTF-8 byte length via `TextEncoder.encode()`
+ *    per code point (one object allocation per character) does not finish in a
+ *    reasonable time on a document with ~190M characters. UTF-8 byte length per UTF-16
+ *    code unit/surrogate pair is a small, well-known arithmetic rule — computing it
+ *    directly avoids that allocation entirely and brought table construction from
+ *    "did not complete in 60s" down to under 1s on the same fixture.
  */
-function buildByteOffsetTable(source: string): number[] {
-  const encoder = new TextEncoder();
-  const table = new Array<number>(source.length + 1);
+function buildByteOffsetTable(source: string): Uint32Array {
+  const len = source.length;
+  const table = new Uint32Array(len + 1);
   let byteOffset = 0;
   let i = 0;
-  while (i < source.length) {
-    const codePoint = source.codePointAt(i) ?? 0;
-    const isAstral = codePoint > 0xffff;
+  while (i < len) {
+    const code = source.charCodeAt(i);
     table[i] = byteOffset;
-    if (isAstral) {
-      // Mid-surrogate index is never queried by the parser (all cursor positions
-      // land on token boundaries, which are always ASCII characters), so an
-      // approximate value here is harmless.
-      table[i + 1] = byteOffset;
+    let charBytes: number;
+    let advance = 1;
+    if (code < 0x80) {
+      charBytes = 1;
+    } else if (code < 0x800) {
+      charBytes = 2;
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < len) {
+      const next = source.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        // Valid surrogate pair: one astral code point, 4 UTF-8 bytes, consumes 2 UTF-16 units.
+        // Mid-surrogate index is never queried by the parser (all cursor positions land on
+        // token boundaries, which are always ASCII), so an approximate value here is harmless.
+        charBytes = 4;
+        advance = 2;
+        table[i + 1] = byteOffset;
+      } else {
+        charBytes = 3; // Lone high surrogate: encoded as the replacement character (3 bytes).
+      }
+    } else {
+      charBytes = 3;
     }
-    byteOffset += encoder.encode(String.fromCodePoint(codePoint)).length;
-    i += isAstral ? 2 : 1;
+    byteOffset += charBytes;
+    i += advance;
   }
-  table[source.length] = byteOffset;
+  table[len] = byteOffset;
   return table;
 }
 

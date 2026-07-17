@@ -3,6 +3,48 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## AP2 — Baumansicht + Datei öffnen (funktional fertig, visuelle Verifikation ausstehend)
+
+- **State** (`apps/editor/src/state/document-store.ts`): `useJaxelDocument()`-Hook. Öffnet eine
+  Datei über den Rust-Command `read_text_file`, erkennt XML/JSON per Endung (Fallback: erstes
+  Nicht-Whitespace-Zeichen), parst über `@jaxel/core`, hält `CommandBus` + `JaxelDocument`.
+  `saveFile()` nutzt `serializeXmlMinimal`/`serializeJson` und schreibt über `write_text_file`.
+- **Baum** (`apps/editor/src/tree/`): `flattenTree` (reine Funktion, Tiefensuche über
+  eingeklappte/ausgeklappte Knoten) + `TreeView.tsx` (virtualisiert: nur sichtbare Zeilen +
+  Overscan werden gerendert, `ResizeObserver` für Viewport-Höhe, keine externe Library).
+- **Datei-Öffnen-Workflow**: Tauri-Dialog-Plugin für „Datei öffnen…“; zusätzlich nimmt die
+  Rust-Seite jetzt auch Kommandozeilen-Argumente entgegen (`jaxel some.xml`) und die
+  Frontend-Seite holt sie beim Start über `take_pending_open_paths` ab (Pull- statt
+  Event-Push-Modell, da der Event-Listener beim App-Start noch nicht sicher registriert ist —
+  gleiches Muster wie bei xdp-designer). Nützlich sowohl als spätere Dateiverknüpfung als auch
+  für Tests.
+- **Zwei ernsthafte Bugs bei der Verifikation mit einer 184-MB-Testdatei (1,2 Mio. `<person>`,
+  6.000.001 Knoten) gefunden und behoben, BEVOR sie in Produktion aufgefallen wären:**
+  1. `buildByteOffsetTable` in `xml-import.ts` nutzte eine normale JS-`Array` (vorab dimensioniert
+     auf die Zeichenlänge) — das wirft nachweislich `RangeError: Invalid array length` nach ca.
+     11 Mio. sequenziellen Schreibzugriffen auf ein groß deklariertes Array (ein reales,
+     reproduzierbares V8/Node-Verhalten, unabhängig vom verfügbaren Heap; nicht dokumentiert,
+     empirisch verifiziert). Jede Datei über ca. 11 MB Zeichenlänge hätte den Parser abstürzen
+     lassen — ein Totalausfall für genau das Kernfeature "große XML-Dateien", das explizit
+     gefordert war. **Fix**: `Uint32Array` statt `Array` (keine Holey/Packed-Transition, zudem
+     kompakter).
+  2. Dieselbe Funktion baute die Byte-Länge jedes Zeichens per `TextEncoder().encode(...)` PRO
+     Zeichen auf — bei ~193 Mio. Zeichen (184 MB Datei) lief das nicht in vertretbarer Zeit durch
+     (Abbruch nach >60s ohne Ergebnis). **Fix**: direkte Arithmetik über UTF-16-Codepunkte/
+     Surrogatpaare statt Objekterzeugung pro Zeichen. Ergebnis: komplettes `parseXml` auf der
+     184-MB-Datei jetzt in ca. 8s (Node/tsx, ohne Bundling-Optimierung), korrekte Knotenzahl.
+  Beide Fixes committet, alle 52 Kern-Tests weiterhin grün, `tsc --noEmit` fehlerfrei.
+- **Verifikationsstatus**: `cargo check` und `tsc --noEmit` sauber für Rust- und TS-Seite. Die
+  App wurde mit der 184-MB-Datei per `tauri dev -- huge.xml` gestartet; Prozess lief >150s
+  stabil ohne Absturz/Panik, kein Fehler im Log, WebKit-Renderprozess lief mit plausiblem
+  Speicherverbrauch. **Die finale visuelle Bestätigung (tatsächlich gerenderter, scrollbarer
+  Baum mit 1,2 Mio. sichtbaren Zeilen) konnte in dieser Sitzung nicht per Screenshot bestätigt
+  werden, weil der Bildschirm des PO währenddessen gesperrt war** — sollte bei Gelegenheit
+  nachgeholt werden (`npm run dev` im `apps/editor`-Ordner, oder `cd apps/editor && npx tauri
+  dev -- <pfad-zu-xml-oder-json>`).
+- **Noch offen für AP3+**: Editieren ist noch nicht verdrahtet (Baum ist reine Anzeige), Attribute
+  werden zwar angezeigt aber nicht editierbar, kein Kontextmenü, keine Pfad-Kopieren-UI.
+
 ## AP1 — Modellkern (abgeschlossen)
 
 `packages/core` steht vollständig, headless getestet, 52/52 vitest-Tests grün, `tsc --noEmit`

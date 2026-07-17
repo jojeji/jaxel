@@ -123,3 +123,66 @@ button.primary {
   border-color: var(--accent);
   color: var(--bg-0);
 }
+
+.app-main {
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.app-error {
+  padding: 6px 12px;
+  background: var(--danger);
+  color: var(--bg-0);
+  font-size: 12px;
+}
+
+.tree-view {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.tree-view__spacer {
+  position: relative;
+}
+
+.tree-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  font: var(--mono);
+}
+
+.tree-row:hover {
+  background: var(--bg-2);
+}
+
+.tree-row--selected {
+  background: var(--accent-dim);
+}
+
+.tree-row__twisty {
+  display: inline-block;
+  width: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.tree-row__name {
+  color: var(--accent);
+}
+
+.tree-row__attrs {
+  color: var(--accent-2);
+}
+
+.tree-row__preview {
+  color: var(--text-1);
+}
