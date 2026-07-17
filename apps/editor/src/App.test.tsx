@@ -459,6 +459,25 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
   });
 
+  it("Tab-Wechsel setzt das Suchpanel zurueck (kein Absturz durch Treffer des alten Dokuments)", async () => {
+    // Regression: XML oeffnen, suchen, dann zweites Dokument oeffnen fuehrte zu
+    // "computePaths: node ... is not root ..." weil die Ergebnisliste alte Knoten
+    // gegen die neue Wurzel aufloeste.
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "person");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    expect(await screen.findByText("inventory")).toBeInTheDocument();
+
+    // Panel ist zurueckgesetzt: keine alten Treffer, leeres Suchfeld.
+    expect(screen.queryByText("1/2")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Suchbegriff…")).toHaveValue("");
+  });
+
   it("'Alle ersetzen' aendert den Wert live und ist mit Strg+Z als EIN Schritt rueckgaengig machbar", async () => {
     const user = await openSampleFile();
     await user.click(screen.getByRole("button", { name: "Suchen" }));

@@ -87,7 +87,14 @@ Knoten-Aktionen; DnD mit Einfüge-Linie UND „auf Zeile = als Kind"; Logo Varia
   Rasterisierung SVG→1024px-PNG via **headless Chrome** (`--default-background-color=00000000`
   für Transparenz — rsvg/inkscape/cairosvg fehlen auf dieser Maschine), Icon-Satz per
   `npm run tauri -- icon` (Android/iOS-Output verworfen). Logo auch auf dem Startscreen.
-- **Verifikation**: 41/41 Editor-Tests (7 neue), 59/59 Core-Tests (5 neue: Coalescing,
+- **Vom PO gefundener Bug, behoben**: XML öffnen → suchen → zweites Dokument (JSON) öffnen
+  stürzte ab („computePaths: node … is not root \"$root\" …"). Ursache: das Suchpanel behielt
+  seine Trefferliste (lebende Knoten-Referenzen ins ALTE Dokument) über den Tab-Wechsel und
+  löste deren Pfade gegen die neue Wurzel auf. Fix: `SearchPanel` wird per
+  `key={activeDoc.filePath}` pro Dokument neu aufgesetzt (Treffer/Query/Filter können einen
+  Tab-Wechsel nie überleben), zusätzlich ist `getMatchPath` jetzt absturzsicher (try/catch —
+  ein Listen-Label darf nie die App reißen). Regressionstest in App.test.tsx.
+- **Verifikation**: 42/42 Editor-Tests (8 neue), 59/59 Core-Tests (5 neue: Coalescing,
   rename-attribute, formatFullPath), `tsc` sauber. Real: App gestartet, neues Fenster-Icon
   (`_NET_WM_ICON` gesetzt) und Startscreen mit Logo per Screenshot bestätigt; Kontextmenü und
   DnD real klicken steht als PO-Review aus (kein Klick-Automationswerkzeug, siehe oben).

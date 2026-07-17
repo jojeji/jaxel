@@ -509,7 +509,14 @@ export function App(): React.ReactElement {
 
   function getMatchPath(match: SearchMatch): string {
     if (!root) return "";
-    return computePaths(root, match.node).indexed;
+    // Defensive: a match can stem from an older document state (stale render right
+    // around a tab switch or after structural edits) — never let path resolution
+    // crash the whole app over a result-list label.
+    try {
+      return computePaths(root, match.node).indexed;
+    } catch {
+      return "";
+    }
   }
 
   /**
@@ -729,6 +736,10 @@ export function App(): React.ReactElement {
       )}
       {searchOpen && activeDoc && (
         <SearchPanel
+          // Remount per document: search state (matches, query, filter) holds live node
+          // references into ONE document's tree and must never survive a tab switch —
+          // stale matches resolved against the new root crashed computePaths (see test).
+          key={activeDoc.filePath}
           onSearch={handleSearch}
           onNavigate={handleNavigate}
           onReplaceAll={handleReplaceAllInternal}
