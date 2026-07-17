@@ -13,6 +13,7 @@ export { captureByteRanges, clearByteRanges, restoreByteRanges } from "./command
 export { createRenameCommand } from "./commands/rename.js";
 export { createSetValueCommand } from "./commands/set-value.js";
 export { createSetAttributeCommand } from "./commands/set-attribute.js";
+export { createRenameAttributeCommand } from "./commands/rename-attribute.js";
 export { createInsertNodeCommand } from "./commands/insert-node.js";
 export { createRemoveNodeCommand } from "./commands/remove-node.js";
 export { createMoveNodeCommand } from "./commands/move-node.js";
@@ -27,6 +28,7 @@ export type { PathSegment } from "./format/path.js";
 export {
   computePaths,
   findAncestorChain,
+  formatFullPath,
   formatIndexedPath,
   formatStaticPath,
   getPathSegments,

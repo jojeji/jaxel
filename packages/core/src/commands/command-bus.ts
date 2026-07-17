@@ -19,7 +19,25 @@ export class CommandBus {
   execute(command: Command): void {
     command.do(this.doc);
     this.doc.revision++;
-    this.undoStack.push(command);
+    const previous = this.undoStack[this.undoStack.length - 1];
+    if (command.coalesceKey !== undefined && previous?.coalesceKey === command.coalesceKey) {
+      // Merge with the previous entry (which already ran — only bookkeeping changes):
+      // one undo step for a whole per-keystroke editing chain. See Command.coalesceKey.
+      this.undoStack[this.undoStack.length - 1] = {
+        label: command.label,
+        coalesceKey: command.coalesceKey,
+        do: (doc) => {
+          previous.do(doc);
+          command.do(doc);
+        },
+        undo: (doc) => {
+          command.undo(doc);
+          previous.undo(doc);
+        },
+      };
+    } else {
+      this.undoStack.push(command);
+    }
     this.redoStack.length = 0;
     this.notify();
   }

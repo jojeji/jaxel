@@ -94,6 +94,20 @@ export function formatStaticPath(segments: PathSegment[]): string {
 }
 
 /**
+ * "Vollständiger Pfad": e.g. "catalog.person.name" — EVERY level including the root,
+ * never any [index], and namespace prefixes stripped ("ns:variable" -> "variable").
+ * Notation requested by the PO for referencing nodes in external tooling.
+ */
+export function formatFullPath(segments: PathSegment[]): string {
+  return segments
+    .map((s) => {
+      const colon = s.name.indexOf(":");
+      return colon >= 0 ? s.name.slice(colon + 1) : s.name;
+    })
+    .join(".");
+}
+
+/**
  * Depth-first search for `target` under `root`, returning the ancestor chain (root to
  * target's parent, root itself included, target excluded), or `null` if `target` is not
  * `root` and not found anywhere in `root`'s descendants.
@@ -119,7 +133,10 @@ export function findAncestorChain(node: DocNode, target: DocNode, path: DocNode[
  * `children`, then returns both path flavors. Throws if `target` is not `root` itself
  * and not a descendant of `root`.
  */
-export function computePaths(root: DocNode, target: DocNode): { indexed: string; static: string } {
+export function computePaths(
+  root: DocNode,
+  target: DocNode,
+): { indexed: string; static: string; full: string } {
   const ancestors = findAncestorChain(root, target, []);
   if (ancestors === null) {
     throw new Error(
@@ -127,5 +144,9 @@ export function computePaths(root: DocNode, target: DocNode): { indexed: string;
     );
   }
   const segments = getPathSegments(target, ancestors);
-  return { indexed: formatIndexedPath(segments), static: formatStaticPath(segments) };
+  return {
+    indexed: formatIndexedPath(segments),
+    static: formatStaticPath(segments),
+    full: formatFullPath(segments),
+  };
 }

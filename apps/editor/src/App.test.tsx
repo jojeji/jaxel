@@ -280,18 +280,45 @@ describe("Attribute hinzufuegen/aendern/entfernen", () => {
     expect(await screen.findByText('id="P-99"')).toBeInTheDocument();
   });
 
-  it("fuegt ein neues Attribut hinzu und entfernt es wieder", async () => {
+  it("legt ein Attribut SOFORT beim Tippen an (kein '+' mehr) und entfernt es wieder", async () => {
     const user = await openSampleFile();
     await user.click(screen.getAllByText("person")[0]!);
-    await user.type(screen.getByPlaceholderText("Name"), "role");
-    await user.type(screen.getByPlaceholderText("Wert"), "admin");
-    await user.click(screen.getByTitle("Attribut hinzufügen"));
+
+    // Erster Buchstabe im Namensfeld erzeugt das Attribut sofort sichtbar im Baum …
+    await user.type(screen.getByPlaceholderText("Name"), "r");
+    expect(await screen.findByText(/\br=""/)).toBeInTheDocument();
+    // … der Fokus springt in die neue Zeile, dort wird weitergetippt.
+    await user.keyboard("ole");
+    expect(await screen.findByText(/role=""/)).toBeInTheDocument();
+
+    await user.type(screen.getByRole("textbox", { name: "role" }), "admin");
+    expect(await screen.findByText(/role="admin"/)).toBeInTheDocument();
+
+    // Die ganze Namens-Tippkette (anlegen + 3 weitere Buchstaben) ist EIN Undo-Schritt:
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true }); // Wert-Tippkette weg
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true }); // Attribut komplett weg
+    expect(screen.queryByText(/role/)).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true });
     expect(await screen.findByText(/role="admin"/)).toBeInTheDocument();
 
     const removeButtons = screen.getAllByTitle("Attribut entfernen");
     await user.click(removeButtons[removeButtons.length - 1]!);
     expect(screen.queryByText(/role="admin"/)).not.toBeInTheDocument();
     expect(screen.getByText(/id="P-1"/)).toBeInTheDocument();
+  });
+
+  it("Attributnamen sind editierbar (live, als ein Undo-Schritt)", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    const nameInput = screen.getByDisplayValue("id");
+    await user.clear(nameInput);
+    await user.type(nameInput, "key");
+    expect(await screen.findByText(/key="P-1"/)).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(await screen.findByText(/id="P-1"/)).toBeInTheDocument();
   });
 });
 
@@ -462,6 +489,109 @@ describe("Pfad kopieren", () => {
 
     await user.click(screen.getByRole("button", { name: "Pfad kopieren (statisch)" }));
     expect(writeText).toHaveBeenCalledWith("person.city");
+  });
+});
+
+describe("Kontextmenü und vollständiger Pfad", () => {
+  it("Strg+Shift+C kopiert den vollstaendigen Pfad (mit Wurzel, ohne Indizes)", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(screen.getAllByText("person")[1]!); // P-2 aufklappen + selektieren
+    await user.click(await screen.findByText("Hamburg")); // city-Zeile selektieren
+
+    fireEvent.keyDown(window, { key: "C", ctrlKey: true, shiftKey: true });
+    expect(writeText).toHaveBeenCalledWith("catalog.person.city");
+  });
+
+  it("Rechtsklick selektiert die Zeile und oeffnet das Menue; 'Vollständigen Pfad kopieren' funktioniert", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    const personRow = screen.getAllByText("person")[0]!.closest(".tree-row")!;
+    fireEvent.contextMenu(personRow);
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    // Rechtsklick hat selektiert: Attribute-Panel zeigt P-1.
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("menuitem", { name: /Vollständigen Pfad kopieren/ }));
+    expect(writeText).toHaveBeenCalledWith("catalog.person");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("'Löschen' ist im Menue fuer die Wurzel deaktiviert, fuer andere Knoten aktiv", async () => {
+    await openSampleFile();
+    fireEvent.contextMenu(screen.getByText("catalog").closest(".tree-row")!);
+    expect(screen.getByRole("menuitem", { name: /Löschen/ })).toBeDisabled();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    expect(screen.getByRole("menuitem", { name: /Löschen/ })).toBeEnabled();
+  });
+});
+
+describe("Drag&Drop im Baum", () => {
+  function dragPayload() {
+    return { dataTransfer: { setData: vi.fn(), effectAllowed: "", dropEffect: "" } };
+  }
+
+  it("verschiebt einen Knoten hinter ein Geschwister (Einfuege-Linie 'after')", async () => {
+    await openSampleFile();
+    const [p1, p2] = screen
+      .getAllByText("person", { selector: ".tree-row__name" })
+      .map((el) => el.closest(".tree-row")! as HTMLElement);
+
+    fireEvent.dragStart(p1!, dragPayload());
+    vi.spyOn(p2!, "getBoundingClientRect").mockReturnValue({
+      top: 100, bottom: 122, height: 22, left: 0, right: 400, width: 400, x: 0, y: 100,
+      toJSON: () => ({}),
+    } as DOMRect);
+    // jsdom kennt kein DragEvent (fireEvent.dragOver verwirft clientY daher) — MouseEvent
+    // mit manuell angehaengtem dataTransfer transportiert die Y-Koordinate zuverlaessig.
+    const overEvent = new MouseEvent("dragover", { bubbles: true, cancelable: true, clientY: 120 });
+    Object.assign(overEvent, dragPayload());
+    fireEvent(p2!, overEvent); // unteres Viertel -> "after"
+    expect(document.querySelector(".tree-row--drop-after")).not.toBeNull();
+
+    fireEvent.drop(p2!, dragPayload());
+    const attrs = Array.from(document.querySelectorAll(".tree-row__attrs")).map((el) => el.textContent);
+    expect(attrs).toEqual(['id="P-2"', 'id="P-1"']);
+
+    // Ein Undo-Schritt stellt die alte Reihenfolge wieder her.
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    const attrsAfterUndo = Array.from(document.querySelectorAll(".tree-row__attrs")).map((el) => el.textContent);
+    expect(attrsAfterUndo).toEqual(['id="P-1"', 'id="P-2"']);
+  });
+
+  it("legt einen Knoten AUF einer Zeile als Kind ab ('into')", async () => {
+    await openSampleFile();
+    const [p1, p2] = screen
+      .getAllByText("person", { selector: ".tree-row__name" })
+      .map((el) => el.closest(".tree-row")! as HTMLElement);
+
+    fireEvent.dragStart(p2!, dragPayload());
+    fireEvent.dragOver(p1!, { clientY: 0, ...dragPayload() }); // jsdom-Rect hat Hoehe 0 -> Mitte -> "into"
+    expect(document.querySelector(".tree-row--drop-into")).not.toBeNull();
+
+    fireEvent.drop(p1!, dragPayload());
+    // P-2 haengt jetzt als drittes Kind unter P-1; P-1 wurde automatisch aufgeklappt.
+    expect(await screen.findByText("(3)")).toBeInTheDocument();
+    expect(screen.getByText("Anna")).toBeInTheDocument();
+  });
+
+  it("verhindert das Ablegen im eigenen Unterbaum", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // P-1 aufklappen
+    const p1 = screen.getAllByText("person", { selector: ".tree-row__name" })[0]!.closest(".tree-row")!;
+    const cityRow = (await screen.findByText("Berlin")).closest(".tree-row")! as HTMLElement;
+
+    fireEvent.dragStart(p1, dragPayload());
+    fireEvent.dragOver(cityRow, { clientY: 0, ...dragPayload() });
+    expect(document.querySelector(".tree-row--drop-into")).toBeNull();
+    fireEvent.drop(cityRow, dragPayload());
+    // Struktur unveraendert: P-1 hat weiterhin 2 Kinder.
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+    expect(screen.getByText("Anna")).toBeInTheDocument();
   });
 });
 

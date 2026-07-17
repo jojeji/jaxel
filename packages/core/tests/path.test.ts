@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createNode } from "../src/model/node.js";
 import type { DocNode } from "../src/model/node.js";
 import { computePaths, formatIndexedPath, formatStaticPath, getPathSegments } from "../src/format/path.js";
+import { parseXml } from "../src/format/xml-import.js";
 
 /**
  * Builds the shared test tree:
@@ -105,5 +106,22 @@ describe("path", () => {
     const segments = getPathSegments(leaf, ancestors);
     expect(formatIndexedPath(segments)).toBe(indexed);
     expect(formatStaticPath(segments)).toBe(staticPath);
+  });
+});
+
+describe("formatFullPath (vollstaendiger Pfad)", () => {
+  it("enthaelt die Wurzel, nie Indizes, und schneidet Namespace-Praefixe ab", () => {
+    const { root } = parseXml(
+      "<Testkonten><unterknoten><ns:variable>x</ns:variable><ns:variable>y</ns:variable></unterknoten></Testkonten>",
+    );
+    const variable = root.children[0]!.children[1]!;
+    const { full } = computePaths(root, variable);
+    expect(full).toBe("Testkonten.unterknoten.variable");
+  });
+
+  it("Pfad zur Wurzel selbst ist nur der Wurzelname (ohne Praefix)", () => {
+    const { root } = parseXml("<x:wurzel><kind/></x:wurzel>");
+    expect(computePaths(root, root).full).toBe("wurzel");
+    expect(computePaths(root, root.children[0]!).full).toBe("wurzel.kind");
   });
 });

@@ -6,8 +6,10 @@ import {
   computePaths,
   createCompositeCommand,
   createInsertNodeCommand,
+  createMoveNodeCommand,
   createNode,
   createRemoveNodeCommand,
+  createRenameAttributeCommand,
   createRenameCommand,
   createSetAttributeCommand,
   createSetValueCommand,
@@ -32,13 +34,14 @@ import {
   ListNumbers,
   MagnifyingGlass,
   Plus,
+  TextAa,
   Trash,
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { useJaxelDocuments } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
 import { getLastDir, rememberLastDir, addRecentFile } from "./state/local-prefs.js";
-import { TreeView, type EditingField } from "./tree/TreeView.js";
+import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
 import { buildFilterKeepSet, flattenFiltered } from "./tree/filter.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
@@ -47,6 +50,7 @@ import { TabBar } from "./tabs/TabBar.js";
 import { SettingsDialog } from "./settings/SettingsDialog.js";
 import { WelcomeScreen } from "./welcome/WelcomeScreen.js";
 import { IconButton } from "./ui/IconButton.js";
+import { ContextMenu, type ContextMenuItem } from "./ui/ContextMenu.js";
 
 function isTextInput(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
@@ -67,6 +71,7 @@ export function App(): React.ReactElement {
   /** null = filter off; otherwise the current search matches the tree is reduced to. */
   const [filterMatches, setFilterMatches] = useState<SearchMatch[] | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const root = activeDoc?.document.root ?? null;
   const revision = activeDoc?.document.revision ?? 0;
@@ -222,11 +227,63 @@ export function App(): React.ReactElement {
     }
   }
 
-  function handleSetAttribute(name: string, value: string | null): void {
+  function handleSetAttribute(name: string, value: string | null, coalesceKey?: string): void {
     if (!activeDoc || !selectedRow) return;
     activeDoc.commandBus.execute(
-      createSetAttributeCommand(selectedRow.node, name, value, selectedRow.ancestors),
+      createSetAttributeCommand(selectedRow.node, name, value, selectedRow.ancestors, coalesceKey),
     );
+  }
+
+  function handleRenameAttribute(index: number, newName: string, coalesceKey: string): void {
+    if (!activeDoc || !selectedRow) return;
+    activeDoc.commandBus.execute(
+      createRenameAttributeCommand(selectedRow.node, index, newName, selectedRow.ancestors, coalesceKey),
+    );
+  }
+
+  /** "Sofort anhängen": the attribute exists from the first typed character on. */
+  function handleCreateAttribute(name: string, coalesceKey: string): void {
+    handleSetAttribute(name, "", coalesceKey);
+  }
+
+  /** Drag&drop move in the tree; targetIndex semantics per createMoveNodeCommand's contract. */
+  function handleMoveNode(source: TreeRow, target: TreeRow, position: DropPosition): void {
+    if (!activeDoc) return;
+    const sourceParent = source.ancestors[source.ancestors.length - 1];
+    if (!sourceParent) return; // root is not draggable
+    const sourceAncestors = source.ancestors.slice(0, -1);
+    const sourceIndex = sourceParent.children.indexOf(source.node);
+    if (sourceIndex === -1) return;
+
+    let targetParent: DocNode;
+    let targetAncestors: DocNode[];
+    let targetIndex: number;
+    if (position === "into") {
+      targetParent = target.node;
+      targetAncestors = target.ancestors;
+      targetIndex = target.node.children.length;
+    } else {
+      const parent = target.ancestors[target.ancestors.length - 1];
+      if (!parent) return; // the root has no siblings
+      targetParent = parent;
+      targetAncestors = target.ancestors.slice(0, -1);
+      const anchorIndex = parent.children.indexOf(target.node);
+      if (anchorIndex === -1) return;
+      targetIndex = position === "after" ? anchorIndex + 1 : anchorIndex;
+    }
+    if (targetParent === sourceParent && targetIndex > sourceIndex) {
+      targetIndex -= 1; // contract: targetIndex counts AFTER the source was removed
+    }
+    if (targetParent === sourceParent && targetIndex === sourceIndex) return; // no-op move
+
+    activeDoc.commandBus.execute(
+      createMoveNodeCommand(sourceParent, sourceIndex, sourceAncestors, targetParent, targetIndex, targetAncestors),
+    );
+    if (position === "into") {
+      setExpanded((prev) => new Set(prev).add(targetParent.id));
+    }
+    setSelectedId(source.node.id);
+    setRevealNodeId(source.node.id);
   }
 
   /** Strg+Plus / toolbar: insert a child and jump straight into naming it. */
@@ -419,7 +476,10 @@ export function App(): React.ReactElement {
       } else if (ctrl && event.key.toLowerCase() === "d") {
         event.preventDefault();
         handleDuplicate();
-      } else if (ctrl && event.key.toLowerCase() === "c" && selectedRow) {
+      } else if (ctrl && event.shiftKey && event.key.toLowerCase() === "c" && selectedRow) {
+        event.preventDefault();
+        handleCopyPath("full");
+      } else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "c" && selectedRow) {
         event.preventDefault();
         handleCopyNode();
       } else if (ctrl && event.key.toLowerCase() === "v" && selectedRow) {
@@ -519,10 +579,10 @@ export function App(): React.ReactElement {
     return count;
   }
 
-  function handleCopyPath(indexed: boolean): void {
+  function handleCopyPath(kind: "indexed" | "static" | "full"): void {
     if (!activeDoc || !selectedRow || !root) return;
     const paths = computePaths(root, selectedRow.node);
-    void navigator.clipboard.writeText(indexed ? paths.indexed : paths.static).then(
+    void navigator.clipboard.writeText(paths[kind]).then(
       () => setStatus(t("toolbar.pathCopied")),
       (err) => setError(err instanceof Error ? err.message : String(err)),
     );
@@ -530,6 +590,28 @@ export function App(): React.ReactElement {
 
   function handleCloseTab(path: string): void {
     closeTab(path);
+  }
+
+  function buildContextMenuItems(): ContextMenuItem[] {
+    const ctrl = t("key.ctrl");
+    const isRoot = !selectedRow || selectedRow.ancestors.length === 0;
+    return [
+      {
+        label: t("toolbar.copyPathFull"),
+        shortcut: `${ctrl}+Shift+C`,
+        onClick: () => handleCopyPath("full"),
+      },
+      { label: t("toolbar.copyPath"), onClick: () => handleCopyPath("indexed") },
+      { label: t("toolbar.copyPathStatic"), onClick: () => handleCopyPath("static") },
+      "separator",
+      { label: t("toolbar.addChild"), shortcut: `${ctrl}++`, onClick: handleAddChild },
+      { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
+      "separator",
+      { label: t("menu.copyNode"), shortcut: `${ctrl}+C`, onClick: handleCopyNode },
+      { label: t("menu.pasteNode"), shortcut: `${ctrl}+V`, onClick: () => void handlePasteNode() },
+      "separator",
+      { label: t("toolbar.delete"), shortcut: t("key.delete"), disabled: isRoot, onClick: handleDelete },
+    ];
   }
 
   return (
@@ -582,13 +664,20 @@ export function App(): React.ReactElement {
             icon={ListNumbers}
             label={t("toolbar.copyPath")}
             disabled={!selectedRow}
-            onClick={() => handleCopyPath(true)}
+            onClick={() => handleCopyPath("indexed")}
+          />
+          <IconButton
+            icon={TextAa}
+            label={t("toolbar.copyPathStatic")}
+            disabled={!selectedRow}
+            onClick={() => handleCopyPath("static")}
           />
           <IconButton
             icon={ClipboardText}
-            label={t("toolbar.copyPathStatic")}
+            label={t("toolbar.copyPathFull")}
+            shortcut={`${t("key.ctrl")}+Shift+C`}
             disabled={!selectedRow}
-            onClick={() => handleCopyPath(false)}
+            onClick={() => handleCopyPath("full")}
           />
           <span className="app-titlebar__sep" />
           <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
@@ -611,15 +700,33 @@ export function App(): React.ReactElement {
               onStartEditValue={(row) => setEditingField({ nodeId: row.node.id, field: "value" })}
               onCommitEdit={handleCommitEdit}
               onCancelEdit={() => setEditingField(null)}
+              onRowContextMenu={(row, x, y) => {
+                setSelectedId(row.node.id);
+                setContextMenu({ x, y });
+              }}
+              onMoveNode={handleMoveNode}
               revealNodeId={revealNodeId}
             />
-            <AttributesPanel node={selectedRow?.node ?? null} onSetAttribute={handleSetAttribute} />
+            <AttributesPanel
+              node={selectedRow?.node ?? null}
+              onSetAttribute={handleSetAttribute}
+              onRenameAttribute={handleRenameAttribute}
+              onCreateAttribute={handleCreateAttribute}
+            />
           </>
         ) : (
           <WelcomeScreen onOpen={() => void handleOpen()} onOpenPath={(path) => void openPath(path)} />
         )}
       </main>
       {dragOver && <div className="drop-overlay">{t("welcome.dropNow")}</div>}
+      {contextMenu && selectedRow && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={buildContextMenuItems()}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
       {searchOpen && activeDoc && (
         <SearchPanel
           onSearch={handleSearch}

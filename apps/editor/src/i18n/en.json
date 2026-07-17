@@ -67,5 +67,8 @@
   "shortcut.copyPaste": "Copy / paste node",
   "shortcut.addChild": "Add child",
   "shortcut.delete": "Delete",
-  "shortcut.undo": "Undo / redo"
+  "shortcut.undo": "Undo / redo",
+  "toolbar.copyPathFull": "Copy full path",
+  "menu.copyNode": "Copy node",
+  "menu.pasteNode": "Paste"
 }

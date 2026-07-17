@@ -459,6 +459,30 @@ kbd {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+.tree-row--drop-into {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--accent-dim);
+}
+
+.tree-row--drop-before::before,
+.tree-row--drop-after::after {
+  content: '';
+  position: absolute;
+  left: var(--indent, 0px);
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.tree-row--drop-before::before {
+  top: -1px;
+}
+
+.tree-row--drop-after::after {
+  bottom: -1px;
+}
+
 .tree-row__twisty {
   display: inline-block;
   width: 14px;
@@ -550,10 +574,64 @@ kbd {
   outline: none;
 }
 
-.attributes-panel__attr-name {
-  color: var(--text-1);
-  font: var(--mono);
+.attributes-panel__attr-name-cell {
   white-space: nowrap;
+}
+
+.attributes-panel__attr-name-input {
+  width: 100%;
+  color: var(--text-1);
+}
+
+/* ---------- Kontextmenü ---------- */
+
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.context-menu {
+  position: fixed;
+  min-width: 240px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.context-menu__entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.context-menu__entry:hover:not(:disabled) {
+  background: var(--bg-2);
+}
+
+.context-menu__entry kbd {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  padding: 0;
+}
+
+.context-menu__separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
 }
 
 /* ---------- Suchpanel (unten) ---------- */

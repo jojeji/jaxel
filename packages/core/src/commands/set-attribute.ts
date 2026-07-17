@@ -12,6 +12,7 @@ export function createSetAttributeCommand(
   name: string,
   value: string | null,
   ancestors: DocNode[],
+  coalesceKey?: string,
 ): Command {
   const previousIndex = node.attributes.findIndex((attribute) => attribute.name === name);
   const previousValue = previousIndex >= 0 ? node.attributes[previousIndex]!.value : null;
@@ -32,6 +33,7 @@ export function createSetAttributeCommand(
 
   return {
     label: "set-attribute",
+    coalesceKey,
     do() {
       apply(value);
     },

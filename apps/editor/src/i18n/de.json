@@ -67,5 +67,8 @@
   "shortcut.copyPaste": "Knoten kopieren / einfügen",
   "shortcut.addChild": "Kind anlegen",
   "shortcut.delete": "Löschen",
-  "shortcut.undo": "Rückgängig / Wiederholen"
+  "shortcut.undo": "Rückgängig / Wiederholen",
+  "toolbar.copyPathFull": "Vollständigen Pfad kopieren",
+  "menu.copyNode": "Knoten kopieren",
+  "menu.pasteNode": "Einfügen"
 }

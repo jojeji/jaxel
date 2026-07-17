@@ -1,10 +1,24 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { DocNode } from "@jaxel/core";
 import type { TreeRow } from "./flatten.js";
 
 const ROW_HEIGHT = 22;
 const OVERSCAN = 8;
 
 export type EditingField = { nodeId: string; field: "name" | "value" };
+
+/** Where a dragged row would land relative to the hovered row. */
+export type DropPosition = "before" | "after" | "into";
+
+interface DropTarget {
+  rowId: string;
+  position: DropPosition;
+}
+
+function isInSubtree(root: DocNode, candidate: DocNode): boolean {
+  if (root === candidate) return true;
+  return root.children.some((child) => isInSubtree(child, candidate));
+}
 
 interface TreeViewProps {
   /**
@@ -21,6 +35,10 @@ interface TreeViewProps {
   onStartEditValue: (row: TreeRow) => void;
   onCommitEdit: (row: TreeRow, field: "name" | "value", newText: string) => void;
   onCancelEdit: () => void;
+  /** Right-click on a row (row is already selected when this fires). */
+  onRowContextMenu: (row: TreeRow, x: number, y: number) => void;
+  /** Drag&drop move; validity (own subtree etc.) is pre-checked here in TreeView. */
+  onMoveNode: (source: TreeRow, target: TreeRow, position: DropPosition) => void;
   /**
    * When set (e.g. by "next search match" or keyboard navigation), scrolls this node's
    * row into view. Expanding its ancestors is App's job (it owns the expanded set).
@@ -43,11 +61,15 @@ export function TreeView({
   onStartEditValue,
   onCommitEdit,
   onCancelEdit,
+  onRowContextMenu,
+  onMoveNode,
   revealNodeId,
 }: TreeViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [dragRowId, setDragRowId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -78,6 +100,45 @@ export function TreeView({
   const endIndex = Math.min(rows.length, startIndex + visibleCount);
   const visibleRows = rows.slice(startIndex, endIndex);
 
+  const dragRow = dragRowId ? (rows.find((row) => row.node.id === dragRowId) ?? null) : null;
+
+  function dropAllowed(target: TreeRow, position: DropPosition): boolean {
+    if (!dragRow) return false;
+    if (target.node.id === dragRow.node.id) return false;
+    if (isInSubtree(dragRow.node, target.node)) return false; // can't move into own subtree
+    if (position !== "into" && target.ancestors.length === 0) return false; // no siblings of the root
+    return true;
+  }
+
+  function handleDragOver(row: TreeRow, event: React.DragEvent): void {
+    if (!dragRow) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
+    const position: DropPosition = ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "into";
+    if (!dropAllowed(row, position)) {
+      setDropTarget(null);
+      return;
+    }
+    event.preventDefault(); // allows the drop
+    event.dataTransfer.dropEffect = "move";
+    setDropTarget((current) =>
+      current?.rowId === row.node.id && current.position === position
+        ? current
+        : { rowId: row.node.id, position },
+    );
+  }
+
+  function handleDrop(row: TreeRow, event: React.DragEvent): void {
+    event.preventDefault();
+    const source = dragRow;
+    const target = dropTarget;
+    setDragRowId(null);
+    setDropTarget(null);
+    if (!source || !target || target.rowId !== row.node.id) return;
+    if (!dropAllowed(row, target.position)) return;
+    onMoveNode(source, row, target.position);
+  }
+
   return (
     <div
       ref={containerRef}
@@ -93,12 +154,25 @@ export function TreeView({
             expanded={expanded.has(row.node.id)}
             selected={row.node.id === selectedId}
             editingField={editingField?.nodeId === row.node.id ? editingField.field : null}
+            dropPosition={dropTarget?.rowId === row.node.id ? dropTarget.position : null}
             onToggle={() => onToggle(row)}
             onSelect={() => onSelect(row)}
             onStartEditName={() => onStartEditName(row)}
             onStartEditValue={() => onStartEditValue(row)}
             onCommitEdit={(field, text) => onCommitEdit(row, field, text)}
             onCancelEdit={onCancelEdit}
+            onContextMenu={(x, y) => onRowContextMenu(row, x, y)}
+            onDragStart={(event) => {
+              event.dataTransfer.setData("text/plain", row.node.name);
+              event.dataTransfer.effectAllowed = "move";
+              setDragRowId(row.node.id);
+            }}
+            onDragOver={(event) => handleDragOver(row, event)}
+            onDrop={(event) => handleDrop(row, event)}
+            onDragEnd={() => {
+              setDragRowId(null);
+              setDropTarget(null);
+            }}
           />
         ))}
       </div>
@@ -112,12 +186,18 @@ interface TreeRowViewProps {
   expanded: boolean;
   selected: boolean;
   editingField: "name" | "value" | null;
+  dropPosition: DropPosition | null;
   onToggle: () => void;
   onSelect: () => void;
   onStartEditName: () => void;
   onStartEditValue: () => void;
   onCommitEdit: (field: "name" | "value", newText: string) => void;
   onCancelEdit: () => void;
+  onContextMenu: (x: number, y: number) => void;
+  onDragStart: (event: React.DragEvent) => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onDrop: (event: React.DragEvent) => void;
+  onDragEnd: () => void;
 }
 
 function TreeRowView({
@@ -126,15 +206,29 @@ function TreeRowView({
   expanded,
   selected,
   editingField,
+  dropPosition,
   onToggle,
   onSelect,
   onStartEditName,
   onStartEditValue,
   onCommitEdit,
   onCancelEdit,
+  onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: TreeRowViewProps): React.ReactElement {
   const { node, depth, hasChildren } = row;
   const preview = hasChildren ? `(${node.children.length})` : (node.value ?? "");
+  const dropClass =
+    dropPosition === "into"
+      ? " tree-row--drop-into"
+      : dropPosition === "before"
+        ? " tree-row--drop-before"
+        : dropPosition === "after"
+          ? " tree-row--drop-after"
+          : "";
 
   // Single click selects AND toggles (double-click fires two clicks first, so a toggle
   // pair cancels itself out before the name/value editor opens — net-neutral by design).
@@ -145,9 +239,19 @@ function TreeRowView({
 
   return (
     <div
-      className={`tree-row${selected ? " tree-row--selected" : ""}`}
-      style={{ top, height: ROW_HEIGHT, paddingLeft: depth * 16 }}
+      className={`tree-row${selected ? " tree-row--selected" : ""}${dropClass}`}
+      style={{ top, height: ROW_HEIGHT, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
       onClick={handleRowClick}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onSelect();
+        onContextMenu(event.clientX, event.clientY);
+      }}
+      draggable={row.ancestors.length > 0 && editingField === null}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
     >
       <span
         className="tree-row__twisty"
