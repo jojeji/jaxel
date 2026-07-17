@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Variante A: Knotenbaum — Wurzel + zwei Kinder, Petrol auf dunklem Navy -->
+  <rect x="0" y="0" width="256" height="256" rx="58" fill="#0f2430"/>
+  <g stroke="#2cb5b3" stroke-width="11" stroke-linecap="round">
+    <line x1="128" y1="86" x2="78" y2="172"/>
+    <line x1="128" y1="86" x2="178" y2="172"/>
+  </g>
+  <circle cx="128" cy="78" r="24" fill="#2cb5b3"/>
+  <circle cx="76" cy="180" r="18" fill="#e8f4f4"/>
+  <circle cx="180" cy="180" r="18" fill="#e8f4f4"/>
+</svg>

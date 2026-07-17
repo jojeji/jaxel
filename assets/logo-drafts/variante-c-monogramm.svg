@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Variante C: J-Monogramm — Petrol-J mit Knotenpunkt auf dunklem Navy -->
+  <rect x="0" y="0" width="256" height="256" rx="58" fill="#0f2430"/>
+  <g stroke="#2cb5b3" stroke-width="26" stroke-linecap="round" fill="none">
+    <path d="M100 64 H186"/>
+    <path d="M152 64 V158 A44 44 0 0 1 64 158"/>
+  </g>
+  <circle cx="192" cy="192" r="14" fill="#e8f4f4"/>
+</svg>

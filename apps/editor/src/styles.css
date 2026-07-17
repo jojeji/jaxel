@@ -280,22 +280,22 @@ button.primary:hover:not(:disabled) {
   gap: 32px;
 }
 
+.welcome__brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.welcome__logo {
+  border-radius: 14px;
+}
+
 .welcome__brand h1 {
   margin: 0;
   font-size: 28px;
   font-weight: 650;
   letter-spacing: -0.02em;
   color: var(--text-0);
-}
-
-.welcome__brand h1::after {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--accent);
 }
 
 .welcome__brand p {

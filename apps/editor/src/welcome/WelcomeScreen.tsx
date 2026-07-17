@@ -1,6 +1,7 @@
 import React from "react";
 import { useI18n } from "../i18n/index.js";
 import { getRecentFiles } from "../state/local-prefs.js";
+import logoUrl from "../assets/jaxel-logo.svg";
 
 interface WelcomeScreenProps {
   onOpen: () => void;
@@ -40,8 +41,11 @@ export function WelcomeScreen({ onOpen, onOpenPath }: WelcomeScreenProps): React
     <div className="welcome">
       <div className="welcome__inner">
         <div className="welcome__brand">
-          <h1>{t("app.title")}</h1>
-          <p>{t("app.tagline")}</p>
+          <img className="welcome__logo" src={logoUrl} alt="" width={64} height={64} />
+          <div>
+            <h1>{t("app.title")}</h1>
+            <p>{t("app.tagline")}</p>
+          </div>
         </div>
 
         <div className="welcome__open">
