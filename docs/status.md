@@ -3,7 +3,45 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
-## AP2 — Baumansicht + Datei öffnen (funktional fertig, visuelle Verifikation ausstehend)
+## AP3 — Editieren (abgeschlossen, per Screenshot + Interaktionstests verifiziert)
+
+- **Wert editieren**: Doppelklick auf einen Blattwert → Inline-Input, Enter/Blur übernimmt
+  (`createSetValueCommand`), Escape bricht ab.
+- **Umbenennen**: Klick auf den Namen eines BEREITS ausgewählten Knotens (Finder-Stil,
+  zweiter Klick) ODER `F2` → Inline-Input für den Namen, Enter/Blur übernimmt
+  (`createRenameCommand`).
+- **Attribute-Panel** (`apps/editor/src/panels/AttributesPanel.tsx`): zeigt Attribute des
+  ausgewählten Knotens, jedes per Input direkt änderbar, `×` entfernt, eigene Zeile zum
+  Hinzufügen — alles über `createSetAttributeCommand`.
+- **Undo/Redo**: `Strg+Z`/`Strg+Shift+Z`/`Strg+Y` global verdrahtet (ignoriert Tastendrücke,
+  während ein Textfeld fokussiert ist, damit natives Text-Undo dort nicht überschrieben wird).
+- **Knoten einfügen/löschen**: Toolbar-Buttons „Kind hinzufügen" (`createInsertNodeCommand`,
+  neuer Knoten namens `node`) und „Löschen" (`createRemoveNodeCommand`, plus `Delete`/
+  `Backspace`-Hotkey). Wurzelknoten kann nicht gelöscht werden.
+- **Wichtiger Bug gefunden und behoben** (durch die neu eingeführten Interaktionstests, nicht
+  durch bloßes Ansehen): `TreeView`s `useMemo` für die abgeflachte Zeilenliste hing nur an
+  `[root, expanded]`. Da Commands den Baum IN PLACE mutieren, ändert sich `root` bei keiner
+  Mutation die Referenz — Name-/Wert-Änderungen wirkten trotzdem sichtbar (weil jede bereits
+  gerenderte Zeile ihr lebendes `DocNode`-Feld direkt liest), aber STRUKTURELLE Änderungen
+  (Kind einfügen/löschen) erschienen im Baum überhaupt nicht, weil die Zeilenliste nie neu
+  berechnet wurde. **Fix**: `revision` (von `CommandBus`/`JaxelDocument.revision`) wird jetzt
+  als Prop durchgereicht und ist Teil der `useMemo`-Dependency-Liste.
+- **Test-Infrastruktur neu**: `apps/editor` hat jetzt vitest + jsdom + React Testing Library
+  (`npm test` in `apps/editor`, 12 Tests, alle grün) — nötig, weil in dieser Umgebung keine
+  GUI-Automatisierung (kein xdotool o.ä.) zur Verfügung steht, um echte Klicks zu simulieren.
+  Diese Tests decken exakt die AP3-Interaktionen ab (Auswahl, Umbenennen inkl. Escape-Abbruch,
+  F2, Wert-Doppelklick, Undo/Redo, Attribute hinzufügen/ändern/entfernen, Kind einfügen/löschen)
+  und sind die Regressionssicherung für spätere AP4/AP5-Arbeit an derselben UI.
+- **Verifikation**: `apps/editor`-Tests grün (12/12), `packages/core`-Tests weiterhin grün
+  (52/52), `tsc --noEmit` sauber in beiden Paketen, `cargo check` sauber. Zusätzlich real mit
+  `tauri dev -- sample.xml` gestartet und per Screenshot bestätigt (sauberer Neustart nach den
+  Fixes zeigt den Baum korrekt).
+- **Offen für AP4+**: kein Kontextmenü (nur Toolbar-Buttons), neu eingefügte Knoten werden
+  nicht automatisch ausgewählt/in Rename-Modus versetzt, Elternknoten wird beim Einfügen des
+  ersten Kindes nicht automatisch aufgeklappt — bewusste Vereinfachungen für „Feinschliff
+  später" (PO-Freigabe).
+
+## AP2 — Baumansicht + Datei öffnen (abgeschlossen, vom PO live bestätigt)
 
 - **State** (`apps/editor/src/state/document-store.ts`): `useJaxelDocument()`-Hook. Öffnet eine
   Datei über den Rust-Command `read_text_file`, erkennt XML/JSON per Endung (Fallback: erstes

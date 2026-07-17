@@ -3,5 +3,13 @@
   "app.tagline": "Ein Baum, zwei Formate",
   "welcome.openFile": "Datei öffnen…",
   "welcome.newDocument": "Neues Dokument",
-  "welcome.save": "Speichern"
+  "welcome.save": "Speichern",
+  "attributes.title": "Attribute",
+  "attributes.noSelection": "Kein Knoten ausgewählt",
+  "attributes.remove": "Attribut entfernen",
+  "attributes.add": "Attribut hinzufügen",
+  "attributes.newName": "Name",
+  "attributes.newValue": "Wert",
+  "toolbar.addChild": "Kind hinzufügen",
+  "toolbar.delete": "Löschen"
 }

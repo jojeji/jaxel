@@ -3,5 +3,13 @@
   "app.tagline": "One tree, two formats",
   "welcome.openFile": "Open file…",
   "welcome.newDocument": "New document",
-  "welcome.save": "Save"
+  "welcome.save": "Save",
+  "attributes.title": "Attributes",
+  "attributes.noSelection": "No node selected",
+  "attributes.remove": "Remove attribute",
+  "attributes.add": "Add attribute",
+  "attributes.newName": "Name",
+  "attributes.newValue": "Value",
+  "toolbar.addChild": "Add child",
+  "toolbar.delete": "Delete"
 }
