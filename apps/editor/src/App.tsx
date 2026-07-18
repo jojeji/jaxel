@@ -1191,7 +1191,18 @@ export function App(): React.ReactElement {
         <SettingsDialog settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
       )}
       {newDocOpen && <NewDocumentDialog onChoose={handleNew} onClose={() => setNewDocOpen(false)} />}
-      {aboutOpen && <AboutDialog version={appVersion} onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <AboutDialog
+          version={appVersion}
+          onOpenLog={() => {
+            invoke<string>("open_log").then(
+              (path) => setStatus(t("about.logOpened").replace("{path}", path)),
+              (err) => setError(err instanceof Error ? err.message : String(err)),
+            );
+          }}
+          onClose={() => setAboutOpen(false)}
+        />
+      )}
       {reloadPrompt && (
         <ReloadDialog
           fileName={fileNameOf(reloadPrompt.filePath)}

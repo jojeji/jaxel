@@ -4,11 +4,13 @@ import logoUrl from "../assets/jaxel-logo.svg";
 
 interface AboutDialogProps {
   version: string | null;
+  /** Opens the app's log file with the OS default application (helps with bug reports). */
+  onOpenLog: () => void;
   onClose: () => void;
 }
 
 /** "Über Jaxel": version + developer credits, opened via the toolbar info icon. */
-export function AboutDialog({ version, onClose }: AboutDialogProps): React.ReactElement {
+export function AboutDialog({ version, onOpenLog, onClose }: AboutDialogProps): React.ReactElement {
   const { t } = useI18n();
 
   return (
@@ -29,9 +31,12 @@ export function AboutDialog({ version, onClose }: AboutDialogProps): React.React
             <li>Claude ({t("about.aiAgent")}, Anthropic)</li>
           </ul>
         </div>
-        <button className="primary" onClick={onClose}>
-          {t("settings.close")}
-        </button>
+        <div className="new-doc-dialog__choices">
+          <button onClick={onOpenLog}>{t("about.openLog")}</button>
+          <button className="primary" onClick={onClose}>
+            {t("settings.close")}
+          </button>
+        </div>
       </div>
     </div>
   );

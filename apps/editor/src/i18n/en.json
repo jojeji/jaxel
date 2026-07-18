@@ -52,6 +52,8 @@
   "about.version": "Version {v}",
   "about.developers": "Developers",
   "about.aiAgent": "AI agent",
+  "about.openLog": "Open log file",
+  "about.logOpened": "Log opened: {path}",
   "tabs.close": "Close tab",
   "tabs.newDocumentHint": "Click empty area to create a new document",
   "search.filter": "Filter",

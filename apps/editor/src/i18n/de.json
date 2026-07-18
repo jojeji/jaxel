@@ -52,6 +52,8 @@
   "about.version": "Version {v}",
   "about.developers": "Entwickler",
   "about.aiAgent": "KI-Agent",
+  "about.openLog": "Logdatei öffnen",
+  "about.logOpened": "Log geöffnet: {path}",
   "tabs.close": "Tab schließen",
   "tabs.newDocumentHint": "Klick auf freie Fläche: neues Dokument",
   "search.filter": "Filtern",

@@ -103,6 +103,7 @@ beforeEach(() => {
       const ext = (args as { extension?: string } | undefined)?.extension ?? "bin";
       return `/tmp/jaxel-decoded-1.${ext}`;
     }
+    if (cmd === "open_log") return "/fake/logs/Jaxel.log";
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
@@ -821,6 +822,18 @@ describe("Über Jaxel", () => {
 
     await user.click(screen.getByRole("button", { name: "Schließen" }));
     expect(screen.queryByText("Joey Lauterbach")).not.toBeInTheDocument();
+  });
+
+  it("„Logdatei öffnen“ ruft open_log auf und zeigt den Pfad als Status", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Über Jaxel" }));
+    await user.click(screen.getByRole("button", { name: "Logdatei öffnen" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "open_log")).toBe(true),
+    );
+    expect(await screen.findByText("Log geöffnet: /fake/logs/Jaxel.log")).toBeInTheDocument();
   });
 });
 

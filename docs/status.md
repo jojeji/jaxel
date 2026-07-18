@@ -18,9 +18,21 @@ real geklickt.
 
 Nächste APs in PO-Priorität: **1)** ~~Ungespeichert-Warnung (Tab + Fenster schließen)~~ ✔ AP10,
 **2)** ~~„Öffnen mit"-Weiterleitung an die laufende Instanz~~ ✔ AP11, **3)** ~~Sitzung wiederherstellen~~ ✔ AP12,
-**4)** ~~Base64-Decode-Ansicht~~ ✔ AP13.
+**4)** ~~Base64-Decode-Ansicht~~ ✔ AP13. Zurückgestellte Punkte: ~~Logdatei öffnen~~ ✔ AP14;
+**Update-Hinweis bleibt blockiert** — es gibt keine Release-Quelle (kein Git-Remote, kein
+Release-Server), gegen die eine Versionsprüfung laufen könnte; braucht eine PO-Entscheidung,
+wo Releases künftig veröffentlicht werden.
 Außerdem noch offen: PO-Klick-Review von AP9–AP14, PO-Test der neuen Linux-Dateizuordnung
 (`.deb` neu installieren), Windows-/NSIS-Build ungetestet.
+
+## AP14 — „Logdatei öffnen" im Über-Dialog (abgeschlossen 2026-07-18)
+
+- Neuer Rust-Command `open_log`: öffnet die von `tauri-plugin-log` (LogDir-Target,
+  Dateiname = App-Name) geschriebene Logdatei im Standardprogramm; existiert sie noch nicht,
+  wird ersatzweise das Log-Verzeichnis geöffnet. Statuszeile zeigt den Pfad.
+- Über-Dialog (`ui/AboutDialog.tsx`): neuer Button neben „Schließen".
+- **Update-Hinweis** (zweiter zurückgestellter Punkt) NICHT umgesetzt — blockiert, siehe oben.
+- **Verifikation**: 82/82 Editor-Tests (1 neu), `tsc` + `cargo check` sauber.
 
 ## AP13 — Base64-Decode-Ansicht (abgeschlossen 2026-07-18; Design: Grilling-Eintrag in `docs/entscheidungen.md`)
 

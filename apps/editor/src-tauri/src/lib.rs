@@ -96,6 +96,21 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
     Ok(path.to_string_lossy().into_owned())
 }
 
+/// "Logdatei öffnen" im Über-Dialog: opens the log file written by tauri-plugin-log's
+/// LogDir target (default file name = app name) in the OS default application; falls back
+/// to opening the log directory if the file does not exist yet.
+#[tauri::command]
+fn open_log(app: tauri::AppHandle) -> Result<String, InvokeError> {
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| InvokeError::from(format!("Log-Verzeichnis unbekannt: {e}")))?;
+    let file = dir.join(format!("{}.log", app.package_info().name));
+    let target = if file.is_file() { file } else { dir };
+    open::that_detached(&target).map_err(|e| InvokeError::from(format!("Öffnen fehlgeschlagen: {e}")))?;
+    Ok(target.to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let startup_paths: Vec<String> = std::env::args()
@@ -141,7 +156,8 @@ pub fn run() {
             write_text_file,
             stat_file,
             take_pending_open_paths,
-            open_decoded_file
+            open_decoded_file,
+            open_log
         ])
         .setup(move |app| {
             app.manage(PendingOpenPaths(Mutex::new(startup_paths)));

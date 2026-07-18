@@ -136,6 +136,8 @@ noch nicht verfügbar).
 ## Über Jaxel
 
 Info-Symbol (ⓘ) oben rechts in der Toolbar: Versionsnummer und die Entwickler des Projekts.
+Dazu **„Logdatei öffnen"** — nützlich für Fehlerberichte: Die Datei enthält das technische
+Protokoll der laufenden Sitzung.
 
 ## Tastenkürzel
 
