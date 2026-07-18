@@ -63,6 +63,8 @@
   "settings.search": "Search",
   "settings.filterSubtree": "Filter also shows the subtree of matches",
   "settings.externalChanges": "External changes",
+  "settings.startup": "Startup",
+  "settings.restoreSession": "Restore last session's tabs on startup",
   "settings.autoReload": "Reload automatically when there are no unsaved local changes",
   "reload.title": "File changed externally",
   "reload.messageClean": "“{name}” was changed by another program. Reload now?",

@@ -32,6 +32,9 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   Bereiche der Datei bleiben byte-genau erhalten.
 - **Mehrere Dokumente**: jede Datei bekommt einen Tab; erneutes Öffnen derselben Datei aktiviert
   den vorhandenen Tab.
+- **Sitzung wiederherstellen**: Beim Start öffnet Jaxel automatisch die Tabs der letzten
+  Sitzung wieder (abschaltbar in den Einstellungen unter „Programmstart"). Unbenannte, nie
+  gespeicherte Dokumente und Fokus-Ansichten werden dabei nicht wiederhergestellt.
 - **Schutz vor Datenverlust**: Beim Schließen eines Tabs mit ungespeicherten Änderungen fragt
   Jaxel nach — „Speichern", „Nicht speichern" oder „Abbrechen". Dasselbe gilt beim Schließen des
   Fensters; sind mehrere Dokumente betroffen, werden sie aufgelistet und „Alle speichern"

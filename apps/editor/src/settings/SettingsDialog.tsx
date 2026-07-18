@@ -75,6 +75,18 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
         </fieldset>
 
         <fieldset>
+          <legend>{t("settings.startup")}</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.restoreSession}
+              onChange={(event) => onChange({ restoreSession: event.target.checked })}
+            />
+            {t("settings.restoreSession")}
+          </label>
+        </fieldset>
+
+        <fieldset>
           <legend>{t("settings.windowMode")}</legend>
           <label>
             <input

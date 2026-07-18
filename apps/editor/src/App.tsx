@@ -46,7 +46,7 @@ import {
 import { useI18n } from "./i18n/index.js";
 import { tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
-import { getLastDir, rememberLastDir, addRecentFile } from "./state/local-prefs.js";
+import { getLastDir, rememberLastDir, addRecentFile, getStoredSession, storeSession } from "./state/local-prefs.js";
 import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
 import { FocusBreadcrumb } from "./tree/FocusBreadcrumb.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
@@ -165,6 +165,44 @@ export function App(): React.ReactElement {
       delete document.documentElement.dataset.theme;
     }
   }, [settings.theme]);
+
+  // Session restore (AP12): reopen the previous session's tabs on startup, unless disabled.
+  // Declared BEFORE the session-save effect below so the stored session is read before any
+  // save could overwrite it; saving stays suspended until the restore has finished.
+  const sessionRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!settings.restoreSession) {
+      sessionRestoredRef.current = true;
+      return;
+    }
+    const stored = getStoredSession();
+    void (async () => {
+      for (const path of stored.paths) {
+        try {
+          // openFile, not openPath: restoring must not reshuffle "Zuletzt geöffnet".
+          await openFile(path);
+        } catch {
+          // file vanished since last session — skip it silently
+        }
+      }
+      if (stored.activePath) activate(stored.activePath);
+      sessionRestoredRef.current = true;
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only, reads initial setting
+  }, []);
+
+  // Record the current session (full-view tabs on real files; untitled and focus tabs are
+  // deliberately excluded — focus node ids do not survive a re-parse).
+  useEffect(() => {
+    if (!sessionRestoredRef.current) return;
+    const paths = tabs
+      .filter((t) => !t.focusNodeId)
+      .map((t) => t.filePath)
+      .filter((p) => !docs.find((d) => d.filePath === p)?.isUntitled);
+    const activePath =
+      activeTab && paths.includes(activeTab.filePath) ? activeTab.filePath : null;
+    storeSession({ paths, activePath });
+  }, [tabs, activeTab, docs]);
 
   // Files passed on the command line (`jaxel some.xml`) or via "Öffnen mit" arrive here —
   // the backend queues them until the frontend pulls. A second app launch (single-instance)

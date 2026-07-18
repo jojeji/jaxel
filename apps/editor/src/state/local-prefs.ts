@@ -35,3 +35,31 @@ export function addRecentFile(filePath: string): string[] {
   localStorage.setItem(RECENT_KEY, JSON.stringify(next));
   return next;
 }
+
+const SESSION_KEY = "jaxel.session";
+
+/** The tabs of the last session (AP12): full-view tabs on real files only — untitled
+ * documents and focus tabs are deliberately not restored (focus node ids do not survive a
+ * re-parse). */
+export interface StoredSession {
+  paths: string[];
+  activePath: string | null;
+}
+
+export function getStoredSession(): StoredSession {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return { paths: [], activePath: null };
+    const parsed = JSON.parse(raw) as Partial<StoredSession>;
+    return {
+      paths: Array.isArray(parsed.paths) ? parsed.paths.filter((p): p is string => typeof p === "string") : [],
+      activePath: typeof parsed.activePath === "string" ? parsed.activePath : null,
+    };
+  } catch {
+    return { paths: [], activePath: null };
+  }
+}
+
+export function storeSession(session: StoredSession): void {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}

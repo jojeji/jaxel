@@ -1159,6 +1159,60 @@ describe("Ungespeicherte Änderungen beim Schließen", () => {
   });
 });
 
+describe("Sitzung wiederherstellen", () => {
+  it("öffnet die Tabs der letzten Sitzung beim Start und aktiviert den gemerkten Tab", async () => {
+    localStorage.setItem(
+      "jaxel.session",
+      JSON.stringify({ paths: ["/fake/sample.xml", "/fake/second.xml"], activePath: "/fake/sample.xml" }),
+    );
+    renderApp();
+
+    expect(await screen.findByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(await screen.findByText("second.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    // Der gemerkte aktive Tab (sample.xml) zeigt seinen Baum, nicht der zuletzt geöffnete.
+    expect(await screen.findByText("catalog")).toBeInTheDocument();
+    expect(screen.queryByText("inventory")).not.toBeInTheDocument();
+  });
+
+  it("stellt nichts wieder her, wenn die Einstellung deaktiviert ist", async () => {
+    localStorage.setItem("jaxel.settings", JSON.stringify({ restoreSession: false }));
+    localStorage.setItem("jaxel.session", JSON.stringify({ paths: ["/fake/sample.xml"], activePath: null }));
+    renderApp();
+
+    expect(await screen.findByText("Datei öffnen…")).toBeInTheDocument(); // Startscreen
+    expect(screen.queryByText("sample.xml", { selector: ".tab__label" })).not.toBeInTheDocument();
+  });
+
+  it("merkt sich geöffnete Dateien in der Sitzung", async () => {
+    await openSampleFile();
+    await waitFor(() => {
+      const session = JSON.parse(localStorage.getItem("jaxel.session") ?? "{}") as { paths?: string[] };
+      expect(session.paths).toEqual(["/fake/sample.xml"]);
+    });
+  });
+
+  it("überspringt verschwundene Dateien still und öffnet den Rest", async () => {
+    localStorage.setItem(
+      "jaxel.session",
+      JSON.stringify({ paths: ["/fake/missing.xml", "/fake/sample.xml"], activePath: null }),
+    );
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "take_pending_open_paths") return [];
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "";
+        if (!FILES[path]) throw new Error("Datei nicht gefunden");
+        return { content: FILES[path]!, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    renderApp();
+
+    expect(await screen.findByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.queryByText("missing.xml", { selector: ".tab__label" })).not.toBeInTheDocument();
+  });
+});
+
 describe("Öffnen mit / Kommandozeilen-Pfade (pending open paths)", () => {
   it("öffnet beim Start ALLE wartenden Pfade, nicht nur den ersten", async () => {
     vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {

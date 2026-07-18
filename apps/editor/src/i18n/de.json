@@ -63,6 +63,8 @@
   "settings.search": "Suche",
   "settings.filterSubtree": "Filter zeigt auch den Unterbaum der Treffer",
   "settings.externalChanges": "Externe Änderungen",
+  "settings.startup": "Programmstart",
+  "settings.restoreSession": "Zuletzt geöffnete Tabs beim Start wiederherstellen",
   "settings.autoReload": "Automatisch neu laden, wenn keine eigenen ungespeicherten Änderungen vorliegen",
   "reload.title": "Datei wurde extern geändert",
   "reload.messageClean": "„{name}“ wurde von einem anderen Programm geändert. Jetzt neu laden?",

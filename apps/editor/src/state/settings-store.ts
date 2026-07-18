@@ -16,6 +16,9 @@ export interface Settings {
    * instead of asking. Default off (ask every time) — this NEVER applies while local edits
    * are unsaved, regardless of this setting. */
   autoReloadOnExternalChange: boolean;
+  /** Reopen the previous session's tabs on startup (AP12). The session itself is always
+   * recorded (cheap, local) — this only gates the restore. */
+  restoreSession: boolean;
 }
 
 const STORAGE_KEY = "jaxel.settings";
@@ -24,6 +27,7 @@ const DEFAULTS: Settings = {
   windowMode: "tabs",
   filterIncludesSubtree: false,
   autoReloadOnExternalChange: false,
+  restoreSession: true,
 };
 
 function load(): Settings {

@@ -17,10 +17,28 @@ real geklickt.
 ## Geplant (Grilling 2026-07-18, Details in `docs/entscheidungen.md`)
 
 Nächste APs in PO-Priorität: **1)** ~~Ungespeichert-Warnung (Tab + Fenster schließen)~~ ✔ AP10,
-**2)** ~~„Öffnen mit"-Weiterleitung an die laufende Instanz~~ ✔ AP11, **3)** Sitzung wiederherstellen,
+**2)** ~~„Öffnen mit"-Weiterleitung an die laufende Instanz~~ ✔ AP11, **3)** ~~Sitzung wiederherstellen~~ ✔ AP12,
 **4)** Base64-Decode-Ansicht (Heuristik + Badge + Kontextmenü, zweigleisige Anzeige, read-only).
 Außerdem noch offen: PO-Klick-Review von AP9 + AP10, PO-Test der neuen Linux-Dateizuordnung
 (`.deb` neu installieren), Windows-/NSIS-Build ungetestet.
+
+## AP12 — Sitzung wiederherstellen (abgeschlossen 2026-07-18)
+
+- **Einstellung** `restoreSession` (SettingsDialog, neue Gruppe „Programmstart", Default AN):
+  Beim Start werden die Vollansicht-Tabs der letzten Sitzung wieder geöffnet und der zuletzt
+  aktive Tab aktiviert. Gespeichert wird die Sitzung IMMER (localStorage `jaxel.session`,
+  `state/local-prefs.ts`) — die Einstellung steuert nur das Wiederherstellen.
+- **Ablauf** (`App.tsx`): Restore-Effekt liest die gespeicherte Sitzung VOR dem Save-Effekt
+  (Deklarationsreihenfolge) und hält das Speichern per Ref an, bis der Restore durch ist —
+  sonst würde die leere Start-Tab-Liste die Sitzung überschreiben, bevor sie gelesen ist.
+  Restore nutzt `openFile` statt `openPath`, damit „Zuletzt geöffnet" nicht bei jedem Start
+  umsortiert wird. Verschwundene Dateien werden still übersprungen.
+- **Bewusste Vereinfachungen**: Unbenannte Dokumente und Fokus-Tabs werden nicht
+  wiederhergestellt (Fokus-Knoten-Ids überleben kein erneutes Parsen; ein Segment-basierter
+  Fokus-Restore wäre möglich, ist aber bewusst nicht Teil dieses AP). Auf-/zugeklappte Knoten
+  und Auswahl werden nicht gemerkt.
+- **Verifikation**: 76/76 Editor-Tests (4 neu: Restore inkl. aktivem Tab, Einstellung aus,
+  Sitzung wird gespeichert, fehlende Datei übersprungen), `tsc` sauber.
 
 ## AP11 — „Öffnen mit" bei laufender App: Weiterleitung an die laufende Instanz (abgeschlossen 2026-07-18)
 
