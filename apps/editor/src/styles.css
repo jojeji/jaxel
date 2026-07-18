@@ -915,6 +915,12 @@ kbd {
   gap: 12px;
 }
 
+.close-dialog__files {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
 .new-doc-dialog__choices button {
   flex: 1;
 }

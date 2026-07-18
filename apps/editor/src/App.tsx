@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
@@ -44,7 +44,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
-import { useJaxelDocuments } from "./state/document-store.js";
+import { tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
 import { getLastDir, rememberLastDir, addRecentFile } from "./state/local-prefs.js";
 import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
@@ -60,6 +60,7 @@ import { NewDocumentDialog } from "./welcome/NewDocumentDialog.js";
 import { IconButton } from "./ui/IconButton.js";
 import { ContextMenu, type ContextMenuItem } from "./ui/ContextMenu.js";
 import { ReloadDialog } from "./ui/ReloadDialog.js";
+import { CloseConfirmDialog } from "./ui/CloseConfirmDialog.js";
 import { AboutDialog } from "./ui/AboutDialog.js";
 
 function isTextInput(target: EventTarget | null): boolean {
@@ -70,6 +71,7 @@ export function App(): React.ReactElement {
   const { t } = useI18n();
   const { settings, setSettings } = useSettings();
   const {
+    docs,
     tabs,
     activeTab,
     activeDoc,
@@ -97,6 +99,10 @@ export function App(): React.ReactElement {
   const [dragOver, setDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [reloadPrompt, setReloadPrompt] = useState<{ filePath: string; isDirty: boolean } | null>(null);
+  /** Pending "ungespeicherte Änderungen" question: a single tab close, or the whole window. */
+  const [closePrompt, setClosePrompt] = useState<
+    { kind: "tab"; key: string; filePath: string; focusNodeId: string | null } | { kind: "window" } | null
+  >(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
 
@@ -168,6 +174,37 @@ export function App(): React.ReactElement {
       if (first) void openFile(first);
     });
   }, [openFile]);
+
+  // Intercept the window close while any document has unsaved changes (docs/entscheidungen.md
+  // 2026-07-18, Desktop-Reife #1). Registered once; the handler reads the live docs via ref.
+  // Unavailable outside a real Tauri window (plain `vite` dev / jsdom) — then nothing to hook.
+  const docsRef = useRef(docs);
+  useEffect(() => {
+    docsRef.current = docs;
+  }, [docs]);
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const fn = await getCurrentWindow().onCloseRequested((event) => {
+          if (docsRef.current.some((d) => d.isDirty)) {
+            event.preventDefault();
+            setClosePrompt({ kind: "window" });
+          }
+        });
+        if (disposed) fn();
+        else unlisten = fn;
+      } catch {
+        // not running inside a Tauri window
+      }
+    })();
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Drag&drop of files onto the window (Tauri webview event; unavailable — and silently
   // skipped — outside a real Tauri window, e.g. in jsdom tests).
@@ -350,23 +387,32 @@ export function App(): React.ReactElement {
     addRecentFile(path);
   }
 
+  /** Saves one document (not necessarily the active one); an untitled document goes through
+   * the OS "save as" dialog first. Returns the document's (possibly new) path, or null if
+   * the user cancelled that dialog. */
+  async function saveDoc(doc: OpenDocumentState): Promise<string | null> {
+    if (doc.isUntitled) {
+      const extension = doc.format === "xml" ? "xml" : "json";
+      const dir = getLastDir();
+      const path = await save({
+        defaultPath: dir ? `${dir}/${doc.filePath}.${extension}` : `${doc.filePath}.${extension}`,
+        filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
+      });
+      if (typeof path !== "string") return null; // user cancelled the dialog
+      await saveFileAs(doc.filePath, path);
+      rememberLastDir(path);
+      addRecentFile(path);
+      return path;
+    }
+    await saveFile(doc.filePath);
+    return doc.filePath;
+  }
+
   async function handleSave(): Promise<void> {
+    if (!activeDoc) return;
     setError(null);
     try {
-      if (activeDoc?.isUntitled) {
-        const extension = activeDoc.format === "xml" ? "xml" : "json";
-        const dir = getLastDir();
-        const path = await save({
-          defaultPath: dir ? `${dir}/${activeDoc.filePath}.${extension}` : `${activeDoc.filePath}.${extension}`,
-          filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
-        });
-        if (typeof path !== "string") return; // user cancelled the dialog
-        await saveFileAs(activeDoc.filePath, path);
-        rememberLastDir(path);
-        addRecentFile(path);
-      } else {
-        await saveFile();
-      }
+      await saveDoc(activeDoc);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -770,7 +816,63 @@ export function App(): React.ReactElement {
   }
 
   function handleCloseTab(key: string): void {
+    // Warn only when this close would UNLOAD a dirty document — i.e. no other tab (full
+    // view or focus) still references it. Closing a focus tab beside an open full view
+    // loses nothing and stays silent.
+    const tab = tabs.find((t) => t.key === key);
+    if (tab && !tabs.some((t) => t.filePath === tab.filePath && t.key !== key)) {
+      const doc = docs.find((d) => d.filePath === tab.filePath);
+      if (doc?.isDirty) {
+        setClosePrompt({ kind: "tab", key, filePath: tab.filePath, focusNodeId: tab.focusNodeId });
+        return;
+      }
+    }
     closeTab(key);
+  }
+
+  async function destroyWindow(): Promise<void> {
+    try {
+      // destroy(), not close(): close() would re-fire onCloseRequested and re-open the dialog.
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().destroy();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  /** "Speichern"/"Alle speichern" in the close dialog: save first, then finish the close.
+   * A cancelled "save as" (untitled document) aborts the whole close — nothing is lost. */
+  async function handleClosePromptSave(): Promise<void> {
+    const prompt = closePrompt;
+    if (!prompt) return;
+    setError(null);
+    try {
+      if (prompt.kind === "tab") {
+        const doc = docs.find((d) => d.filePath === prompt.filePath);
+        const savedPath = doc ? await saveDoc(doc) : prompt.filePath;
+        if (savedPath === null) return; // save-as cancelled — keep the tab open
+        setClosePrompt(null);
+        // A save-as may have renamed the document (and with it every tab key) — re-derive
+        // the closing tab's key from the path the save actually ended up under.
+        closeTab(tabKey(savedPath, prompt.focusNodeId));
+      } else {
+        for (const doc of docs.filter((d) => d.isDirty)) {
+          if ((await saveDoc(doc)) === null) return; // cancelled — abort the window close
+        }
+        setClosePrompt(null);
+        await destroyWindow();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function handleClosePromptDiscard(): void {
+    const prompt = closePrompt;
+    if (!prompt) return;
+    setClosePrompt(null);
+    if (prompt.kind === "tab") closeTab(prompt.key);
+    else void destroyWindow();
   }
 
   /** Right-click "Fokus ab hier öffnen": a new tab showing only this node's subtree, sharing
@@ -985,6 +1087,18 @@ export function App(): React.ReactElement {
           isDirty={reloadPrompt.isDirty}
           onReload={() => void performReload(reloadPrompt.filePath)}
           onKeepMine={() => setReloadPrompt(null)}
+        />
+      )}
+      {closePrompt && (
+        <CloseConfirmDialog
+          fileNames={
+            closePrompt.kind === "tab"
+              ? [fileNameOf(closePrompt.filePath)]
+              : docs.filter((d) => d.isDirty).map((d) => fileNameOf(d.filePath))
+          }
+          onSave={() => void handleClosePromptSave()}
+          onDiscard={handleClosePromptDiscard}
+          onCancel={() => setClosePrompt(null)}
         />
       )}
     </div>

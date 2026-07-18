@@ -32,6 +32,13 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   Bereiche der Datei bleiben byte-genau erhalten.
 - **Mehrere Dokumente**: jede Datei bekommt einen Tab; erneutes Öffnen derselben Datei aktiviert
   den vorhandenen Tab.
+- **Schutz vor Datenverlust**: Beim Schließen eines Tabs mit ungespeicherten Änderungen fragt
+  Jaxel nach — „Speichern", „Nicht speichern" oder „Abbrechen". Dasselbe gilt beim Schließen des
+  Fensters; sind mehrere Dokumente betroffen, werden sie aufgelistet und „Alle speichern"
+  speichert sie in einem Rutsch (noch nie gespeicherte Dokumente fragen dabei nach einem
+  Dateinamen; ein Abbruch dort bricht das gesamte Schließen ab). Das Schließen einer
+  Fokus-Ansicht fragt nicht, solange das Dokument in einem anderen Tab geöffnet bleibt —
+  dabei geht nichts verloren.
 - **Extern geänderte Dateien**: Wurde eine offene Datei von einem anderen Programm verändert,
   fragt Jaxel beim nächsten Zurückwechseln ins Fenster nach, ob neu geladen werden soll (Namen,
   Werte, Attribute — der komplette Baum wird neu eingelesen; die Auswahl und aufgeklappte

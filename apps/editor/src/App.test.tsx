@@ -1,6 +1,6 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -9,6 +9,21 @@ import { I18nProvider } from "./i18n/index.js";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
+
+/** Captures the App's onCloseRequested handler so tests can simulate a window close. */
+const windowMock = vi.hoisted(() => ({
+  closeHandlers: [] as Array<(event: { preventDefault: () => void }) => void>,
+  destroy: vi.fn(),
+}));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: async (handler: (event: { preventDefault: () => void }) => void) => {
+      windowMock.closeHandlers.push(handler);
+      return () => {};
+    },
+    destroy: windowMock.destroy,
+  }),
+}));
 
 // jsdom has no ResizeObserver; TreeView only needs it to know the viewport height for
 // virtualization, and the tests here use small trees that fit well within the fallback
@@ -63,6 +78,8 @@ beforeEach(() => {
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
+  windowMock.closeHandlers.length = 0;
+  windowMock.destroy.mockClear();
   writeText.mockClear();
   readText.mockClear();
   readText.mockResolvedValue("");
@@ -1002,5 +1019,131 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
 
     expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
     expect(screen.getByText(/gibt es hier ungespeicherte Änderungen/)).toBeInTheDocument();
+  });
+});
+
+describe("Ungespeicherte Änderungen beim Schließen", () => {
+  /** Selektiert die Wurzel und fügt per Strg+Plus ein Kind ein — Dokument wird "dirty". */
+  async function makeDirty(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    await user.click(screen.getByText("catalog"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true });
+  }
+
+  it("Tab schließen mit ungespeicherten Änderungen zeigt den Dialog; Abbrechen behält den Tab", async () => {
+    const user = await openSampleFile();
+    await makeDirty(user);
+
+    await user.click(screen.getByTitle("Tab schließen"));
+    expect(await screen.findByText("Ungespeicherte Änderungen")).toBeInTheDocument();
+    expect(screen.getByText(/„sample.xml“ hat ungespeicherte Änderungen/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+    expect(screen.queryByText("Ungespeicherte Änderungen")).not.toBeInTheDocument();
+    expect(screen.getByText("catalog")).toBeInTheDocument();
+  });
+
+  it("„Nicht speichern“ schließt den Tab, ohne zu speichern", async () => {
+    const user = await openSampleFile();
+    await makeDirty(user);
+
+    await user.click(screen.getByTitle("Tab schließen"));
+    await user.click(await screen.findByRole("button", { name: "Nicht speichern" }));
+
+    expect(screen.queryByText("catalog")).not.toBeInTheDocument();
+    expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "write_text_file")).toBe(false);
+  });
+
+  it("„Speichern“ speichert und schließt den Tab danach", async () => {
+    const user = await openSampleFile();
+    await makeDirty(user);
+
+    await user.click(screen.getByTitle("Tab schließen"));
+    // "Speichern" existiert auch als Toolbar-Button — nur im Dialog klicken.
+    const dialog = (await screen.findByText("Ungespeicherte Änderungen")).closest(".settings-dialog")!;
+    await user.click(within(dialog as HTMLElement).getByRole("button", { name: "Speichern" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "write_text_file")).toBe(true),
+    );
+    await waitFor(() => expect(screen.queryByText("catalog")).not.toBeInTheDocument());
+  });
+
+  it("Tab ohne Änderungen schließt ohne Dialog", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByTitle("Tab schließen"));
+    expect(screen.queryByText("Ungespeicherte Änderungen")).not.toBeInTheDocument();
+    expect(screen.queryByText("catalog")).not.toBeInTheDocument();
+  });
+
+  it("Fokus-Tab schließen fragt nicht, solange die Vollansicht das Dokument offen hält", async () => {
+    const user = await openSampleFile();
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+    await screen.findByText("person — sample.xml", { selector: ".tab__label" });
+
+    await user.click(screen.getByText("person", { selector: ".tree-row__name" }));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true }); // dirty (geteilter CommandBus)
+
+    const closeButtons = screen.getAllByTitle("Tab schließen");
+    await user.click(closeButtons[1]!); // der Fokus-Tab
+
+    expect(screen.queryByText("Ungespeicherte Änderungen")).not.toBeInTheDocument();
+    expect(screen.getByText("catalog", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+
+  it("Fenster schließen mit ungespeicherten Änderungen wird abgefangen; „Nicht speichern“ zerstört das Fenster", async () => {
+    const user = await openSampleFile();
+    await makeDirty(user);
+    await waitFor(() => expect(windowMock.closeHandlers).toHaveLength(1));
+
+    const event = { preventDefault: vi.fn() };
+    act(() => windowMock.closeHandlers.forEach((handler) => handler(event)));
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(await screen.findByText("Ungespeicherte Änderungen")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Nicht speichern" }));
+    await waitFor(() => expect(windowMock.destroy).toHaveBeenCalled());
+  });
+
+  it("Fenster schließen ohne ungespeicherte Änderungen läuft ungehindert durch", async () => {
+    await openSampleFile();
+    await waitFor(() => expect(windowMock.closeHandlers).toHaveLength(1));
+
+    const event = { preventDefault: vi.fn() };
+    act(() => windowMock.closeHandlers.forEach((handler) => handler(event)));
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(screen.queryByText("Ungespeicherte Änderungen")).not.toBeInTheDocument();
+  });
+
+  it("„Alle speichern“ beim Fenster-Schließen speichert jedes geänderte Dokument und zerstört dann das Fenster", async () => {
+    const user = await openSampleFile();
+    await makeDirty(user);
+
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+    await user.click(screen.getByText("inventory"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true }); // zweites Dokument dirty
+
+    await waitFor(() => expect(windowMock.closeHandlers).toHaveLength(1));
+    const event = { preventDefault: vi.fn() };
+    act(() => windowMock.closeHandlers.forEach((handler) => handler(event)));
+
+    expect(await screen.findByText(/2 Dokumente haben ungespeicherte Änderungen/)).toBeInTheDocument();
+    expect(screen.getByText("sample.xml", { selector: ".close-dialog__files li" })).toBeInTheDocument();
+    expect(screen.getByText("second.xml", { selector: ".close-dialog__files li" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Alle speichern" }));
+
+    await waitFor(() => {
+      const writes = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "write_text_file");
+      expect(writes.map(([, args]) => (args as { path: string }).path).sort()).toEqual([
+        "/fake/sample.xml",
+        "/fake/second.xml",
+      ]);
+    });
+    await waitFor(() => expect(windowMock.destroy).toHaveBeenCalled());
   });
 });

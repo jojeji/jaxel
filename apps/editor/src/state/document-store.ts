@@ -74,7 +74,7 @@ const NEW_DOCUMENT_SKELETON: Record<DocFormat, string> = {
   json: "{}",
 };
 
-function tabKey(filePath: string, focusNodeId: string | null): string {
+export function tabKey(filePath: string, focusNodeId: string | null): string {
   // "#" is safe here: node ids are always our own generated "n<number>" tokens (see
   // createNodeId in model/node.ts), which never contain it.
   return focusNodeId ? `${filePath}#${focusNodeId}` : filePath;

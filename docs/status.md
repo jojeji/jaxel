@@ -16,11 +16,39 @@ real geklickt.
 
 ## Geplant (Grilling 2026-07-18, Details in `docs/entscheidungen.md`)
 
-Nächste APs in PO-Priorität: **1)** Ungespeichert-Warnung (Tab + Fenster schließen),
+Nächste APs in PO-Priorität: **1)** ~~Ungespeichert-Warnung (Tab + Fenster schließen)~~ ✔ AP10,
 **2)** „Öffnen mit"-Weiterleitung an die laufende Instanz, **3)** Sitzung wiederherstellen,
 **4)** Base64-Decode-Ansicht (Heuristik + Badge + Kontextmenü, zweigleisige Anzeige, read-only).
-Außerdem noch offen: PO-Klick-Review von AP9, PO-Test der neuen Linux-Dateizuordnung
+Außerdem noch offen: PO-Klick-Review von AP9 + AP10, PO-Test der neuen Linux-Dateizuordnung
 (`.deb` neu installieren), Windows-/NSIS-Build ungetestet.
+
+## AP10 — Ungespeichert-Warnung beim Tab- und Fenster-Schließen (abgeschlossen 2026-07-18)
+
+- **Tab schließen** (`App.tsx` `handleCloseTab`): Der Warndialog (`ui/CloseConfirmDialog.tsx`,
+  „Speichern" / „Nicht speichern" / „Abbrechen") erscheint nur, wenn das Schließen das Dokument
+  wirklich ENTLÄDT — also kein anderer Tab (Vollansicht oder Fokus) es mehr referenziert. Das
+  Schließen eines Fokus-Tabs neben offener Vollansicht bleibt stumm, da verlustfrei. Overlay-Klick
+  zählt als Abbrechen.
+- **Fenster schließen** (`App.tsx`, `onCloseRequested` aus `@tauri-apps/api/window`, per
+  dynamischem Import wie beim Über-Dialog, damit jsdom/Browser ohne Tauri sauber durchlaufen):
+  Bei mindestens einem dirty Dokument wird das Schließen abgefangen; der Dialog listet alle
+  betroffenen Dokumente und bietet „Alle speichern". Nach Speichern/Verwerfen schließt
+  `destroy()` das Fenster (bewusst nicht `close()` — das würde den Handler erneut feuern).
+- **Speichern-Zweig**: `handleSave` wurde zu `saveDoc(doc)` verallgemeinert (speichert auch
+  nicht-aktive Dokumente; unbenannte laufen durch den „Speichern unter"-Dialog). Bricht der
+  Nutzer diesen Dialog ab, wird das GESAMTE Schließen abgebrochen — nichts geht verloren.
+  Falle dabei: „Speichern unter" benennt `filePath` und damit alle Tab-Keys um, deshalb wird
+  der zu schließende Tab-Key danach aus dem tatsächlichen Speicherpfad neu abgeleitet
+  (`tabKey` ist dafür jetzt aus `document-store.ts` exportiert).
+- **Bewusste Vereinfachungen**: Kein Strg+W-Shortcut (gab es vorher auch nicht, Schließen läuft
+  über den Tab-×-Button); keine Escape-Behandlung im Dialog (konsistent mit ReloadDialog).
+- **Verifikation**: 70/70 Editor-Tests (8 neu: Tab dirty → Dialog/Abbrechen, Nicht speichern,
+  Speichern+Schließen, sauberer Tab ohne Dialog, Fokus-Tab stumm, Fenster-Schließen abgefangen +
+  destroy, Fenster-Schließen sauber ungehindert, „Alle speichern" mit zwei Dokumenten), 65/65
+  Kern-Tests, `tsc --noEmit` in beiden Paketen sauber. `npm run dev` gestartet (Vite + Tauri
+  kompilieren und laufen); ein Screenshot-Beweis war diesmal nicht möglich (Bildschirm gesperrt,
+  Session unbeaufsichtigt), Klick-Automation wie in AP7–AP9 nicht verfügbar — die Dialog-Flows
+  sind per jsdom-Interaktionstest abgesichert, PO-Klick-Review steht aus.
 
 ## Nachtrag 2026-07-18 — Linux-Dateizuordnung („Öffnen mit" für XML/JSON)
 
