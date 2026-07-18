@@ -1,0 +1,5055 @@
+{
+ "version": "1.0.0",
+ "project": {
+  "name": "jaxel-workspace",
+  "languages": [
+   "typescript",
+   "rust",
+   "markdown",
+   "json",
+   "css",
+   "html",
+   "toml"
+  ],
+  "frameworks": [
+   "React",
+   "Tauri",
+   "Vite",
+   "Vitest",
+   "Serde"
+  ],
+  "description": "Plattformunabhängiger XML/JSON-Editor (Jaxel) — Tauri-2-Desktop-App mit Rust-Kern und React/TypeScript-UI im npm-Workspaces-Monorepo; Ersatz für Easy XML Editor unter Linux.",
+  "analyzedAt": "2026-07-18T09:15:08.440883+00:00",
+  "gitCommitHash": "5327072b3c065d39823f9fb29b80d94aa9f52beb"
+ },
+ "nodes": [
+  {
+   "id": "file:apps/editor/src/App.test.tsx",
+   "type": "file",
+   "name": "App.test.tsx",
+   "filePath": "apps/editor/src/App.test.tsx",
+   "summary": "Umfangreiche Integrationstests für die App-Komponente (vitest + Testing Library): Datei öffnen, Baumnavigation, Editieren, Suche, Drag-and-drop und Clipboard werden über gestubbte Tauri-invoke-Aufrufe durchgespielt.",
+   "tags": [
+    "test",
+    "integrationstest",
+    "vitest",
+    "testing-library"
+   ],
+   "complexity": "complex",
+   "languageNotes": "Stubbt Browser-APIs (ResizeObserver, Clipboard) und die Tauri-Bridge, damit die komplette App headless im jsdom laufen kann."
+  },
+  {
+   "id": "file:apps/editor/src/App.tsx",
+   "type": "file",
+   "name": "App.tsx",
+   "filePath": "apps/editor/src/App.tsx",
+   "summary": "Zentrale Anwendungs-Shell des Editors: verdrahtet Dokument-Store, Baumansicht, Suche, Attribut-Panel, Tabs, Kontextmenü und Einstellungen und übersetzt alle Nutzeraktionen (Tastatur, Drag-and-drop, Menü) in Commands auf dem CommandBus.",
+   "tags": [
+    "entry-point",
+    "orchestrierung",
+    "component",
+    "event-handler",
+    "command-bus",
+    "tested"
+   ],
+   "complexity": "complex",
+   "languageNotes": "Ein sichtbarer Nutzerschritt entspricht genau einem Undo-Schritt: Mutationen laufen ausnahmslos als (ggf. zusammengesetzte) Commands über den CommandBus aus @jaxel/core."
+  },
+  {
+   "id": "function:apps/editor/src/App.tsx:App",
+   "type": "function",
+   "name": "App",
+   "filePath": "apps/editor/src/App.tsx",
+   "lineRange": [
+    59,
+    756
+   ],
+   "summary": "Wurzelkomponente mit dem gesamten UI-Zustand (Auswahl, Expansion, Filter, Editiermodus) sowie sämtlichen Handlern für Öffnen/Speichern, Knoten-Mutationen, Suche-und-Ersetzen, Tastaturkürzel und Tauri-Drag-and-drop.",
+   "tags": [
+    "component",
+    "orchestrierung",
+    "event-handler",
+    "state-management"
+   ],
+   "complexity": "complex"
+  },
+  {
+   "id": "file:apps/editor/src/ErrorBoundary.tsx",
+   "type": "file",
+   "name": "ErrorBoundary.tsx",
+   "filePath": "apps/editor/src/ErrorBoundary.tsx",
+   "summary": "React-Error-Boundary, die Renderfehler abfängt und statt eines weißen Fensters eine Fehlermeldung anzeigt.",
+   "tags": [
+    "component",
+    "fehlerbehandlung",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "class:apps/editor/src/ErrorBoundary.tsx:ErrorBoundary",
+   "type": "class",
+   "name": "ErrorBoundary",
+   "filePath": "apps/editor/src/ErrorBoundary.tsx",
+   "lineRange": [
+    11,
+    29
+   ],
+   "summary": "Klassenkomponente mit getDerivedStateFromError, die im Fehlerfall eine Fallback-Ansicht rendert; eine der wenigen React-Klassen im Projekt, da Error Boundaries nicht als Hook existieren.",
+   "tags": [
+    "component",
+    "fehlerbehandlung",
+    "klassenkomponente"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/i18n/index.tsx",
+   "type": "file",
+   "name": "index.tsx",
+   "filePath": "apps/editor/src/i18n/index.tsx",
+   "summary": "Schlanker i18n-Layer: erkennt die Startsprache (localStorage bzw. Browsersprache), stellt den I18nProvider mit Übersetzungsfunktion t() bereit und lädt die deutschen und englischen Sprachdateien.",
+   "tags": [
+    "i18n",
+    "context-provider",
+    "hook",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/i18n/index.tsx:I18nProvider",
+   "type": "function",
+   "name": "I18nProvider",
+   "filePath": "apps/editor/src/i18n/index.tsx",
+   "lineRange": [
+    25,
+    41
+   ],
+   "summary": "Context-Provider, der die aktive Locale hält, sie in localStorage persistiert und die Lookup-Funktion t() für Übersetzungsschlüssel bereitstellt.",
+   "tags": [
+    "context-provider",
+    "i18n",
+    "component"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "function",
+   "name": "useI18n",
+   "filePath": "apps/editor/src/i18n/index.tsx",
+   "lineRange": [
+    43,
+    47
+   ],
+   "summary": "Hook, der den i18n-Kontext (t-Funktion, Locale, setLocale) liefert und außerhalb des Providers einen Fehler wirft.",
+   "tags": [
+    "hook",
+    "i18n",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/main.tsx",
+   "type": "file",
+   "name": "main.tsx",
+   "filePath": "apps/editor/src/main.tsx",
+   "summary": "Vite/React-Einstiegspunkt: mountet die App in ErrorBoundary und I18nProvider gewickelt in das DOM und lädt das globale Stylesheet.",
+   "tags": [
+    "entry-point",
+    "bootstrap",
+    "component"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/panels/AttributesPanel.tsx",
+   "type": "file",
+   "name": "AttributesPanel.tsx",
+   "filePath": "apps/editor/src/panels/AttributesPanel.tsx",
+   "summary": "Seitenpanel zum Bearbeiten der XML-Attribute des ausgewählten Knotens: Werte ändern, Attribute umbenennen (mit Duplikat-Prüfung), neue Attribute anlegen.",
+   "tags": [
+    "component",
+    "panel",
+    "attribut-editing",
+    "formular"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/panels/AttributesPanel.tsx:AttributesPanel",
+   "type": "function",
+   "name": "AttributesPanel",
+   "filePath": "apps/editor/src/panels/AttributesPanel.tsx",
+   "lineRange": [
+    15,
+    93
+   ],
+   "summary": "Rendert die Attributliste des selektierten Knotens und delegiert Änderungen über Callbacks (onSetAttribute, onRenameAttribute, onCreateAttribute) an die App, die daraus Commands macht.",
+   "tags": [
+    "component",
+    "panel",
+    "attribut-editing"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/panels/AttributesPanel.tsx:AttrNameInput",
+   "type": "function",
+   "name": "AttrNameInput",
+   "filePath": "apps/editor/src/panels/AttributesPanel.tsx",
+   "lineRange": [
+    101,
+    146
+   ],
+   "summary": "Kontrolliertes Eingabefeld für Attributnamen mit Autofokus, Selektion und Live-Umbenennung, das doppelte Namen blockiert.",
+   "tags": [
+    "component",
+    "formular",
+    "validation"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/search/SearchPanel.tsx",
+   "type": "file",
+   "name": "SearchPanel.tsx",
+   "filePath": "apps/editor/src/search/SearchPanel.tsx",
+   "summary": "Such- und Ersetzen-Panel mit Suchbereich (Name/Wert/Attribut), Groß-/Kleinschreibung, Regex-Option, Trefferliste mit Pfadanzeige, Navigation zwischen Treffern und Filtermodus für den Baum.",
+   "tags": [
+    "component",
+    "suche",
+    "panel",
+    "ersetzen"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/search/SearchPanel.tsx:SearchPanel",
+   "type": "function",
+   "name": "SearchPanel",
+   "filePath": "apps/editor/src/search/SearchPanel.tsx",
+   "lineRange": [
+    23,
+    202
+   ],
+   "summary": "Hält den kompletten Such-Zustand (Query, Optionen, Treffer, aktueller Index) lokal und meldet Suche, Navigation, Alles-Ersetzen und Filterumschaltung über Callbacks an die App.",
+   "tags": [
+    "component",
+    "suche",
+    "state-management"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:apps/editor/src/settings/SettingsDialog.tsx",
+   "type": "file",
+   "name": "SettingsDialog.tsx",
+   "filePath": "apps/editor/src/settings/SettingsDialog.tsx",
+   "summary": "Modaler Einstellungsdialog für Theme, Sprache, Fenstermodus (Tabs vs. geplante Einzelfenster) und das Filterverhalten der Suche.",
+   "tags": [
+    "component",
+    "dialog",
+    "einstellungen"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/settings/SettingsDialog.tsx:SettingsDialog",
+   "type": "function",
+   "name": "SettingsDialog",
+   "filePath": "apps/editor/src/settings/SettingsDialog.tsx",
+   "lineRange": [
+    11,
+    88
+   ],
+   "summary": "Rendert die Einstellungsoptionen als Formular und schreibt Änderungen als Patch über den onChange-Callback in den Settings-Store zurück.",
+   "tags": [
+    "component",
+    "dialog",
+    "einstellungen"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/state/document-store.ts",
+   "type": "file",
+   "name": "document-store.ts",
+   "filePath": "apps/editor/src/state/document-store.ts",
+   "summary": "React-freier Store-Hook für alle offenen Dokumente als Tabs: liest/schreibt Dateien über Tauri-invoke, erkennt XML vs. JSON, hängt pro Dokument einen CommandBus an und hält den sourceText als Basis für das minimal-invasive Speichern.",
+   "tags": [
+    "state-management",
+    "hook",
+    "tauri-bridge",
+    "dokumentverwaltung"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Beim XML-Speichern kommt serializeXmlMinimal zum Einsatz: unveränderte Knoten behalten ihren Original-Bytebereich, nur geänderte werden reserialisiert."
+  },
+  {
+   "id": "function:apps/editor/src/state/document-store.ts:useJaxelDocuments",
+   "type": "function",
+   "name": "useJaxelDocuments",
+   "filePath": "apps/editor/src/state/document-store.ts",
+   "lineRange": [
+    42,
+    135
+   ],
+   "summary": "Hook mit openFile/saveFile/closeTab/activate: parst Dateien in das gemeinsame DocNode-Modell, dedupliziert bereits offene Pfade als Tab-Aktivierung und triggert Re-Renders über eine Revisionsnummer aus CommandBus-Subscriptions.",
+   "tags": [
+    "hook",
+    "state-management",
+    "dokumentverwaltung",
+    "command-bus"
+   ],
+   "complexity": "complex"
+  },
+  {
+   "id": "file:apps/editor/src/state/local-prefs.ts",
+   "type": "file",
+   "name": "local-prefs.ts",
+   "filePath": "apps/editor/src/state/local-prefs.ts",
+   "summary": "Kleine localStorage-Helfer für lokale Präferenzen: zuletzt genutztes Verzeichnis und die Liste zuletzt geöffneter Dateien.",
+   "tags": [
+    "utility",
+    "persistenz",
+    "localstorage"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/state/local-prefs.ts:getLastDir",
+   "type": "function",
+   "name": "getLastDir",
+   "filePath": "apps/editor/src/state/local-prefs.ts",
+   "lineRange": [
+    11,
+    13
+   ],
+   "summary": "Liest das zuletzt benutzte Verzeichnis für den Datei-öffnen-Dialog aus localStorage.",
+   "tags": [
+    "utility",
+    "persistenz",
+    "localstorage"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/state/local-prefs.ts:rememberLastDir",
+   "type": "function",
+   "name": "rememberLastDir",
+   "filePath": "apps/editor/src/state/local-prefs.ts",
+   "lineRange": [
+    16,
+    20
+   ],
+   "summary": "Speichert das Verzeichnis eines geöffneten Dateipfads als Startverzeichnis für den nächsten Öffnen-Dialog.",
+   "tags": [
+    "utility",
+    "persistenz",
+    "localstorage"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/state/local-prefs.ts:getRecentFiles",
+   "type": "function",
+   "name": "getRecentFiles",
+   "filePath": "apps/editor/src/state/local-prefs.ts",
+   "lineRange": [
+    22,
+    31
+   ],
+   "summary": "Liest die Liste der zuletzt geöffneten Dateien aus localStorage und toleriert dabei fehlende oder kaputte Einträge.",
+   "tags": [
+    "utility",
+    "persistenz",
+    "localstorage"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/state/local-prefs.ts:addRecentFile",
+   "type": "function",
+   "name": "addRecentFile",
+   "filePath": "apps/editor/src/state/local-prefs.ts",
+   "lineRange": [
+    33,
+    37
+   ],
+   "summary": "Stellt einen Pfad an den Anfang der Zuletzt-geöffnet-Liste, dedupliziert und begrenzt die Länge.",
+   "tags": [
+    "utility",
+    "persistenz",
+    "localstorage"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/state/settings-store.ts",
+   "type": "file",
+   "name": "settings-store.ts",
+   "filePath": "apps/editor/src/state/settings-store.ts",
+   "summary": "Settings-Store als Hook: lädt Theme, Fenstermodus und Filterverhalten aus localStorage (mit Defaults) und persistiert Patches sofort zurück.",
+   "tags": [
+    "state-management",
+    "hook",
+    "einstellungen",
+    "persistenz"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Der Fenstermodus 'windows' ist bewusst als noch nicht implementierte Option modelliert (siehe docs/entscheidungen.md #5), damit die UI ihn als 'kommt später' anzeigen kann."
+  },
+  {
+   "id": "function:apps/editor/src/state/settings-store.ts:useSettings",
+   "type": "function",
+   "name": "useSettings",
+   "filePath": "apps/editor/src/state/settings-store.ts",
+   "lineRange": [
+    29,
+    41
+   ],
+   "summary": "Hook, der die Settings als State hält und setSettings als Patch-Funktion anbietet, die jede Änderung direkt in localStorage schreibt.",
+   "tags": [
+    "hook",
+    "state-management",
+    "einstellungen"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/tabs/TabBar.tsx",
+   "type": "file",
+   "name": "TabBar.tsx",
+   "filePath": "apps/editor/src/tabs/TabBar.tsx",
+   "summary": "Tab-Leiste über dem Baum: zeigt alle offenen Dokumente mit Dateinamen, markiert das aktive Tab und bietet Aktivieren und Schließen an.",
+   "tags": [
+    "component",
+    "tabs",
+    "navigation"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/tabs/TabBar.tsx:TabBar",
+   "type": "function",
+   "name": "TabBar",
+   "filePath": "apps/editor/src/tabs/TabBar.tsx",
+   "lineRange": [
+    16,
+    44
+   ],
+   "summary": "Rendert pro offenem Dokument ein Tab mit Kurzname und Schließen-Button und delegiert Aktivieren/Schließen an den Dokument-Store.",
+   "tags": [
+    "component",
+    "tabs",
+    "navigation"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/tree/TreeView.tsx",
+   "type": "file",
+   "name": "TreeView.tsx",
+   "filePath": "apps/editor/src/tree/TreeView.tsx",
+   "summary": "Virtualisierte Baumkomponente: rendert nur die sichtbaren Zeilen (plus Overscan) der bereits geflatteten Rows, inklusive Inline-Editing, Kontextmenü-Hook, Reveal-Scrolling und Drag-and-drop mit Gültigkeitsprüfung gegen den eigenen Teilbaum.",
+   "tags": [
+    "component",
+    "baumansicht",
+    "virtualisierung",
+    "drag-and-drop"
+   ],
+   "complexity": "complex",
+   "languageNotes": "Expanded-Zustand und Filterlogik liegen bewusst in App; TreeView virtualisiert und rendert nur — dadurch bleibt die Komponente auch bei Dokumenten mit Hunderttausenden Knoten reaktionsschnell."
+  },
+  {
+   "id": "function:apps/editor/src/tree/TreeView.tsx:TreeView",
+   "type": "function",
+   "name": "TreeView",
+   "filePath": "apps/editor/src/tree/TreeView.tsx",
+   "lineRange": [
+    53,
+    181
+   ],
+   "summary": "Berechnet aus Scrollposition und fester Zeilenhöhe das sichtbare Fenster der Rows, verwaltet Drop-Ziele beim Drag-and-drop und scrollt bei revealNodeId die Zielzeile in den Sichtbereich.",
+   "tags": [
+    "component",
+    "virtualisierung",
+    "baumansicht",
+    "scrolling"
+   ],
+   "complexity": "complex"
+  },
+  {
+   "id": "function:apps/editor/src/tree/TreeView.tsx:TreeRowView",
+   "type": "function",
+   "name": "TreeRowView",
+   "filePath": "apps/editor/src/tree/TreeView.tsx",
+   "lineRange": [
+    203,
+    315
+   ],
+   "summary": "Rendert eine einzelne Baumzeile mit Einrückung, Expander, Name/Wert, Drag-Handles und Drop-Indikatoren und startet bei Doppelklick das Inline-Editing.",
+   "tags": [
+    "component",
+    "baumansicht",
+    "drag-and-drop",
+    "event-handler"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/tree/TreeView.tsx:InlineEditor",
+   "type": "function",
+   "name": "InlineEditor",
+   "filePath": "apps/editor/src/tree/TreeView.tsx",
+   "lineRange": [
+    317,
+    354
+   ],
+   "summary": "Inline-Eingabefeld zum Editieren von Knotennamen oder -werten direkt in der Baumzeile; Enter committet, Escape bricht ab.",
+   "tags": [
+    "component",
+    "inline-editing",
+    "formular"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/tree/filter.ts",
+   "type": "file",
+   "name": "filter.ts",
+   "filePath": "apps/editor/src/tree/filter.ts",
+   "summary": "React-freie Filterlogik für den Suchfiltermodus: bestimmt die sichtbar zu haltenden Knoten (Treffer, Vorfahrenkette, optional ganzer Teilbaum) und flattet den Baum entsprechend.",
+   "tags": [
+    "utility",
+    "filter",
+    "baumlogik",
+    "headless"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/tree/filter.ts:buildFilterKeepSet",
+   "type": "function",
+   "name": "buildFilterKeepSet",
+   "filePath": "apps/editor/src/tree/filter.ts",
+   "lineRange": [
+    9,
+    36
+   ],
+   "summary": "Berechnet per Tiefensuche die Menge der Knoten-IDs, die im Filtermodus sichtbar bleiben: jeder Treffer plus komplette Vorfahrenkette, bei includeSubtree zusätzlich alles unterhalb des Treffers.",
+   "tags": [
+    "utility",
+    "filter",
+    "rekursion"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/tree/filter.ts:flattenFiltered",
+   "type": "function",
+   "name": "flattenFiltered",
+   "filePath": "apps/editor/src/tree/filter.ts",
+   "lineRange": [
+    43,
+    56
+   ],
+   "summary": "Flattet den Baum im Filtermodus: ignoriert den Expanded-Zustand und emittiert genau die Keep-Knoten mit ihrer echten Baumtiefe, damit die Einrückung die Hierarchie weiter zeigt.",
+   "tags": [
+    "utility",
+    "filter",
+    "flattening"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/tree/flatten.ts",
+   "type": "file",
+   "name": "flatten.ts",
+   "filePath": "apps/editor/src/tree/flatten.ts",
+   "summary": "Wandelt den DocNode-Baum anhand des Expanded-Sets in die flache TreeRow-Liste um, die die virtualisierte TreeView rendert.",
+   "tags": [
+    "utility",
+    "flattening",
+    "baumlogik",
+    "headless"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/tree/flatten.ts:flattenTree",
+   "type": "function",
+   "name": "flattenTree",
+   "filePath": "apps/editor/src/tree/flatten.ts",
+   "lineRange": [
+    12,
+    28
+   ],
+   "summary": "Tiefensuche über den Baum, die nur Kinder aufgeklappter Knoten besucht und pro sichtbarem Knoten eine TreeRow mit Vorfahren, Tiefe und hasChildren-Flag erzeugt.",
+   "tags": [
+    "utility",
+    "flattening",
+    "rekursion"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/ui/ContextMenu.tsx",
+   "type": "file",
+   "name": "ContextMenu.tsx",
+   "filePath": "apps/editor/src/ui/ContextMenu.tsx",
+   "summary": "Generisches Kontextmenü als Overlay: positioniert sich an den Klickkoordinaten (mit Viewport-Korrektur), schließt bei Außenklick oder Escape und rendert Einträge samt Untermenüs.",
+   "tags": [
+    "component",
+    "kontextmenü",
+    "overlay",
+    "utility"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/ui/ContextMenu.tsx:ContextMenu",
+   "type": "function",
+   "name": "ContextMenu",
+   "filePath": "apps/editor/src/ui/ContextMenu.tsx",
+   "lineRange": [
+    20,
+    81
+   ],
+   "summary": "Rendert die Menüeinträge aus einer deklarativen Item-Liste, führt beim Klick die hinterlegte Aktion aus und schließt sich anschließend selbst.",
+   "tags": [
+    "component",
+    "kontextmenü",
+    "event-handler"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:apps/editor/src/ui/IconButton.tsx",
+   "type": "file",
+   "name": "IconButton.tsx",
+   "filePath": "apps/editor/src/ui/IconButton.tsx",
+   "summary": "Wiederverwendbarer Icon-Button für die Toolbar mit Tooltip/Title und Disabled-Zustand.",
+   "tags": [
+    "component",
+    "utility",
+    "toolbar"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src/ui/IconButton.tsx:IconButton",
+   "type": "function",
+   "name": "IconButton",
+   "filePath": "apps/editor/src/ui/IconButton.tsx",
+   "lineRange": [
+    16,
+    36
+   ],
+   "summary": "Schlanke Button-Komponente, die ein Icon mit aria-Label und Title versieht und Klicks an den übergebenen Handler weiterreicht.",
+   "tags": [
+    "component",
+    "toolbar",
+    "barrierefreiheit"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src/welcome/WelcomeScreen.tsx",
+   "type": "file",
+   "name": "WelcomeScreen.tsx",
+   "filePath": "apps/editor/src/welcome/WelcomeScreen.tsx",
+   "summary": "Startbildschirm ohne offenes Dokument: Logo, Öffnen-Button, Liste der zuletzt geöffneten Dateien und eine Übersicht der Tastaturkürzel; Drag-and-drop wird global in App behandelt und hier nur beworben.",
+   "tags": [
+    "component",
+    "startbildschirm",
+    "onboarding"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src/welcome/WelcomeScreen.tsx:WelcomeScreen",
+   "type": "function",
+   "name": "WelcomeScreen",
+   "filePath": "apps/editor/src/welcome/WelcomeScreen.tsx",
+   "lineRange": [
+    21,
+    90
+   ],
+   "summary": "Rendert Branding, Zuletzt-geöffnet-Liste aus local-prefs und die Shortcut-Tabelle; Öffnen-Aktionen laufen über die Callbacks onOpen und onOpenPath.",
+   "tags": [
+    "component",
+    "startbildschirm",
+    "shortcuts"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/commands/byte-range.ts",
+   "type": "file",
+   "name": "byte-range.ts",
+   "filePath": "packages/core/src/commands/byte-range.ts",
+   "summary": "Hilfsfunktionen zum Erfassen, Löschen und Wiederherstellen der byteRange-Markierungen entlang einer Ancestor-Kette. Fundament aller Mutations-Commands: Beim minimal-invasiven Speichern werden nur Knoten ohne byteRange neu serialisiert, daher muss jede Änderung die gesamte Kette bis zur Wurzel invalidieren.",
+   "tags": [
+    "utility",
+    "byte-range",
+    "undo",
+    "minimal-invasives-speichern"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Der Dateikommentar erklärt die zentrale Invariante: Eine byteRange auf einem Vorfahren bedeutet \"darunter ist nichts geändert\" — deshalb Kettenweite Invalidierung."
+  },
+  {
+   "id": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "function",
+   "name": "captureByteRanges",
+   "filePath": "packages/core/src/commands/byte-range.ts",
+   "lineRange": [
+    13,
+    15
+   ],
+   "summary": "Sichert die aktuellen byteRange-Werte einer Knotenkette als Array, damit Undo sie später wiederherstellen kann.",
+   "tags": [
+    "utility",
+    "byte-range",
+    "undo"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "function",
+   "name": "clearByteRanges",
+   "filePath": "packages/core/src/commands/byte-range.ts",
+   "lineRange": [
+    17,
+    19
+   ],
+   "summary": "Setzt die byteRange aller Knoten einer Kette auf undefined und erzwingt so deren Neuserialisierung beim nächsten Speichern.",
+   "tags": [
+    "utility",
+    "byte-range",
+    "invalidierung"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "function",
+   "name": "restoreByteRanges",
+   "filePath": "packages/core/src/commands/byte-range.ts",
+   "lineRange": [
+    21,
+    25
+   ],
+   "summary": "Schreibt zuvor mit captureByteRanges gesicherte byteRange-Werte zurück auf die Knotenkette (Undo-Pfad der Commands).",
+   "tags": [
+    "utility",
+    "byte-range",
+    "undo"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/commands/insert-node.ts",
+   "type": "file",
+   "name": "insert-node.ts",
+   "filePath": "packages/core/src/commands/insert-node.ts",
+   "summary": "Command-Factory zum Einfügen eines Knotens an einer bestimmten Position in die Kindliste eines Elternknotens, mit symmetrischem Undo und byteRange-Invalidierung der Elternkette.",
+   "tags": [
+    "command",
+    "mutation",
+    "undo",
+    "baum-bearbeitung",
+    "tested"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/insert-node.ts:createInsertNodeCommand",
+   "type": "function",
+   "name": "createInsertNodeCommand",
+   "filePath": "packages/core/src/commands/insert-node.ts",
+   "lineRange": [
+    13,
+    33
+   ],
+   "summary": "Erzeugt ein undoable Command, das einen Knoten per splice an Index in parent.children einfügt; do löscht die byteRanges der Elternkette, undo entfernt den Knoten wieder und stellt die gesicherten byteRanges her.",
+   "tags": [
+    "command",
+    "factory",
+    "undo",
+    "einfuegen"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/commands/move-node.ts",
+   "type": "file",
+   "name": "move-node.ts",
+   "filePath": "packages/core/src/commands/move-node.ts",
+   "summary": "Command-Factory zum Verschieben eines Knotens zwischen zwei Elternknoten (Basis für Drag-and-drop im Baum). Erfasst und invalidiert die byteRange-Ketten von Quelle und Ziel getrennt und macht die Verschiebung per Undo exakt rückgängig.",
+   "tags": [
+    "command",
+    "mutation",
+    "drag-and-drop",
+    "undo",
+    "tested"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/commands/move-node.ts:createMoveNodeCommand",
+   "type": "function",
+   "name": "createMoveNodeCommand",
+   "filePath": "packages/core/src/commands/move-node.ts",
+   "lineRange": [
+    19,
+    49
+   ],
+   "summary": "Erzeugt ein undoable Command, das einen Knoten aus sourceParent entnimmt und bei targetParent einfügt; beide Ancestor-Ketten werden für Undo gesichert und bei do invalidiert.",
+   "tags": [
+    "command",
+    "factory",
+    "verschieben",
+    "undo"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/src/commands/remove-node.ts",
+   "type": "file",
+   "name": "remove-node.ts",
+   "filePath": "packages/core/src/commands/remove-node.ts",
+   "summary": "Command-Factory zum Entfernen eines Kindknotens an einem Index, mit Undo, das den Knoten samt gesicherter byteRanges der Elternkette wieder einsetzt.",
+   "tags": [
+    "command",
+    "mutation",
+    "undo",
+    "loeschen",
+    "tested"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/remove-node.ts:createRemoveNodeCommand",
+   "type": "function",
+   "name": "createRemoveNodeCommand",
+   "filePath": "packages/core/src/commands/remove-node.ts",
+   "lineRange": [
+    10,
+    27
+   ],
+   "summary": "Erzeugt ein undoable Command, das den Knoten an parent.children[index] entfernt und ihn bei Undo an derselben Stelle wieder einfügt.",
+   "tags": [
+    "command",
+    "factory",
+    "loeschen",
+    "undo"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/commands/rename-attribute.ts",
+   "type": "file",
+   "name": "rename-attribute.ts",
+   "filePath": "packages/core/src/commands/rename-attribute.ts",
+   "summary": "Command-Factory zum Umbenennen eines Attributs eines Knotens. Unterstützt einen coalesceKey, damit fortlaufendes Tippen im Attribut-Editor zu einem einzigen Undo-Schritt zusammengefasst werden kann.",
+   "tags": [
+    "command",
+    "mutation",
+    "attribut",
+    "undo",
+    "coalescing"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/rename-attribute.ts:createRenameAttributeCommand",
+   "type": "function",
+   "name": "createRenameAttributeCommand",
+   "filePath": "packages/core/src/commands/rename-attribute.ts",
+   "lineRange": [
+    12,
+    39
+   ],
+   "summary": "Erzeugt ein undoable Command, das den Namen des Attributs an Position index auf newName setzt; Undo stellt den alten Namen und die byteRanges der Ancestor-Kette wieder her.",
+   "tags": [
+    "command",
+    "factory",
+    "attribut",
+    "umbenennen"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/commands/rename.ts",
+   "type": "file",
+   "name": "rename.ts",
+   "filePath": "packages/core/src/commands/rename.ts",
+   "summary": "Command-Factory zum Umbenennen eines Knotens (Elementname in XML bzw. Property-Key in JSON), mit Undo und byteRange-Invalidierung der Ancestor-Kette.",
+   "tags": [
+    "command",
+    "mutation",
+    "umbenennen",
+    "undo",
+    "tested"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/rename.ts:createRenameCommand",
+   "type": "function",
+   "name": "createRenameCommand",
+   "filePath": "packages/core/src/commands/rename.ts",
+   "lineRange": [
+    13,
+    29
+   ],
+   "summary": "Erzeugt ein undoable Command, das node.name auf newName setzt und bei Undo den alten Namen samt gesicherter byteRanges wiederherstellt.",
+   "tags": [
+    "command",
+    "factory",
+    "umbenennen",
+    "undo"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/commands/set-attribute.ts",
+   "type": "file",
+   "name": "set-attribute.ts",
+   "filePath": "packages/core/src/commands/set-attribute.ts",
+   "summary": "Command-Factory zum Setzen, Anlegen oder Entfernen eines Attributwerts. Ein gemeinsamer apply-Helfer deckt do und undo symmetrisch ab; coalesceKey erlaubt das Zusammenfassen aufeinanderfolgender Tipp-Schritte zu einem Undo-Schritt.",
+   "tags": [
+    "command",
+    "mutation",
+    "attribut",
+    "undo",
+    "coalescing",
+    "tested"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/commands/set-attribute.ts:createSetAttributeCommand",
+   "type": "function",
+   "name": "createSetAttributeCommand",
+   "filePath": "packages/core/src/commands/set-attribute.ts",
+   "lineRange": [
+    10,
+    45
+   ],
+   "summary": "Erzeugt ein undoable Command, das ein Attribut per findIndex sucht und dann setzt, neu anlegt (push) oder entfernt (splice bei value null); Undo wendet denselben apply-Helfer mit dem alten Wert an.",
+   "tags": [
+    "command",
+    "factory",
+    "attribut",
+    "undo"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/src/commands/set-value.ts",
+   "type": "file",
+   "name": "set-value.ts",
+   "filePath": "packages/core/src/commands/set-value.ts",
+   "summary": "Command-Factory zum Setzen des Text- bzw. Primitivwerts eines Knotens inklusive des optionalen jsonType (für typtreues JSON-Roundtripping), mit Undo und byteRange-Invalidierung.",
+   "tags": [
+    "command",
+    "mutation",
+    "wert-setzen",
+    "undo",
+    "json-typ",
+    "tested"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/set-value.ts:createSetValueCommand",
+   "type": "function",
+   "name": "createSetValueCommand",
+   "filePath": "packages/core/src/commands/set-value.ts",
+   "lineRange": [
+    6,
+    30
+   ],
+   "summary": "Erzeugt ein undoable Command, das node.value und node.jsonType gemeinsam setzt und bei Undo beide alten Werte samt byteRanges wiederherstellt.",
+   "tags": [
+    "command",
+    "factory",
+    "wert-setzen",
+    "undo"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/format/path.ts",
+   "type": "file",
+   "name": "path.ts",
+   "filePath": "packages/core/src/format/path.ts",
+   "summary": "Berechnet Pfaddarstellungen für einen Knoten im DocNode-Baum: indizierter Pfad (mit [n] bei gleichnamigen Geschwistern), statischer Pfad und vollständiger Pfad ohne Namespace-Präfixe. computePaths bündelt Ancestor-Suche, Segmentberechnung und alle drei Formatierungen.",
+   "tags": [
+    "utility",
+    "pfad",
+    "baum-navigation",
+    "formatierung",
+    "tested"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/format/path.ts:getPathSegments",
+   "type": "function",
+   "name": "getPathSegments",
+   "filePath": "packages/core/src/format/path.ts",
+   "lineRange": [
+    43,
+    66
+   ],
+   "summary": "Baut aus Zielknoten und Ancestor-Kette die Pfadsegmente auf und ermittelt je Segment den Index unter gleichnamigen Geschwistern.",
+   "tags": [
+    "pfad",
+    "segmente",
+    "baum-navigation"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/format/path.ts:formatIndexedPath",
+   "type": "function",
+   "name": "formatIndexedPath",
+   "filePath": "packages/core/src/format/path.ts",
+   "lineRange": [
+    83,
+    87
+   ],
+   "summary": "Formatiert Segmente als indizierten Pfad, bei dem gleichnamige Geschwister als name[index] unterschieden werden.",
+   "tags": [
+    "pfad",
+    "formatierung",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/path.ts:formatStaticPath",
+   "type": "function",
+   "name": "formatStaticPath",
+   "filePath": "packages/core/src/format/path.ts",
+   "lineRange": [
+    90,
+    94
+   ],
+   "summary": "Formatiert Segmente als statischen Pfad nur aus Knotennamen, ohne Geschwister-Indizes.",
+   "tags": [
+    "pfad",
+    "formatierung",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/path.ts:formatFullPath",
+   "type": "function",
+   "name": "formatFullPath",
+   "filePath": "packages/core/src/format/path.ts",
+   "lineRange": [
+    101,
+    108
+   ],
+   "summary": "Formatiert den vollständigen Pfad inklusive Wurzelsegment und entfernt dabei Namespace-Präfixe (Teil vor dem Doppelpunkt) aus den Namen.",
+   "tags": [
+    "pfad",
+    "formatierung",
+    "namespace"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/path.ts:findAncestorChain",
+   "type": "function",
+   "name": "findAncestorChain",
+   "filePath": "packages/core/src/format/path.ts",
+   "lineRange": [
+    118,
+    129
+   ],
+   "summary": "Sucht rekursiv per Tiefensuche die Ancestor-Kette von der Wurzel zum Zielknoten und gibt sie als Pfadliste zurück (oder null, wenn der Knoten nicht im Baum liegt).",
+   "tags": [
+    "pfad",
+    "rekursion",
+    "baum-suche"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/path.ts:computePaths",
+   "type": "function",
+   "name": "computePaths",
+   "filePath": "packages/core/src/format/path.ts",
+   "lineRange": [
+    136,
+    152
+   ],
+   "summary": "Komfortfunktion, die für einen Zielknoten Ancestor-Kette und Segmente ermittelt und alle drei Pfadvarianten (indiziert, statisch, vollständig) gesammelt zurückgibt.",
+   "tags": [
+    "pfad",
+    "aggregation",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/format/xml-export.ts",
+   "type": "file",
+   "name": "xml-export.ts",
+   "filePath": "packages/core/src/format/xml-export.ts",
+   "summary": "Serialisiert einen DocNode-Baum zurück nach XML — wahlweise komplett neu formatiert (serializeXml) oder minimal-invasiv (serializeXmlMinimal), wobei unveränderte Knoten byteweise aus der Originalquelle übernommen werden.",
+   "tags": [
+    "serialization",
+    "xml",
+    "minimal-invasives-speichern",
+    "utility",
+    "tested"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Nutzt TextEncoder/TextDecoder und byteRange-Subarrays, um unveränderte Quellbereiche verbatim zu kopieren — Kern des Best-effort-Invariants für minimal-invasives Speichern."
+  },
+  {
+   "id": "file:packages/core/src/format/xml-import.ts",
+   "type": "file",
+   "name": "xml-import.ts",
+   "filePath": "packages/core/src/format/xml-import.ts",
+   "summary": "Handgeschriebener rekursiver XML-Parser, der Quelltext in den gemeinsamen DocNode-Baum überführt und dabei per Byte-Offset-Tabelle die originalen Bytebereiche jedes Knotens festhält (Grundlage für minimal-invasives Speichern).",
+   "tags": [
+    "parser",
+    "xml",
+    "deserialization",
+    "byte-offsets",
+    "tested"
+   ],
+   "complexity": "complex",
+   "languageNotes": "Bewusst ohne externe Parser-Bibliothek: ein rekursiver Abstiegsparser mit Closures (fail, peekAt, parseElement …) innerhalb von parseXml, damit UTF-16-Positionen und UTF-8-Byteoffsets synchron gehalten werden können."
+  },
+  {
+   "id": "file:packages/core/src/model/node.ts",
+   "type": "file",
+   "name": "node.ts",
+   "filePath": "packages/core/src/model/node.ts",
+   "summary": "Definiert DocNode, das einheitliche Baummodell für XML und JSON (einzige Wahrheit des Editors), samt Fabrikfunktionen createNode/createNodeId und cloneSubtree für Duplizieren/Einfügen mit frischen IDs.",
+   "tags": [
+    "data-model",
+    "type-definition",
+    "kernmodell",
+    "factory",
+    "tested"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Optionale Felder wie jsonType und byteRange kodieren die XML/JSON-Mapping-Regeln (Entscheidung #4) direkt im Typ; cloneSubtree verwirft byteRange absichtlich, damit Klone nie fremde Quellbytes referenzieren."
+  },
+  {
+   "id": "file:packages/core/src/search/search.ts",
+   "type": "file",
+   "name": "search.ts",
+   "filePath": "packages/core/src/search/search.ts",
+   "summary": "Suchen und Ersetzen über den DocNode-Baum: findAll liefert Treffer nach Scope (Name, Wert, Attribut), replaceAll mutiert Treffer direkt und löscht deren byteRange; die Undo-Einbettung via CommandBus bleibt bewusst dem Aufrufer überlassen.",
+   "tags": [
+    "suche",
+    "ersetzen",
+    "utility",
+    "regex",
+    "tested"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Ein einmalig kompilierter CompiledMatcher (Regex- oder Substring-Variante) vermeidet wiederholte Regex-Kompilierung pro Knoten; Backreferences wie $1 werden bei Regex-Suche unterstützt."
+  },
+  {
+   "id": "file:packages/core/tests/mutation-commands.test.ts",
+   "type": "file",
+   "name": "mutation-commands.test.ts",
+   "filePath": "packages/core/tests/mutation-commands.test.ts",
+   "summary": "Vitest-Suite für alle sechs Mutations-Commands (Einfügen, Verschieben, Entfernen, Umbenennen, Attribut und Wert setzen) inklusive Undo-Verhalten und byteRange-Invalidierung.",
+   "tags": [
+    "test",
+    "commands",
+    "undo-redo",
+    "vitest"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/tests/path.test.ts",
+   "type": "file",
+   "name": "path.test.ts",
+   "filePath": "packages/core/tests/path.test.ts",
+   "summary": "Vitest-Suite für die Pfadberechnung (format/path.ts): prüft vollständige Knotenpfade anhand eines Katalog-Fixture-Baums und real geparster XML-Dokumente.",
+   "tags": [
+    "test",
+    "pfad",
+    "vitest",
+    "fixture"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/tests/search.test.ts",
+   "type": "file",
+   "name": "search.test.ts",
+   "filePath": "packages/core/tests/search.test.ts",
+   "summary": "Vitest-Suite für Suchen und Ersetzen: deckt Scopes (Name, Wert, Attribut, alle), Groß-/Kleinschreibung, Regex mit Backreferences sowie das Löschen der byteRange bei Ersetzungen ab.",
+   "tags": [
+    "test",
+    "suche",
+    "regex",
+    "vitest"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "type": "file",
+   "name": "xml-roundtrip.test.ts",
+   "filePath": "packages/core/tests/xml-roundtrip.test.ts",
+   "summary": "Vitest-Suite für den XML-Roundtrip: Parsen und erneutes Serialisieren müssen strukturell identische Bäume liefern, und serializeXmlMinimal muss unveränderte Knoten byteidentisch aus der Quelle übernehmen.",
+   "tags": [
+    "test",
+    "roundtrip",
+    "serialization",
+    "vitest"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/format/xml-export.ts:serializeNode",
+   "type": "function",
+   "name": "serializeNode",
+   "filePath": "packages/core/src/format/xml-export.ts",
+   "lineRange": [
+    38,
+    50
+   ],
+   "summary": "Serialisiert einen einzelnen DocNode rekursiv mit Einrückung: Attribute, selbstschließende Tags, Kindelemente oder escapeter Textinhalt.",
+   "tags": [
+    "serialization",
+    "rekursion",
+    "xml"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/xml-export.ts:serializeXml",
+   "type": "function",
+   "name": "serializeXml",
+   "filePath": "packages/core/src/format/xml-export.ts",
+   "lineRange": [
+    52,
+    55
+   ],
+   "summary": "Öffentlicher Einstieg für die Voll-Serialisierung: erzeugt XML-Deklaration plus komplett neu formatierten Dokumentbaum.",
+   "tags": [
+    "serialization",
+    "api",
+    "xml"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/xml-export.ts:serializeNodeMinimal",
+   "type": "function",
+   "name": "serializeNodeMinimal",
+   "filePath": "packages/core/src/format/xml-export.ts",
+   "lineRange": [
+    57,
+    81
+   ],
+   "summary": "Minimal-invasive Variante von serializeNode: Knoten mit intaktem byteRange werden verbatim aus den Quellbytes dekodiert, nur geänderte Teilbäume werden neu serialisiert.",
+   "tags": [
+    "serialization",
+    "minimal-invasives-speichern",
+    "byte-offsets"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/format/xml-export.ts:serializeXmlMinimal",
+   "type": "function",
+   "name": "serializeXmlMinimal",
+   "filePath": "packages/core/src/format/xml-export.ts",
+   "lineRange": [
+    83,
+    87
+   ],
+   "summary": "Öffentlicher Einstieg für minimal-invasives Speichern: kodiert die Originalquelle als Bytes und delegiert an serializeNodeMinimal.",
+   "tags": [
+    "serialization",
+    "api",
+    "minimal-invasives-speichern"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/xml-import.ts:decodeEntities",
+   "type": "function",
+   "name": "decodeEntities",
+   "filePath": "packages/core/src/format/xml-import.ts",
+   "lineRange": [
+    48,
+    68
+   ],
+   "summary": "Löst die fünf XML-Standardentities sowie numerische Zeichenreferenzen (dezimal und hexadezimal) in Text- und Attributwerten auf.",
+   "tags": [
+    "parser",
+    "entities",
+    "xml"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/xml-import.ts:buildByteOffsetTable",
+   "type": "function",
+   "name": "buildByteOffsetTable",
+   "filePath": "packages/core/src/format/xml-import.ts",
+   "lineRange": [
+    91,
+    125
+   ],
+   "summary": "Berechnet für jede UTF-16-Stringposition den zugehörigen UTF-8-Byteoffset, damit byteRange-Angaben der Knoten exakt auf die Quelldatei zeigen.",
+   "tags": [
+    "byte-offsets",
+    "utf-8",
+    "parser"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Behandelt Surrogatpaare explizit, damit Zeichen außerhalb der BMP korrekt als 4-Byte-Sequenzen gezählt werden."
+  },
+  {
+   "id": "function:packages/core/src/format/xml-import.ts:parseXml",
+   "type": "function",
+   "name": "parseXml",
+   "filePath": "packages/core/src/format/xml-import.ts",
+   "lineRange": [
+    127,
+    321
+   ],
+   "summary": "Rekursiver Abstiegsparser als einzige exportierte Funktion: verarbeitet Prolog, DOCTYPE, Kommentare, CDATA, Attribute und verschachtelte Elemente und erzeugt DocNodes mit präzisen Bytebereichen; Fehler werden mit Zeilenangabe gemeldet.",
+   "tags": [
+    "parser",
+    "rekursiver-abstieg",
+    "xml",
+    "api"
+   ],
+   "complexity": "complex"
+  },
+  {
+   "id": "function:packages/core/src/model/node.ts:createNodeId",
+   "type": "function",
+   "name": "createNodeId",
+   "filePath": "packages/core/src/model/node.ts",
+   "lineRange": [
+    37,
+    39
+   ],
+   "summary": "Erzeugt eine sitzungsweit eindeutige DocNode-ID über einen einfachen Zähler; IDs werden nicht persistiert.",
+   "tags": [
+    "factory",
+    "id-generierung",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/model/node.ts:createNode",
+   "type": "function",
+   "name": "createNode",
+   "filePath": "packages/core/src/model/node.ts",
+   "lineRange": [
+    41,
+    52
+   ],
+   "summary": "Fabrikfunktion, die aus partiellen Angaben einen vollständigen DocNode mit frischer ID und sinnvollen Defaults (leere Attribute/Kinder, value null) baut.",
+   "tags": [
+    "factory",
+    "data-model",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/model/node.ts:cloneSubtree",
+   "type": "function",
+   "name": "cloneSubtree",
+   "filePath": "packages/core/src/model/node.ts",
+   "lineRange": [
+    59,
+    69
+   ],
+   "summary": "Tiefe Kopie eines Teilbaums für Duplizieren/Einfügen: jeder Knoten erhält eine frische ID, und byteRange wird bewusst verworfen, damit Klone beim minimal-invasiven Speichern nie fremde Quellbytes kopieren.",
+   "tags": [
+    "clone",
+    "rekursion",
+    "data-model"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/search/search.ts:compileMatcher",
+   "type": "function",
+   "name": "compileMatcher",
+   "filePath": "packages/core/src/search/search.ts",
+   "lineRange": [
+    47,
+    101
+   ],
+   "summary": "Kompiliert die Suchoptionen einmalig zu einem CompiledMatcher mit test- und replace-Funktion — als Regex-Variante (mit Backreference-Unterstützung) oder als case-optionaler Substring-Matcher.",
+   "tags": [
+    "suche",
+    "regex",
+    "factory"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/search/search.ts:findAll",
+   "type": "function",
+   "name": "findAll",
+   "filePath": "packages/core/src/search/search.ts",
+   "lineRange": [
+    126,
+    147
+   ],
+   "summary": "Durchläuft den Baum in Dokumentreihenfolge und sammelt alle Treffer je nach Scope in Knotennamen, Werten und Attributwerten als SearchMatch-Liste.",
+   "tags": [
+    "suche",
+    "traversierung",
+    "api"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/search/search.ts:replaceAll",
+   "type": "function",
+   "name": "replaceAll",
+   "filePath": "packages/core/src/search/search.ts",
+   "lineRange": [
+    149,
+    183
+   ],
+   "summary": "Ersetzt alle Treffer direkt im Baum (Namen, Werte, Attributwerte), zählt die Ersetzungen und löscht die byteRange mutierter Knoten, damit das minimal-invasive Speichern die Änderung nicht verwirft.",
+   "tags": [
+    "ersetzen",
+    "mutation",
+    "api"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/tests/path.test.ts:buildCatalogTree",
+   "type": "function",
+   "name": "buildCatalogTree",
+   "filePath": "packages/core/tests/path.test.ts",
+   "lineRange": [
+    16,
+    27
+   ],
+   "summary": "Testfixture: baut per createNode einen kleinen Katalogbaum mit wiederholten Geschwisterelementen für die Pfadtests auf.",
+   "tags": [
+    "test",
+    "fixture",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/tests/path.test.ts:findAncestors",
+   "type": "function",
+   "name": "findAncestors",
+   "filePath": "packages/core/tests/path.test.ts",
+   "lineRange": [
+    31,
+    43
+   ],
+   "summary": "Testhelfer: sucht rekursiv die Vorfahrenkette eines Zielknotens im Baum, wie sie die Pfadberechnung als Eingabe erwartet.",
+   "tags": [
+    "test",
+    "utility",
+    "traversierung"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/tests/search.test.ts:buildCatalog",
+   "type": "function",
+   "name": "buildCatalog",
+   "filePath": "packages/core/tests/search.test.ts",
+   "lineRange": [
+    5,
+    28
+   ],
+   "summary": "Testfixture: erzeugt einen Katalogbaum mit Attributen, Werten und byteRange-Angaben als gemeinsame Grundlage aller Such- und Ersetzungstests.",
+   "tags": [
+    "test",
+    "fixture",
+    "utility"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/commands/command-bus.ts",
+   "type": "file",
+   "name": "command-bus.ts",
+   "filePath": "packages/core/src/commands/command-bus.ts",
+   "summary": "Herzstück der Mutations-Architektur: Der CommandBus verwaltet die Undo/Redo-Historie eines JaxelDocument und erhöht bei jedem ausgeführten, rückgängig gemachten oder wiederholten Command die Dokument-Revision, damit React ohne paralleles Datenmodell neu rendern kann.",
+   "tags": [
+    "command-pattern",
+    "undo-redo",
+    "service",
+    "kernlogik",
+    "tested"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Setzt das Command-Pattern mit Coalescing um: Commands mit gleichem coalesceKey (z. B. Tastatureingaben in einem Feld) verschmelzen zu einem einzigen Undo-Schritt."
+  },
+  {
+   "id": "class:packages/core/src/commands/command-bus.ts:CommandBus",
+   "type": "class",
+   "name": "CommandBus",
+   "filePath": "packages/core/src/commands/command-bus.ts",
+   "lineRange": [
+    8,
+    80
+   ],
+   "summary": "Besitzt Undo- und Redo-Stack eines Dokuments; execute() führt Commands aus (inkl. Coalescing über coalesceKey), undo()/redo() spulen die Historie, subscribe()/notify() informieren Listener über jede Änderung.",
+   "tags": [
+    "command-pattern",
+    "undo-redo",
+    "observer",
+    "zustandsverwaltung"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/src/commands/command.ts",
+   "type": "file",
+   "name": "command.ts",
+   "filePath": "packages/core/src/commands/command.ts",
+   "summary": "Definiert das zentrale Command-Interface (label, optionaler coalesceKey, do/undo) — der Vertrag, den jede Mutation am Dokumentbaum erfüllen muss, damit sie über den CommandBus rückgängig gemacht werden kann.",
+   "tags": [
+    "type-definition",
+    "command-pattern",
+    "schnittstelle",
+    "tested"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Reine Typdatei: coalesceKey erlaubt es, aufeinanderfolgende gleichartige Edits (z. B. Live-Tippen in einem Attributfeld) zu einem Undo-Schritt zusammenzufassen."
+  },
+  {
+   "id": "file:packages/core/src/commands/composite.ts",
+   "type": "file",
+   "name": "composite.ts",
+   "filePath": "packages/core/src/commands/composite.ts",
+   "summary": "Stellt createCompositeCommand bereit, das mehrere Low-Level-Commands zu einem einzigen Undo-Schritt bündelt — die Umsetzung der Invariante 'ein sichtbarer Nutzerschritt = ein Undo-Schritt'.",
+   "tags": [
+    "command-pattern",
+    "composite",
+    "utility",
+    "undo-redo",
+    "tested"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/commands/composite.ts:createCompositeCommand",
+   "type": "function",
+   "name": "createCompositeCommand",
+   "filePath": "packages/core/src/commands/composite.ts",
+   "lineRange": [
+    4,
+    16
+   ],
+   "summary": "Factory, die eine Liste von Commands zu einem Composite-Command mit gemeinsamem Label verpackt; do() führt alle vorwärts aus, undo() in umgekehrter Reihenfolge.",
+   "tags": [
+    "factory",
+    "composite",
+    "undo-redo"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/model/document.ts",
+   "type": "file",
+   "name": "document.ts",
+   "filePath": "packages/core/src/model/document.ts",
+   "summary": "Definiert JaxelDocument — das gemeinsame Dokumentmodell für XML und JSON mit Format, DocNode-Wurzel, Encoding, Einrückung, optionaler XML-Deklaration und dem revisionsgetriebenen Render-Zähler — plus die Factory createDocument mit sinnvollen Defaults.",
+   "tags": [
+    "data-model",
+    "type-definition",
+    "factory",
+    "kernlogik",
+    "tested"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Das revision-Feld wird vom CommandBus hochgezählt und dient als einziges Re-Render-Signal für React — bewusst kein Spiegel-State."
+  },
+  {
+   "id": "function:packages/core/src/model/document.ts:createDocument",
+   "type": "function",
+   "name": "createDocument",
+   "filePath": "packages/core/src/model/document.ts",
+   "lineRange": [
+    18,
+    33
+   ],
+   "summary": "Erzeugt ein JaxelDocument aus Teilangaben und setzt Defaults (Encoding UTF-8, zwei Leerzeichen Einrückung, Revision 0).",
+   "tags": [
+    "factory",
+    "data-model",
+    "initialisierung"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/tests/command-bus.test.ts",
+   "type": "file",
+   "name": "command-bus.test.ts",
+   "filePath": "packages/core/tests/command-bus.test.ts",
+   "summary": "Vitest-Suite für den CommandBus: prüft Ausführen mit Revisions-Bump, Undo/Redo, das Leeren des Redo-Stacks bei neuem execute, Composite-Commands als einzelnen Undo-Schritt und die Benachrichtigung von Subscribern.",
+   "tags": [
+    "test",
+    "undo-redo",
+    "command-pattern",
+    "vitest"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/tests/command-bus.test.ts:setValueCommand",
+   "type": "function",
+   "name": "setValueCommand",
+   "filePath": "packages/core/tests/command-bus.test.ts",
+   "lineRange": [
+    8,
+    20
+   ],
+   "summary": "Test-Helfer, der ein minimales Command baut, das den value eines Knotens setzt und sich den vorherigen Wert für undo() merkt.",
+   "tags": [
+    "test",
+    "helfer",
+    "command-pattern"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/src/format/json-export.ts",
+   "type": "file",
+   "name": "json-export.ts",
+   "filePath": "packages/core/src/format/json-export.ts",
+   "summary": "Serialisiert einen DocNode-Baum zurück in JSON-Text und kehrt dabei die Import-Mapping-Regeln aus docs/entscheidungen.md #4 um: gleichnamige Geschwisterknoten werden wieder zu JSON-Arrays gefaltet, verschieden benannte Kinder zu Objekt-Properties, und ein synthetischer $root-Wrapper wird beim Schreiben entfernt.",
+   "tags": [
+    "serialization",
+    "json",
+    "export",
+    "utility",
+    "tested"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Bewusst kein JSON.stringify: Zahlen werden als roher Originaltext (jsonType) zurückgeschrieben, damit z.B. \"1.50\" verbatim erhalten bleibt; eigene String-Escaping-Routine inklusive \\uXXXX-Behandlung."
+  },
+  {
+   "id": "function:packages/core/src/format/json-export.ts:serializeJson",
+   "type": "function",
+   "name": "serializeJson",
+   "filePath": "packages/core/src/format/json-export.ts",
+   "lineRange": [
+    26,
+    32
+   ],
+   "summary": "Öffentlicher Einstiegspunkt des Exports: schreibt den DocNode-Baum als JSON-Text und entfernt dabei den synthetischen $root-Wrapper, sodass nackte Arrays, Primitive oder Mehr-Schlüssel-Objekte ihre ursprüngliche Form zurückerhalten.",
+   "tags": [
+    "serialization",
+    "entry-point",
+    "json"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/json-export.ts:nodeToJsonText",
+   "type": "function",
+   "name": "nodeToJsonText",
+   "filePath": "packages/core/src/format/json-export.ts",
+   "lineRange": [
+    35,
+    68
+   ],
+   "summary": "Rekursiver Kern des Exports: entscheidet pro Knoten, ob er als Primitivwert, Array (alle Kinder gleichnamig) oder Objekt (gruppierte Properties) ausgegeben wird, und faltet gleichnamige Geschwister zurück in JSON-Arrays.",
+   "tags": [
+    "serialization",
+    "recursion",
+    "json"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:packages/core/src/format/json-export.ts:groupByName",
+   "type": "function",
+   "name": "groupByName",
+   "filePath": "packages/core/src/format/json-export.ts",
+   "lineRange": [
+    71,
+    84
+   ],
+   "summary": "Gruppiert Kindknoten nach Namen unter Beibehaltung der Reihenfolge des ersten Auftretens — Grundlage dafür, dass gleichnamige Geschwister wieder zu einem JSON-Array zusammengefasst werden.",
+   "tags": [
+    "utility",
+    "grouping",
+    "ordering"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/json-export.ts:formatPrimitive",
+   "type": "function",
+   "name": "formatPrimitive",
+   "filePath": "packages/core/src/format/json-export.ts",
+   "lineRange": [
+    86,
+    98
+   ],
+   "summary": "Schreibt einen Blattwert anhand seines jsonType zurück: Zahlen als roher Originaltext, true/false/null als nackte Literale, Strings über die eigene Escape-Routine.",
+   "tags": [
+    "serialization",
+    "formatting",
+    "json"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/json-export.ts:escapeJsonString",
+   "type": "function",
+   "name": "escapeJsonString",
+   "filePath": "packages/core/src/format/json-export.ts",
+   "lineRange": [
+    100,
+    136
+   ],
+   "summary": "Escaped einen String für die JSON-Ausgabe: Anführungszeichen, Backslash, Steuerzeichen und Nicht-BMP-Codepoints werden korrekt in \\-Sequenzen bzw. \\uXXXX-Notation überführt.",
+   "tags": [
+    "escaping",
+    "string-handling",
+    "json"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/src/format/json-import.ts",
+   "type": "file",
+   "name": "json-import.ts",
+   "filePath": "packages/core/src/format/json-import.ts",
+   "summary": "Importiert JSON-Text in das gemeinsame DocNode-Modell nach den Mapping-Regeln aus docs/entscheidungen.md #4 (bewusst kein Badgerfish-Stil): Objekt-Properties werden zu Knoten, Arrays zu gleichnamigen Geschwistern, Primitive zu Blättern mit value und jsonType. Enthält dafür einen handgeschriebenen Recursive-Descent-JSON-Parser.",
+   "tags": [
+    "parsing",
+    "json",
+    "data-model",
+    "import",
+    "tested"
+   ],
+   "complexity": "complex",
+   "languageNotes": "Bewusster Verzicht auf JSON.parse: Der eigene Parser erhält den originalen Zahlentext verbatim (z.B. \"1.50\", Integer jenseits von Number.MAX_SAFE_INTEGER) und garantiert die Schlüsselreihenfolge in Quellreihenfolge — Voraussetzung für das minimal-invasive Speichern."
+  },
+  {
+   "id": "function:packages/core/src/format/json-import.ts:parseJsonSource",
+   "type": "function",
+   "name": "parseJsonSource",
+   "filePath": "packages/core/src/format/json-import.ts",
+   "lineRange": [
+    29,
+    223
+   ],
+   "summary": "Handgeschriebener Recursive-Descent-JSON-Parser mit den inneren Funktionen parseValue, parseObject, parseArray, parseStringRaw und parseNumber; liefert einen JVal-Zwischenbaum, der rohen Zahlentext und die Schlüsselreihenfolge der Quelle bewahrt und bei Syntaxfehlern eine JsonSyntaxError mit Positionsangabe wirft.",
+   "tags": [
+    "parsing",
+    "recursion",
+    "json",
+    "error-handling"
+   ],
+   "complexity": "complex"
+  },
+  {
+   "id": "function:packages/core/src/format/json-import.ts:jsonTypeOf",
+   "type": "function",
+   "name": "jsonTypeOf",
+   "filePath": "packages/core/src/format/json-import.ts",
+   "lineRange": [
+    225,
+    236
+   ],
+   "summary": "Bildet einen JVal-Zwischenwert auf den JsonPrimitiveType des DocNode-Modells ab (string, number, boolean, null), damit der Export den Wert später typgerecht zurückschreiben kann.",
+   "tags": [
+    "utility",
+    "type-mapping",
+    "json"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/json-import.ts:rawTextOf",
+   "type": "function",
+   "name": "rawTextOf",
+   "filePath": "packages/core/src/format/json-import.ts",
+   "lineRange": [
+    238,
+    249
+   ],
+   "summary": "Liefert die textuelle Repräsentation eines primitiven JVal für das value-Feld des Knotens — bei Zahlen der unveränderte Originaltext aus der Quelle, bei Strings der bereits entschärfte Inhalt.",
+   "tags": [
+    "utility",
+    "formatting",
+    "json"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:packages/core/src/format/json-import.ts:parseJson",
+   "type": "function",
+   "name": "parseJson",
+   "filePath": "packages/core/src/format/json-import.ts",
+   "lineRange": [
+    308,
+    347
+   ],
+   "summary": "Öffentlicher Einstiegspunkt des Imports: parst die Quelle und wählt die Wurzelstrategie — Ein-Schlüssel-Objekte kollabieren zu einem echten Wurzelknoten, mehrschlüsselige Objekte, nackte Arrays und Primitive erhalten einen als synthetic markierten $root-Wrapper.",
+   "tags": [
+    "parsing",
+    "entry-point",
+    "data-model",
+    "json"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/tests/json-mapping.test.ts",
+   "type": "file",
+   "name": "json-mapping.test.ts",
+   "filePath": "packages/core/tests/json-mapping.test.ts",
+   "summary": "Vitest-Suite für das JSON↔DocNode-Mapping: prüft die Mapping-Regeln aus docs/entscheidungen.md #4 (Array-Kollaps, gleichnamige Geschwister, synthetischer $root-Wrapper), die verbatim-Erhaltung von Zahlentext wie \"1.50\", String-Escapes sowie vollständige Roundtrips parseJson → serializeJson.",
+   "tags": [
+    "test",
+    "json",
+    "roundtrip",
+    "data-model"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:packages/core/src/index.ts",
+   "type": "file",
+   "name": "index.ts",
+   "filePath": "packages/core/src/index.ts",
+   "summary": "Öffentliche API des UI-freien Modellkerns (packages/core): Barrel-Datei, die 41 Symbole re-exportiert — DocNode-Modell, Dokument-Fabrik, CommandBus samt aller Command-Fabriken (Rename, SetValue, Insert, Remove, Move, Attribute), XML-/JSON-Parser und -Serialisierer, Pfad-Berechnung sowie Suchen/Ersetzen.",
+   "tags": [
+    "barrel",
+    "entry-point",
+    "public-api",
+    "exports",
+    "tested"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Reine TypeScript-Barrel-Datei ohne eigene Logik; Typ- und Wert-Exporte werden gemeinsam re-exportiert, sodass Konsumenten (Tests und Editor-UI) nur diesen einen Einstiegspunkt importieren."
+  },
+  {
+   "id": "file:packages/core/tests/clone.test.ts",
+   "type": "file",
+   "name": "clone.test.ts",
+   "filePath": "packages/core/tests/clone.test.ts",
+   "summary": "Vitest-Suite für cloneSubtree: prüft, dass ein Teilbaum tief geklont wird — mit frischen Node-Ids, ohne übernommene byteRange-Felder (wichtig für das minimal-invasive Speichern) und vollständig vom Original entkoppelt, sodass Mutationen am Klon nicht durchschlagen.",
+   "tags": [
+    "test",
+    "unit-test",
+    "clone",
+    "doc-node"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:packages/core/tests/coalescing.test.ts",
+   "type": "file",
+   "name": "coalescing.test.ts",
+   "filePath": "packages/core/tests/coalescing.test.ts",
+   "summary": "Vitest-Suite für das Command-Coalescing des CommandBus: aufeinanderfolgende Commands mit gleichem coalesceKey (z. B. eine Tipp-Kette beim Attribut-Umbenennen) verschmelzen zu EINEM Undo-Schritt, während unterschiedliche oder fehlende Keys die Kette brechen; zusätzlich wird createRenameAttributeCommand auf Positions- und Werterhalt sowie das Löschen der byteRange geprüft.",
+   "tags": [
+    "test",
+    "unit-test",
+    "command-bus",
+    "undo-redo",
+    "coalescing"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Der lokale setup()-Helfer baut pro Testfall Dokument und CommandBus aus einem XML-String auf und hält die Tests damit headless und React-frei — entsprechend der Kern-Invariante des Projekts."
+  },
+  {
+   "id": "document:AGENTS.md",
+   "type": "document",
+   "name": "AGENTS.md",
+   "filePath": "AGENTS.md",
+   "summary": "Arbeitsanweisung für KI-Agenten im Jaxel-Projekt: beschreibt Projektzweck (XML/JSON-Editor als Easy-XML-Editor-Ersatz), Pflichtlektüre-Reihenfolge, die sieben zentralen Architektur-Invarianten (Command-Bus, DocNode-Modell, minimal-invasives Speichern) und die Definition of Done für jede Änderung. Inhaltlich identisch mit CLAUDE.md.",
+   "tags": [
+    "documentation",
+    "ki-richtlinien",
+    "arbeitsanweisung",
+    "konventionen"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "AGENTS.md/CLAUDE.md-Doppel: dieselbe Anweisung wird unter beiden Standard-Dateinamen bereitgestellt, damit unterschiedliche KI-Tools sie finden."
+  },
+  {
+   "id": "document:CLAUDE.md",
+   "type": "document",
+   "name": "CLAUDE.md",
+   "filePath": "CLAUDE.md",
+   "summary": "Projektspezifische Anweisungsdatei für Claude Code mit Projektüberblick, Pflichtlektüre (architektur.md, entscheidungen.md, status.md), zentralen Invarianten (geparster Baum als einzige Wahrheit, jede Mutation als Command, keine XSD/DTD-Validierung) und Definition of Done inkl. Doku-Pflicht. Inhaltsgleich mit AGENTS.md.",
+   "tags": [
+    "documentation",
+    "ki-richtlinien",
+    "arbeitsanweisung",
+    "invarianten",
+    "entry-point"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "document:README.md",
+   "type": "document",
+   "name": "README.md",
+   "filePath": "README.md",
+   "summary": "Projektüberblick für Jaxel (plattformunabhängiger XML/JSON-Editor, Tauri 2 + Rust + React/TypeScript): Monorepo-Struktur, Entwicklungs-Workflow inkl. der Falle des doppelten dev-Skripts, Linux-Release-Build (AppImage/deb/rpm) und VS-Code-Tasks. Verweist auf CHANGELOG und die docs-Landkarte.",
+   "tags": [
+    "documentation",
+    "entry-point",
+    "overview",
+    "build-anleitung"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Warnt explizit vor dem gleichnamigen 'dev'-Skript in apps/editor, das nur Vite ohne Tauri-Fenster startet und dadurch invoke()-Aufrufe scheitern lässt."
+  },
+  {
+   "id": "document:CHANGELOG.md",
+   "type": "document",
+   "name": "CHANGELOG.md",
+   "filePath": "CHANGELOG.md",
+   "summary": "Nutzerorientiertes Änderungsprotokoll nach Keep-a-Changelog/SemVer; sammelt den bisherigen Funktionsstand unter [Unreleased]: Baumeditor mit Virtualisierung, Bearbeiten mit Undo/Redo, Suchen/Ersetzen, Tabs, Startscreen, Linux-Pakete. Ein Release wird erst auf PO-Kommando geschnitten.",
+   "tags": [
+    "documentation",
+    "changelog",
+    "release-notes"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "config:package.json",
+   "type": "config",
+   "name": "package.json",
+   "filePath": "package.json",
+   "summary": "Wurzel-Manifest des npm-Workspaces-Monorepos (jaxel-workspace): definiert die Workspaces packages/* und apps/* sowie Sammel-Skripte für test, typecheck und das Tauri-Dev-Fenster, die an das @jaxel/editor-Workspace delegieren.",
+   "tags": [
+    "configuration",
+    "monorepo",
+    "build-system",
+    "npm-workspaces"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/index.html",
+   "type": "file",
+   "name": "index.html",
+   "filePath": "apps/editor/index.html",
+   "summary": "Minimale HTML-Einstiegsseite der Vite/React-App: stellt den #root-Container bereit und lädt das Modul src/main.tsx, das die Jaxel-Editor-UI bootstrappt.",
+   "tags": [
+    "entry-point",
+    "markup",
+    "vite",
+    "html-shell"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Typische Vite-Index-Datei: der <script type=\"module\">-Verweis auf /src/main.tsx wird von Vite im Dev-Modus transformiert und im Build durch das gebündelte Skript ersetzt."
+  },
+  {
+   "id": "config:apps/editor/package.json",
+   "type": "config",
+   "name": "package.json",
+   "filePath": "apps/editor/package.json",
+   "summary": "Workspace-Manifest des Editor-Frontends (@jaxel/editor): definiert die npm-Skripte (dev, build, test, tauri) sowie die Abhängigkeiten auf @jaxel/core, React 18, die Tauri-2-API und die Vitest/Testing-Library-Testinfrastruktur.",
+   "tags": [
+    "configuration",
+    "build-system",
+    "dependencies",
+    "npm-workspace"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Das paketlokale \"dev\"-Skript startet nur Vite ohne Tauri-Fenster — laut Projektdoku muss `npm run dev` im Wurzelverzeichnis laufen, sonst schlagen invoke()-Aufrufe fehl."
+  },
+  {
+   "id": "config:apps/editor/tsconfig.json",
+   "type": "config",
+   "name": "tsconfig.json",
+   "filePath": "apps/editor/tsconfig.json",
+   "summary": "TypeScript-Compiler-Konfiguration des Editor-Pakets: strikter Modus mit noUncheckedIndexedAccess, react-jsx-Transform, Bundler-Modulauflösung und noEmit (Vite übernimmt das Bundling); erfasst src sowie vite.config.ts.",
+   "tags": [
+    "configuration",
+    "typescript",
+    "build-system",
+    "strict-mode"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "document:docs/architektur.md",
+   "type": "document",
+   "name": "architektur.md",
+   "filePath": "docs/architektur.md",
+   "summary": "Ein-Seiten-Architekturlandkarte von Jaxel: beschreibt die drei Schichten (Rust/Tauri für Datei-I/O, React-UI, UI-freier TypeScript-Kern in packages/core), die fünf Leitprinzipien (geparster Baum als einzige Wahrheit, CommandBus, minimal-invasives Speichern, gemeinsames DocNode-Modell) und die Abweichung vom Ursprungsplan, dass das Parsen komplett in TypeScript statt in Rust läuft.",
+   "tags": [
+    "dokumentation",
+    "architektur",
+    "übersicht",
+    "leitprinzipien"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Dokumentiert bewusst eine Plan-Abweichung: entgegen dem Kickoff-Plan gibt es kein Rust-XML-Parsing (kein quick-xml), der selbstgebaute Pull-Parser lebt vollständig in packages/core."
+  },
+  {
+   "id": "document:docs/benutzerhandbuch.md",
+   "type": "document",
+   "name": "benutzerhandbuch.md",
+   "filePath": "docs/benutzerhandbuch.md",
+   "summary": "Endnutzer-Handbuch für Jaxel (Stand AP8) mit acht Abschnitten: Dateien öffnen/speichern, Baumansicht mit Kontextmenü und Drag&Drop, Bearbeiten mit Undo/Redo, Suchen/Ersetzen/Filtern, drei Pfad-Kopier-Varianten, Einstellungen sowie eine vollständige Tastenkürzel-Tabelle.",
+   "tags": [
+    "dokumentation",
+    "benutzerhandbuch",
+    "bedienung",
+    "tastenkürzel"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "document:docs/entscheidungen.md",
+   "type": "document",
+   "name": "entscheidungen.md",
+   "filePath": "docs/entscheidungen.md",
+   "summary": "Append-only-Entscheidungslog und maßgebliche Quelle bei Widersprüchen: 13 Kickoff-Entscheidungen (Best-Effort-Round-Trip, Tauri-2-Stack, XML/JSON-Konvention, Encoding-Strategie u.a.), eine dokumentierte Einschränkung der JSON-Array-Konvention sowie die Liste ausdrücklich nicht geplanter Features (keine XSD/DTD-Validierung, kein Editieren über RAM-Grenze).",
+   "tags": [
+    "dokumentation",
+    "entscheidungslog",
+    "adr",
+    "projektumfang"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Folgt dem ADR-Muster (Architecture Decision Records): Einträge werden datiert angehängt und nie umgeschrieben; eine eigene Negativliste verhindert versehentlichen Nachbau verworfener Features."
+  },
+  {
+   "id": "document:docs/status.md",
+   "type": "document",
+   "name": "status.md",
+   "filePath": "docs/status.md",
+   "summary": "Ist-Stand-Protokoll je Arbeitspaket (AP0 Gerüst bis AP8 Kontextmenü/Attribut-Editing/Baum-DnD) mit einem Einstiegsabschnitt „Hier weitermachen\": dokumentiert pro Paket was umgesetzt wurde, bewusste Vereinfachungen und offene Punkte wie das PO-Klick-Review aus AP7 und den Test des Linux-Packagings auf sauberem System.",
+   "tags": [
+    "dokumentation",
+    "statusbericht",
+    "arbeitspakete",
+    "projektverlauf"
+   ],
+   "complexity": "complex"
+  },
+  {
+   "id": "file:.ua/.understandignore",
+   "type": "file",
+   "name": ".understandignore",
+   "filePath": ".ua/.understandignore",
+   "summary": "Ignore-Liste des Understand-Anything-Analysewerkzeugs selbst; schließt Build-Artefakte und irrelevante Pfade von der Wissensgraph-Analyse aus. Kein Bestandteil der Anwendung.",
+   "tags": [
+    "tooling",
+    "ignore-liste",
+    "analyse-artefakt"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "config:.ua/config.json",
+   "type": "config",
+   "name": "config.json",
+   "filePath": ".ua/config.json",
+   "summary": "Minimale Konfiguration des Understand-Anything-Werkzeugs; legt die Ausgabesprache der Analyse fest. Tooling-Artefakt, kein Anwendungsbestandteil.",
+   "tags": [
+    "tooling",
+    "configuration",
+    "analyse-artefakt"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src-tauri/build.rs",
+   "type": "file",
+   "name": "build.rs",
+   "filePath": "apps/editor/src-tauri/build.rs",
+   "summary": "Cargo-Build-Skript, das tauri_build::build() aufruft und damit die Tauri-Codegenerierung (Kontext, Ressourcen, Icons) beim Kompilieren anstößt.",
+   "tags": [
+    "build-system",
+    "tauri",
+    "codegenerierung"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "config:apps/editor/src-tauri/capabilities/default.json",
+   "type": "config",
+   "name": "default.json",
+   "filePath": "apps/editor/src-tauri/capabilities/default.json",
+   "summary": "Tauri-2-Capability-Definition: legt fest, welche Berechtigungen (Permissions) das Hauptfenster gegenüber dem Rust-Backend und den Plugins erhält.",
+   "tags": [
+    "configuration",
+    "security",
+    "tauri",
+    "berechtigungen"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Tauri 2 ersetzt die alte Allowlist durch dateibasierte Capabilities pro Fenster — ein Least-Privilege-Modell für IPC-Zugriffe."
+  },
+  {
+   "id": "config:apps/editor/src-tauri/Cargo.toml",
+   "type": "config",
+   "name": "Cargo.toml",
+   "filePath": "apps/editor/src-tauri/Cargo.toml",
+   "summary": "Cargo-Manifest des Rust-Backends: deklariert das Tauri-2-Framework, Plugins (Log, Dialog, Single-Instance) sowie die Encoding-Abhängigkeit und definiert die Bibliothek app_lib.",
+   "tags": [
+    "configuration",
+    "build-system",
+    "rust",
+    "dependencies"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src-tauri/icons/icon.icns",
+   "type": "file",
+   "name": "icon.icns",
+   "filePath": "apps/editor/src-tauri/icons/icon.icns",
+   "summary": "Binäres macOS-App-Icon (ICNS-Format) mit dem Jaxel-Logo; wird vom Tauri-Bundler in die Desktop-Pakete eingebettet.",
+   "tags": [
+    "asset",
+    "icon",
+    "binary",
+    "bundling"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src-tauri/src/io.rs",
+   "type": "file",
+   "name": "io.rs",
+   "filePath": "apps/editor/src-tauri/src/io.rs",
+   "summary": "Encoding-bewusste Datei-I/O-Schicht des Rust-Kerns: erkennt Zeichenkodierungen über BOM und XML-Deklaration, liest Textdateien verlustfrei ein und schreibt sie in der ursprünglichen Kodierung zurück.",
+   "tags": [
+    "utility",
+    "datei-io",
+    "encoding",
+    "rust"
+   ],
+   "complexity": "simple",
+   "languageNotes": "Nutzt das encoding_rs-Muster (Encoding::for_bom / for_label), damit z. B. ISO-8859-1-XML-Dateien beim Speichern nicht stillschweigend nach UTF-8 konvertiert werden."
+  },
+  {
+   "id": "function:apps/editor/src-tauri/src/io.rs:sniff_xml_declared_encoding",
+   "type": "function",
+   "name": "sniff_xml_declared_encoding",
+   "filePath": "apps/editor/src-tauri/src/io.rs",
+   "lineRange": [
+    13,
+    29
+   ],
+   "summary": "Durchsucht die ersten Bytes einer Datei nach der XML-Deklaration und extrahiert das dort angegebene encoding-Attribut als Encoding-Objekt.",
+   "tags": [
+    "encoding",
+    "xml",
+    "parsing",
+    "heuristik"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src-tauri/src/io.rs:read_text_file",
+   "type": "function",
+   "name": "read_text_file",
+   "filePath": "apps/editor/src-tauri/src/io.rs",
+   "lineRange": [
+    38,
+    46
+   ],
+   "summary": "Liest eine Datei als Bytes, ermittelt die Kodierung (BOM, XML-Deklaration, Fallback UTF-8) und liefert dekodierten Inhalt samt Kodierungsname als DecodedFile zurück.",
+   "tags": [
+    "datei-io",
+    "encoding",
+    "lesen"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src-tauri/src/io.rs:write_text_file",
+   "type": "function",
+   "name": "write_text_file",
+   "filePath": "apps/editor/src-tauri/src/io.rs",
+   "lineRange": [
+    48,
+    52
+   ],
+   "summary": "Kodiert den Textinhalt mit der übergebenen Kodierung (Fallback UTF-8) und schreibt die Bytes auf die Platte — Gegenstück zu read_text_file für roundtrip-treues Speichern.",
+   "tags": [
+    "datei-io",
+    "encoding",
+    "schreiben"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "class:apps/editor/src-tauri/src/io.rs:DecodedFile",
+   "type": "class",
+   "name": "DecodedFile",
+   "filePath": "apps/editor/src-tauri/src/io.rs",
+   "lineRange": [
+    8,
+    11
+   ],
+   "summary": "Ergebnis-Struct des Dateilesens: transportiert den dekodierten Textinhalt zusammen mit dem erkannten Kodierungsnamen.",
+   "tags": [
+    "data-model",
+    "struct",
+    "encoding"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src-tauri/src/lib.rs",
+   "type": "file",
+   "name": "lib.rs",
+   "filePath": "apps/editor/src-tauri/src/lib.rs",
+   "summary": "Herzstück des Tauri-Backends: registriert die IPC-Commands (Datei lesen/schreiben, beim Start übergebene Pfade abholen), initialisiert die Plugins Log, Dialog und Single-Instance und startet die Tauri-App.",
+   "tags": [
+    "entry-point",
+    "tauri",
+    "ipc",
+    "backend"
+   ],
+   "complexity": "moderate",
+   "languageNotes": "Die per Kommandozeile übergebenen Dateipfade werden in einem Mutex-gekapselten Managed State (PendingOpenPaths) geparkt, bis das Frontend sie per Command abholt."
+  },
+  {
+   "id": "function:apps/editor/src-tauri/src/lib.rs:run",
+   "type": "function",
+   "name": "run",
+   "filePath": "apps/editor/src-tauri/src/lib.rs",
+   "lineRange": [
+    41,
+    62
+   ],
+   "summary": "Baut und startet die Tauri-Anwendung: sammelt Startup-Dateipfade aus den CLI-Argumenten, registriert Plugins und den Invoke-Handler und legt den PendingOpenPaths-State an.",
+   "tags": [
+    "entry-point",
+    "bootstrap",
+    "tauri"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "function:apps/editor/src-tauri/src/lib.rs:read_text_file",
+   "type": "function",
+   "name": "read_text_file",
+   "filePath": "apps/editor/src-tauri/src/lib.rs",
+   "lineRange": [
+    26,
+    33
+   ],
+   "summary": "Tauri-Command, das io::read_text_file kapselt und das Ergebnis als FileContent (Inhalt + Kodierung) an das Frontend liefert.",
+   "tags": [
+    "ipc",
+    "api-handler",
+    "datei-io"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src-tauri/src/lib.rs:write_text_file",
+   "type": "function",
+   "name": "write_text_file",
+   "filePath": "apps/editor/src-tauri/src/lib.rs",
+   "lineRange": [
+    36,
+    38
+   ],
+   "summary": "Tauri-Command, das io::write_text_file kapselt und den Dokumentinhalt in der gewünschten Kodierung speichert.",
+   "tags": [
+    "ipc",
+    "api-handler",
+    "datei-io"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "function:apps/editor/src-tauri/src/lib.rs:take_pending_open_paths",
+   "type": "function",
+   "name": "take_pending_open_paths",
+   "filePath": "apps/editor/src-tauri/src/lib.rs",
+   "lineRange": [
+    21,
+    23
+   ],
+   "summary": "Tauri-Command, das die beim App-Start per Kommandozeile übergebenen Dateipfade einmalig aus dem Managed State entnimmt (destruktives take), damit das Frontend sie öffnen kann.",
+   "tags": [
+    "ipc",
+    "api-handler",
+    "startup"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/src-tauri/src/main.rs",
+   "type": "file",
+   "name": "main.rs",
+   "filePath": "apps/editor/src-tauri/src/main.rs",
+   "summary": "Minimaler Binary-Einstiegspunkt der Desktop-App: unterdrückt das Konsolenfenster unter Windows und delegiert an app_lib::run().",
+   "tags": [
+    "entry-point",
+    "tauri",
+    "rust"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "config:apps/editor/src-tauri/tauri.conf.json",
+   "type": "config",
+   "name": "tauri.conf.json",
+   "filePath": "apps/editor/src-tauri/tauri.conf.json",
+   "summary": "Zentrale Tauri-2-Konfiguration der App „Jaxel“ (de.profiforms.jaxel): Build-Kommandos (Vite + tsc), Fenstergeometrie sowie Bundle-Ziele AppImage, deb, rpm und NSIS mit den App-Icons.",
+   "tags": [
+    "configuration",
+    "tauri",
+    "build-system",
+    "deployment"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "config:apps/editor/src/i18n/de.json",
+   "type": "config",
+   "name": "de.json",
+   "filePath": "apps/editor/src/i18n/de.json",
+   "summary": "Deutsches Sprachpaket des i18n-Layers: rund 72 flache Übersetzungsschlüssel für Toolbar, Suche/Ersetzen, Einstellungen, Attribute-Panel, Shortcuts und Willkommensseite.",
+   "tags": [
+    "i18n",
+    "übersetzungen",
+    "configuration",
+    "deutsch"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "config:apps/editor/src/i18n/en.json",
+   "type": "config",
+   "name": "en.json",
+   "filePath": "apps/editor/src/i18n/en.json",
+   "summary": "Englisches Sprachpaket des i18n-Layers; spiegelt die Schlüsselstruktur von de.json eins zu eins für alle UI-Texte des Editors.",
+   "tags": [
+    "i18n",
+    "übersetzungen",
+    "configuration",
+    "englisch"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "file:apps/editor/src/styles.css",
+   "type": "file",
+   "name": "styles.css",
+   "filePath": "apps/editor/src/styles.css",
+   "summary": "Globales Stylesheet des Editors: CSS-Variablen-Theme (helles Default- und dunkles data-theme-Schema mit Petrol-Akzent) plus sämtliche Komponenten-Styles für Titelleiste, Tabs, Baumansicht, Such- und Einstellungsdialoge.",
+   "tags": [
+    "styling",
+    "theme",
+    "css-variablen",
+    "dark-mode"
+   ],
+   "complexity": "complex",
+   "languageNotes": "Theming ausschließlich über CSS-Custom-Properties auf :root bzw. :root[data-theme='dark'] — der Umschalter in App.tsx muss nur ein Attribut setzen, keine Klassen tauschen."
+  },
+  {
+   "id": "file:apps/editor/src/test-setup.ts",
+   "type": "file",
+   "name": "test-setup.ts",
+   "filePath": "apps/editor/src/test-setup.ts",
+   "summary": "Einzeiliges Vitest-Setup: registriert die jest-dom-Matcher von Testing Library (z. B. toBeInTheDocument) für alle UI-Tests.",
+   "tags": [
+    "test",
+    "setup",
+    "vitest"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "file:apps/editor/vite.config.ts",
+   "type": "file",
+   "name": "vite.config.ts",
+   "filePath": "apps/editor/vite.config.ts",
+   "summary": "Vite-Konfiguration der Editor-App: React-Plugin, relativer Asset-Basispfad für das Tauri-Bundle, fester Dev-Port 1420 sowie Vitest-Testumgebung (jsdom mit test-setup.ts).",
+   "tags": [
+    "configuration",
+    "build-system",
+    "vite",
+    "test"
+   ],
+   "complexity": "simple",
+   "languageNotes": "base: './' ist für Tauri nötig, weil das Frontend im Bundle aus einem lokalen Pfad statt von einem Server-Root geladen wird."
+  },
+  {
+   "id": "document:docs/archiv/00-kickoff-plan.md",
+   "type": "document",
+   "name": "00-kickoff-plan.md",
+   "filePath": "docs/archiv/00-kickoff-plan.md",
+   "summary": "Archivierter Kickoff-Plan aus dem Grilling: hält die Grundentscheidungen, Architektur-Skizze, XML↔JSON-Vereinheitlichung und die Roadmap der Arbeitspakete fest. Historischer Kontext — bei Widersprüchen ist docs/entscheidungen.md maßgeblich.",
+   "tags": [
+    "documentation",
+    "planung",
+    "architektur",
+    "archiv"
+   ],
+   "complexity": "moderate"
+  },
+  {
+   "id": "config:packages/core/package.json",
+   "type": "config",
+   "name": "package.json",
+   "filePath": "packages/core/package.json",
+   "summary": "Paketmanifest des UI-freien Modellkerns @jaxel/core: definiert Build- und Test-Skripte (tsc, vitest) und die Dev-Abhängigkeiten des Workspace-Pakets.",
+   "tags": [
+    "configuration",
+    "build-system",
+    "workspace",
+    "npm"
+   ],
+   "complexity": "simple"
+  },
+  {
+   "id": "config:packages/core/tsconfig.json",
+   "type": "config",
+   "name": "tsconfig.json",
+   "filePath": "packages/core/tsconfig.json",
+   "summary": "TypeScript-Compiler-Konfiguration des Core-Pakets; steuert Kompilierung und Typprüfung der headless testbaren Kernlogik.",
+   "tags": [
+    "configuration",
+    "typescript",
+    "build-system"
+   ],
+   "complexity": "simple"
+  }
+ ],
+ "edges": [
+  {
+   "source": "file:apps/editor/src/App.test.tsx",
+   "target": "file:apps/editor/src/App.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.test.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/panels/AttributesPanel.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/search/SearchPanel.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/settings/SettingsDialog.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/state/document-store.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/state/local-prefs.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/state/settings-store.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/tabs/TabBar.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/tree/filter.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/tree/flatten.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/tree/TreeView.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/ui/ContextMenu.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/ui/IconButton.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/welcome/WelcomeScreen.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/main.tsx",
+   "target": "file:apps/editor/src/App.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/main.tsx",
+   "target": "file:apps/editor/src/ErrorBoundary.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/main.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/main.tsx",
+   "target": "file:apps/editor/src/styles.css",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/panels/AttributesPanel.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/search/SearchPanel.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/settings/SettingsDialog.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/settings/SettingsDialog.tsx",
+   "target": "file:apps/editor/src/state/settings-store.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/tabs/TabBar.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/tabs/TabBar.tsx",
+   "target": "file:apps/editor/src/state/document-store.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/tree/TreeView.tsx",
+   "target": "file:apps/editor/src/tree/flatten.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/tree/filter.ts",
+   "target": "file:apps/editor/src/tree/flatten.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/welcome/WelcomeScreen.tsx",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/welcome/WelcomeScreen.tsx",
+   "target": "file:apps/editor/src/state/local-prefs.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "function:apps/editor/src/App.tsx:App",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/ErrorBoundary.tsx",
+   "target": "class:apps/editor/src/ErrorBoundary.tsx:ErrorBoundary",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/i18n/index.tsx",
+   "target": "function:apps/editor/src/i18n/index.tsx:I18nProvider",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/i18n/index.tsx",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/panels/AttributesPanel.tsx",
+   "target": "function:apps/editor/src/panels/AttributesPanel.tsx:AttributesPanel",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/panels/AttributesPanel.tsx",
+   "target": "function:apps/editor/src/panels/AttributesPanel.tsx:AttrNameInput",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/search/SearchPanel.tsx",
+   "target": "function:apps/editor/src/search/SearchPanel.tsx:SearchPanel",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/settings/SettingsDialog.tsx",
+   "target": "function:apps/editor/src/settings/SettingsDialog.tsx:SettingsDialog",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/state/document-store.ts",
+   "target": "function:apps/editor/src/state/document-store.ts:useJaxelDocuments",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:getLastDir",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:rememberLastDir",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:getRecentFiles",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:addRecentFile",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/state/settings-store.ts",
+   "target": "function:apps/editor/src/state/settings-store.ts:useSettings",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/tabs/TabBar.tsx",
+   "target": "function:apps/editor/src/tabs/TabBar.tsx:TabBar",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/tree/TreeView.tsx",
+   "target": "function:apps/editor/src/tree/TreeView.tsx:TreeView",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/tree/TreeView.tsx",
+   "target": "function:apps/editor/src/tree/TreeView.tsx:TreeRowView",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/tree/TreeView.tsx",
+   "target": "function:apps/editor/src/tree/TreeView.tsx:InlineEditor",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/tree/filter.ts",
+   "target": "function:apps/editor/src/tree/filter.ts:buildFilterKeepSet",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/tree/filter.ts",
+   "target": "function:apps/editor/src/tree/filter.ts:flattenFiltered",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/tree/flatten.ts",
+   "target": "function:apps/editor/src/tree/flatten.ts:flattenTree",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/ui/ContextMenu.tsx",
+   "target": "function:apps/editor/src/ui/ContextMenu.tsx:ContextMenu",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/ui/IconButton.tsx",
+   "target": "function:apps/editor/src/ui/IconButton.tsx:IconButton",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/welcome/WelcomeScreen.tsx",
+   "target": "function:apps/editor/src/welcome/WelcomeScreen.tsx:WelcomeScreen",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "function:apps/editor/src/App.tsx:App",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/ErrorBoundary.tsx",
+   "target": "class:apps/editor/src/ErrorBoundary.tsx:ErrorBoundary",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/i18n/index.tsx",
+   "target": "function:apps/editor/src/i18n/index.tsx:I18nProvider",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/i18n/index.tsx",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/panels/AttributesPanel.tsx",
+   "target": "function:apps/editor/src/panels/AttributesPanel.tsx:AttributesPanel",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/search/SearchPanel.tsx",
+   "target": "function:apps/editor/src/search/SearchPanel.tsx:SearchPanel",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/settings/SettingsDialog.tsx",
+   "target": "function:apps/editor/src/settings/SettingsDialog.tsx:SettingsDialog",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/state/document-store.ts",
+   "target": "function:apps/editor/src/state/document-store.ts:useJaxelDocuments",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:getLastDir",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:rememberLastDir",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:getRecentFiles",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/state/local-prefs.ts",
+   "target": "function:apps/editor/src/state/local-prefs.ts:addRecentFile",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/state/settings-store.ts",
+   "target": "function:apps/editor/src/state/settings-store.ts:useSettings",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/tabs/TabBar.tsx",
+   "target": "function:apps/editor/src/tabs/TabBar.tsx:TabBar",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/tree/TreeView.tsx",
+   "target": "function:apps/editor/src/tree/TreeView.tsx:TreeView",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/tree/filter.ts",
+   "target": "function:apps/editor/src/tree/filter.ts:buildFilterKeepSet",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/tree/filter.ts",
+   "target": "function:apps/editor/src/tree/filter.ts:flattenFiltered",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/tree/flatten.ts",
+   "target": "function:apps/editor/src/tree/flatten.ts:flattenTree",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/ui/ContextMenu.tsx",
+   "target": "function:apps/editor/src/ui/ContextMenu.tsx:ContextMenu",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/ui/IconButton.tsx",
+   "target": "function:apps/editor/src/ui/IconButton.tsx:IconButton",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/welcome/WelcomeScreen.tsx",
+   "target": "function:apps/editor/src/welcome/WelcomeScreen.tsx:WelcomeScreen",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/state/settings-store.ts:useSettings",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/state/document-store.ts:useJaxelDocuments",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/tree/filter.ts:buildFilterKeepSet",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/tree/filter.ts:flattenFiltered",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/tree/flatten.ts:flattenTree",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/state/local-prefs.ts:getLastDir",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/state/local-prefs.ts:rememberLastDir",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/App.tsx:App",
+   "target": "function:apps/editor/src/state/local-prefs.ts:addRecentFile",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/panels/AttributesPanel.tsx:AttributesPanel",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/search/SearchPanel.tsx:SearchPanel",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/settings/SettingsDialog.tsx:SettingsDialog",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/tabs/TabBar.tsx:TabBar",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/welcome/WelcomeScreen.tsx:WelcomeScreen",
+   "target": "function:apps/editor/src/i18n/index.tsx:useI18n",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src/welcome/WelcomeScreen.tsx:WelcomeScreen",
+   "target": "function:apps/editor/src/state/local-prefs.ts:getRecentFiles",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src/App.tsx",
+   "target": "file:apps/editor/src/App.test.tsx",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/byte-range.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/insert-node.ts",
+   "target": "file:packages/core/src/commands/byte-range.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/insert-node.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/insert-node.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/move-node.ts",
+   "target": "file:packages/core/src/commands/byte-range.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/move-node.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/move-node.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/remove-node.ts",
+   "target": "file:packages/core/src/commands/byte-range.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/remove-node.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/remove-node.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/rename-attribute.ts",
+   "target": "file:packages/core/src/commands/byte-range.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/rename-attribute.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/rename-attribute.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/rename.ts",
+   "target": "file:packages/core/src/commands/byte-range.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/rename.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/rename.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/set-attribute.ts",
+   "target": "file:packages/core/src/commands/byte-range.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/set-attribute.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/set-attribute.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/set-value.ts",
+   "target": "file:packages/core/src/commands/byte-range.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/set-value.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/set-value.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/byte-range.ts",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/byte-range.ts",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/byte-range.ts",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/insert-node.ts",
+   "target": "function:packages/core/src/commands/insert-node.ts:createInsertNodeCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/move-node.ts",
+   "target": "function:packages/core/src/commands/move-node.ts:createMoveNodeCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/remove-node.ts",
+   "target": "function:packages/core/src/commands/remove-node.ts:createRemoveNodeCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/rename-attribute.ts",
+   "target": "function:packages/core/src/commands/rename-attribute.ts:createRenameAttributeCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/rename.ts",
+   "target": "function:packages/core/src/commands/rename.ts:createRenameCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/set-attribute.ts",
+   "target": "function:packages/core/src/commands/set-attribute.ts:createSetAttributeCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/set-value.ts",
+   "target": "function:packages/core/src/commands/set-value.ts:createSetValueCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:getPathSegments",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:formatIndexedPath",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:formatStaticPath",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:formatFullPath",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:findAncestorChain",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:computePaths",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/byte-range.ts",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/byte-range.ts",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/byte-range.ts",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/insert-node.ts",
+   "target": "function:packages/core/src/commands/insert-node.ts:createInsertNodeCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/move-node.ts",
+   "target": "function:packages/core/src/commands/move-node.ts:createMoveNodeCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/remove-node.ts",
+   "target": "function:packages/core/src/commands/remove-node.ts:createRemoveNodeCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/rename-attribute.ts",
+   "target": "function:packages/core/src/commands/rename-attribute.ts:createRenameAttributeCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/rename.ts",
+   "target": "function:packages/core/src/commands/rename.ts:createRenameCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/set-attribute.ts",
+   "target": "function:packages/core/src/commands/set-attribute.ts:createSetAttributeCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/set-value.ts",
+   "target": "function:packages/core/src/commands/set-value.ts:createSetValueCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:getPathSegments",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:formatIndexedPath",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:formatStaticPath",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:formatFullPath",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:findAncestorChain",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "function:packages/core/src/format/path.ts:computePaths",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/insert-node.ts:createInsertNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/insert-node.ts:createInsertNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/insert-node.ts:createInsertNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/move-node.ts:createMoveNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/move-node.ts:createMoveNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/move-node.ts:createMoveNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/remove-node.ts:createRemoveNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/remove-node.ts:createRemoveNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/remove-node.ts:createRemoveNodeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/rename-attribute.ts:createRenameAttributeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/rename-attribute.ts:createRenameAttributeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/rename-attribute.ts:createRenameAttributeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/rename.ts:createRenameCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/rename.ts:createRenameCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/rename.ts:createRenameCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/set-attribute.ts:createSetAttributeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/set-attribute.ts:createSetAttributeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/set-attribute.ts:createSetAttributeCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/set-value.ts:createSetValueCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:captureByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/set-value.ts:createSetValueCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:clearByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/commands/set-value.ts:createSetValueCommand",
+   "target": "function:packages/core/src/commands/byte-range.ts:restoreByteRanges",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/insert-node.ts",
+   "target": "file:packages/core/tests/mutation-commands.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/move-node.ts",
+   "target": "file:packages/core/tests/mutation-commands.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/remove-node.ts",
+   "target": "file:packages/core/tests/mutation-commands.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/rename.ts",
+   "target": "file:packages/core/tests/mutation-commands.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/set-attribute.ts",
+   "target": "file:packages/core/tests/mutation-commands.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/set-value.ts",
+   "target": "file:packages/core/tests/mutation-commands.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/format/path.ts",
+   "target": "file:packages/core/tests/path.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/format/xml-import.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/search/search.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/mutation-commands.test.ts",
+   "target": "file:packages/core/src/commands/insert-node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/mutation-commands.test.ts",
+   "target": "file:packages/core/src/commands/move-node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/mutation-commands.test.ts",
+   "target": "file:packages/core/src/commands/remove-node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/mutation-commands.test.ts",
+   "target": "file:packages/core/src/commands/rename.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/mutation-commands.test.ts",
+   "target": "file:packages/core/src/commands/set-attribute.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/mutation-commands.test.ts",
+   "target": "file:packages/core/src/commands/set-value.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/mutation-commands.test.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/path.test.ts",
+   "target": "file:packages/core/src/format/path.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/path.test.ts",
+   "target": "file:packages/core/src/format/xml-import.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/path.test.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/search.test.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/search.test.ts",
+   "target": "file:packages/core/src/search/search.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "target": "file:packages/core/src/format/xml-export.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "target": "file:packages/core/src/format/xml-import.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeNode",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeXml",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeNodeMinimal",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeXmlMinimal",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/xml-import.ts",
+   "target": "function:packages/core/src/format/xml-import.ts:decodeEntities",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/xml-import.ts",
+   "target": "function:packages/core/src/format/xml-import.ts:buildByteOffsetTable",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/xml-import.ts",
+   "target": "function:packages/core/src/format/xml-import.ts:parseXml",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/model/node.ts",
+   "target": "function:packages/core/src/model/node.ts:createNodeId",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/model/node.ts",
+   "target": "function:packages/core/src/model/node.ts:createNode",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/model/node.ts",
+   "target": "function:packages/core/src/model/node.ts:cloneSubtree",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/search/search.ts",
+   "target": "function:packages/core/src/search/search.ts:compileMatcher",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/search/search.ts",
+   "target": "function:packages/core/src/search/search.ts:findAll",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/search/search.ts",
+   "target": "function:packages/core/src/search/search.ts:replaceAll",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/tests/path.test.ts",
+   "target": "function:packages/core/tests/path.test.ts:buildCatalogTree",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/tests/path.test.ts",
+   "target": "function:packages/core/tests/path.test.ts:findAncestors",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/tests/search.test.ts",
+   "target": "function:packages/core/tests/search.test.ts:buildCatalog",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeXml",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeXmlMinimal",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/xml-import.ts",
+   "target": "function:packages/core/src/format/xml-import.ts:parseXml",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/model/node.ts",
+   "target": "function:packages/core/src/model/node.ts:createNodeId",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/model/node.ts",
+   "target": "function:packages/core/src/model/node.ts:createNode",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/model/node.ts",
+   "target": "function:packages/core/src/model/node.ts:cloneSubtree",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/search/search.ts",
+   "target": "function:packages/core/src/search/search.ts:findAll",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/search/search.ts",
+   "target": "function:packages/core/src/search/search.ts:replaceAll",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/format/xml-import.ts:parseXml",
+   "target": "function:packages/core/src/model/node.ts:createNode",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/tests/path.test.ts:buildCatalogTree",
+   "target": "function:packages/core/src/model/node.ts:createNode",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/tests/search.test.ts:buildCatalog",
+   "target": "function:packages/core/src/model/node.ts:createNode",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/tests/search.test.ts",
+   "target": "function:packages/core/src/search/search.ts:findAll",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/tests/search.test.ts",
+   "target": "function:packages/core/src/search/search.ts:replaceAll",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "target": "function:packages/core/src/format/xml-import.ts:parseXml",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeXml",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "target": "function:packages/core/src/format/xml-export.ts:serializeXmlMinimal",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/tests/path.test.ts",
+   "target": "function:packages/core/src/format/xml-import.ts:parseXml",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/xml-export.ts",
+   "target": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/format/xml-import.ts",
+   "target": "file:packages/core/tests/xml-roundtrip.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/search/search.ts",
+   "target": "file:packages/core/tests/search.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/command-bus.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/command-bus.ts",
+   "target": "file:packages/core/src/model/document.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/command.ts",
+   "target": "file:packages/core/src/model/document.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/composite.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/model/document.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/command-bus.test.ts",
+   "target": "file:packages/core/src/commands/command-bus.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/command-bus.test.ts",
+   "target": "file:packages/core/src/commands/command.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/command-bus.test.ts",
+   "target": "file:packages/core/src/commands/composite.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/command-bus.test.ts",
+   "target": "file:packages/core/src/model/document.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/command-bus.test.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/commands/command-bus.ts",
+   "target": "class:packages/core/src/commands/command-bus.ts:CommandBus",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/composite.ts",
+   "target": "function:packages/core/src/commands/composite.ts:createCompositeCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/model/document.ts",
+   "target": "function:packages/core/src/model/document.ts:createDocument",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/tests/command-bus.test.ts",
+   "target": "function:packages/core/tests/command-bus.test.ts:setValueCommand",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/commands/command-bus.ts",
+   "target": "class:packages/core/src/commands/command-bus.ts:CommandBus",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/composite.ts",
+   "target": "function:packages/core/src/commands/composite.ts:createCompositeCommand",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/model/document.ts",
+   "target": "function:packages/core/src/model/document.ts:createDocument",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/tests/command-bus.test.ts",
+   "target": "function:packages/core/src/model/node.ts:createNode",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/commands/command-bus.ts",
+   "target": "file:packages/core/tests/command-bus.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/command.ts",
+   "target": "file:packages/core/tests/command-bus.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/commands/composite.ts",
+   "target": "file:packages/core/tests/command-bus.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/model/document.ts",
+   "target": "file:packages/core/tests/command-bus.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/model/node.ts",
+   "target": "file:packages/core/tests/command-bus.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/format/json-import.ts",
+   "target": "file:packages/core/src/model/node.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/json-mapping.test.ts",
+   "target": "file:packages/core/src/format/json-export.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/json-mapping.test.ts",
+   "target": "file:packages/core/src/format/json-import.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "function:packages/core/src/format/json-export.ts:serializeJson",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "function:packages/core/src/format/json-export.ts:nodeToJsonText",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "function:packages/core/src/format/json-export.ts:groupByName",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "function:packages/core/src/format/json-export.ts:formatPrimitive",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "function:packages/core/src/format/json-export.ts:escapeJsonString",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-import.ts",
+   "target": "function:packages/core/src/format/json-import.ts:parseJsonSource",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-import.ts",
+   "target": "function:packages/core/src/format/json-import.ts:jsonTypeOf",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-import.ts",
+   "target": "function:packages/core/src/format/json-import.ts:rawTextOf",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-import.ts",
+   "target": "function:packages/core/src/format/json-import.ts:parseJson",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "function:packages/core/src/format/json-export.ts:serializeJson",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/json-import.ts",
+   "target": "function:packages/core/src/format/json-import.ts:parseJson",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:packages/core/src/format/json-import.ts:parseJson",
+   "target": "function:packages/core/src/model/node.ts:createNode",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:packages/core/src/format/json-export.ts",
+   "target": "file:packages/core/tests/json-mapping.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/format/json-import.ts",
+   "target": "file:packages/core/tests/json-mapping.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/tests/clone.test.ts",
+   "target": "file:packages/core/src/index.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/tests/coalescing.test.ts",
+   "target": "file:packages/core/src/index.ts",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:packages/core/src/index.ts",
+   "target": "file:packages/core/tests/clone.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:packages/core/src/index.ts",
+   "target": "file:packages/core/tests/coalescing.test.ts",
+   "type": "tested_by",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:AGENTS.md",
+   "target": "document:CLAUDE.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:AGENTS.md",
+   "target": "document:docs/architektur.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:AGENTS.md",
+   "target": "document:docs/entscheidungen.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:AGENTS.md",
+   "target": "document:docs/status.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:CLAUDE.md",
+   "target": "document:docs/architektur.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:CLAUDE.md",
+   "target": "document:docs/entscheidungen.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:CLAUDE.md",
+   "target": "document:docs/status.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:README.md",
+   "target": "document:CHANGELOG.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:README.md",
+   "target": "document:docs/architektur.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:README.md",
+   "target": "document:docs/entscheidungen.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:README.md",
+   "target": "document:docs/status.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:README.md",
+   "target": "document:docs/benutzerhandbuch.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:CHANGELOG.md",
+   "target": "document:docs/status.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "config:package.json",
+   "target": "config:apps/editor/package.json",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:package.json",
+   "target": "config:packages/core/package.json",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "file:apps/editor/index.html",
+   "target": "file:apps/editor/src/main.tsx",
+   "type": "depends_on",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/package.json",
+   "target": "file:apps/editor/src/main.tsx",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/package.json",
+   "target": "file:apps/editor/index.html",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/tsconfig.json",
+   "target": "file:apps/editor/src/main.tsx",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/tsconfig.json",
+   "target": "file:apps/editor/vite.config.ts",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "document:docs/architektur.md",
+   "target": "document:docs/entscheidungen.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:docs/architektur.md",
+   "target": "document:docs/status.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:docs/architektur.md",
+   "target": "document:docs/benutzerhandbuch.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:docs/status.md",
+   "target": "document:docs/entscheidungen.md",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:docs/architektur.md",
+   "target": "file:packages/core/src/commands/command-bus.ts",
+   "type": "documents",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:docs/architektur.md",
+   "target": "file:apps/editor/src/App.tsx",
+   "type": "documents",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "document:docs/benutzerhandbuch.md",
+   "target": "file:apps/editor/src/App.tsx",
+   "type": "documents",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/lib.rs",
+   "target": "file:apps/editor/src-tauri/src/io.rs",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/io.rs",
+   "target": "function:apps/editor/src-tauri/src/io.rs:sniff_xml_declared_encoding",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/io.rs",
+   "target": "function:apps/editor/src-tauri/src/io.rs:read_text_file",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/io.rs",
+   "target": "function:apps/editor/src-tauri/src/io.rs:write_text_file",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/io.rs",
+   "target": "class:apps/editor/src-tauri/src/io.rs:DecodedFile",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/io.rs",
+   "target": "function:apps/editor/src-tauri/src/io.rs:read_text_file",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/io.rs",
+   "target": "function:apps/editor/src-tauri/src/io.rs:write_text_file",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/io.rs",
+   "target": "class:apps/editor/src-tauri/src/io.rs:DecodedFile",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/lib.rs",
+   "target": "function:apps/editor/src-tauri/src/lib.rs:run",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/lib.rs",
+   "target": "function:apps/editor/src-tauri/src/lib.rs:read_text_file",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/lib.rs",
+   "target": "function:apps/editor/src-tauri/src/lib.rs:write_text_file",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/lib.rs",
+   "target": "function:apps/editor/src-tauri/src/lib.rs:take_pending_open_paths",
+   "type": "contains",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/lib.rs",
+   "target": "function:apps/editor/src-tauri/src/lib.rs:run",
+   "type": "exports",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src-tauri/src/lib.rs:read_text_file",
+   "target": "function:apps/editor/src-tauri/src/io.rs:read_text_file",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "function:apps/editor/src-tauri/src/lib.rs:write_text_file",
+   "target": "function:apps/editor/src-tauri/src/io.rs:write_text_file",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/main.rs",
+   "target": "function:apps/editor/src-tauri/src/lib.rs:run",
+   "type": "calls",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "file:apps/editor/src-tauri/src/main.rs",
+   "target": "file:apps/editor/src-tauri/src/lib.rs",
+   "type": "depends_on",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src-tauri/Cargo.toml",
+   "target": "file:apps/editor/src-tauri/src/lib.rs",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src-tauri/Cargo.toml",
+   "target": "file:apps/editor/src-tauri/src/main.rs",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src-tauri/Cargo.toml",
+   "target": "file:apps/editor/src-tauri/build.rs",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src-tauri/tauri.conf.json",
+   "target": "file:apps/editor/src-tauri/src/lib.rs",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src-tauri/tauri.conf.json",
+   "target": "file:apps/editor/vite.config.ts",
+   "type": "depends_on",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src-tauri/tauri.conf.json",
+   "target": "file:apps/editor/src-tauri/icons/icon.icns",
+   "type": "depends_on",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src-tauri/capabilities/default.json",
+   "target": "file:apps/editor/src-tauri/src/lib.rs",
+   "type": "configures",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "config:apps/editor/src/i18n/de.json",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "config:apps/editor/src/i18n/en.json",
+   "target": "file:apps/editor/src/i18n/index.tsx",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "config:apps/editor/src/i18n/de.json",
+   "target": "config:apps/editor/src/i18n/en.json",
+   "type": "related",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "file:apps/editor/vite.config.ts",
+   "target": "file:apps/editor/src/test-setup.ts",
+   "type": "depends_on",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "document:docs/archiv/00-kickoff-plan.md",
+   "target": "file:apps/editor/src/main.tsx",
+   "type": "documents",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "config:packages/core/package.json",
+   "target": "config:packages/core/tsconfig.json",
+   "type": "depends_on",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "file:apps/editor/src/i18n/index.tsx",
+   "target": "config:apps/editor/src/i18n/de.json",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "file:apps/editor/src/i18n/index.tsx",
+   "target": "config:apps/editor/src/i18n/en.json",
+   "type": "imports",
+   "direction": "forward",
+   "weight": 0.7
+  }
+ ],
+ "layers": [
+  {
+   "id": "layer:core-model",
+   "name": "Kernmodell",
+   "description": "Headless DocNode-Baummodell mit Dokument-Verwaltung, Public-API-Barrel und Suche in packages/core — die einzige Wahrheit für XML- und JSON-Inhalte.",
+   "nodeIds": [
+    "file:packages/core/src/model/node.ts",
+    "file:packages/core/src/model/document.ts",
+    "file:packages/core/src/index.ts",
+    "file:packages/core/src/search/search.ts"
+   ]
+  },
+  {
+   "id": "layer:commands",
+   "name": "Command-Schicht",
+   "description": "CommandBus mit Undo/Redo-Historie und alle Mutations-Commands (Einfügen, Entfernen, Verschieben, Umbenennen, Attribut- und Wertänderungen) inklusive Byte-Range-Verwaltung und Composite-Commands.",
+   "nodeIds": [
+    "file:packages/core/src/commands/command-bus.ts",
+    "file:packages/core/src/commands/command.ts",
+    "file:packages/core/src/commands/composite.ts",
+    "file:packages/core/src/commands/byte-range.ts",
+    "file:packages/core/src/commands/insert-node.ts",
+    "file:packages/core/src/commands/move-node.ts",
+    "file:packages/core/src/commands/remove-node.ts",
+    "file:packages/core/src/commands/rename-attribute.ts",
+    "file:packages/core/src/commands/rename.ts",
+    "file:packages/core/src/commands/set-attribute.ts",
+    "file:packages/core/src/commands/set-value.ts"
+   ]
+  },
+  {
+   "id": "layer:format",
+   "name": "Format-Schicht",
+   "description": "XML- und JSON-Import/-Export mit minimal-invasivem Speichern (Original-Bytebereiche unveränderter Knoten bleiben erhalten) sowie Pfad-Darstellung für DocNodes.",
+   "nodeIds": [
+    "file:packages/core/src/format/xml-import.ts",
+    "file:packages/core/src/format/xml-export.ts",
+    "file:packages/core/src/format/json-import.ts",
+    "file:packages/core/src/format/json-export.ts",
+    "file:packages/core/src/format/path.ts"
+   ]
+  },
+  {
+   "id": "layer:ui",
+   "name": "UI-Schicht (React)",
+   "description": "React-Komponenten des Editors: Baumansicht mit Flatten/Filter-Logik, Attribut-Panel, Tab-Leiste, Suchpanel, Einstellungsdialog, Kontextmenü, Welcome-Screen sowie App-Einstiegspunkte und Styles der Vite-App.",
+   "nodeIds": [
+    "file:apps/editor/src/App.tsx",
+    "file:apps/editor/src/main.tsx",
+    "file:apps/editor/src/ErrorBoundary.tsx",
+    "file:apps/editor/src/tree/TreeView.tsx",
+    "file:apps/editor/src/tree/flatten.ts",
+    "file:apps/editor/src/tree/filter.ts",
+    "file:apps/editor/src/panels/AttributesPanel.tsx",
+    "file:apps/editor/src/search/SearchPanel.tsx",
+    "file:apps/editor/src/settings/SettingsDialog.tsx",
+    "file:apps/editor/src/tabs/TabBar.tsx",
+    "file:apps/editor/src/ui/ContextMenu.tsx",
+    "file:apps/editor/src/ui/IconButton.tsx",
+    "file:apps/editor/src/welcome/WelcomeScreen.tsx",
+    "file:apps/editor/src/styles.css",
+    "file:apps/editor/index.html"
+   ]
+  },
+  {
+   "id": "layer:state",
+   "name": "State & App-Services",
+   "description": "Zustand-Stores für offene Dokumente und Einstellungen, lokale Präferenzen sowie der schlanke zweisprachige i18n-Layer mit deutschen und englischen Übersetzungsdateien.",
+   "nodeIds": [
+    "file:apps/editor/src/state/document-store.ts",
+    "file:apps/editor/src/state/settings-store.ts",
+    "file:apps/editor/src/state/local-prefs.ts",
+    "file:apps/editor/src/i18n/index.tsx",
+    "config:apps/editor/src/i18n/de.json",
+    "config:apps/editor/src/i18n/en.json"
+   ]
+  },
+  {
+   "id": "layer:desktop-backend",
+   "name": "Desktop-Backend (Tauri/Rust)",
+   "description": "Rust-seitiger Tauri-2-Prozess mit Datei-I/O-Commands, Build-Skript, App-Konfiguration, Capabilities und Icons für die plattformunabhängige Desktop-Auslieferung.",
+   "nodeIds": [
+    "file:apps/editor/src-tauri/src/main.rs",
+    "file:apps/editor/src-tauri/src/lib.rs",
+    "file:apps/editor/src-tauri/src/io.rs",
+    "file:apps/editor/src-tauri/build.rs",
+    "config:apps/editor/src-tauri/Cargo.toml",
+    "config:apps/editor/src-tauri/tauri.conf.json",
+    "config:apps/editor/src-tauri/capabilities/default.json",
+    "file:apps/editor/src-tauri/icons/icon.icns"
+   ]
+  },
+  {
+   "id": "layer:test",
+   "name": "Tests",
+   "description": "Vitest-Suiten für Kernmodell, Command-Bus, Mutations-Commands, XML/JSON-Roundtrips, Pfade und Suche sowie UI-Smoke-Test und Test-Setup des Editors.",
+   "nodeIds": [
+    "file:packages/core/tests/command-bus.test.ts",
+    "file:packages/core/tests/mutation-commands.test.ts",
+    "file:packages/core/tests/xml-roundtrip.test.ts",
+    "file:packages/core/tests/json-mapping.test.ts",
+    "file:packages/core/tests/path.test.ts",
+    "file:packages/core/tests/search.test.ts",
+    "file:packages/core/tests/clone.test.ts",
+    "file:packages/core/tests/coalescing.test.ts",
+    "file:apps/editor/src/App.test.tsx",
+    "file:apps/editor/src/test-setup.ts"
+   ]
+  },
+  {
+   "id": "layer:documentation",
+   "name": "Dokumentation",
+   "description": "Projekt- und Architektur-Dokumentation: Architektur-Landkarte, Entscheidungslog, Statusberichte, Benutzerhandbuch, Kickoff-Plan, README, Changelog und KI-Arbeitsanweisungen.",
+   "nodeIds": [
+    "document:README.md",
+    "document:CHANGELOG.md",
+    "document:CLAUDE.md",
+    "document:AGENTS.md",
+    "document:docs/architektur.md",
+    "document:docs/entscheidungen.md",
+    "document:docs/status.md",
+    "document:docs/benutzerhandbuch.md",
+    "document:docs/archiv/00-kickoff-plan.md"
+   ]
+  },
+  {
+   "id": "layer:config",
+   "name": "Konfiguration & Build",
+   "description": "Workspace- und Paket-Manifeste des npm-Monorepos, TypeScript- und Vite-Konfiguration sowie Tooling-Einstellungen für die Wissensgraph-Analyse.",
+   "nodeIds": [
+    "config:package.json",
+    "config:apps/editor/package.json",
+    "config:apps/editor/tsconfig.json",
+    "file:apps/editor/vite.config.ts",
+    "config:packages/core/package.json",
+    "config:packages/core/tsconfig.json",
+    "config:.ua/config.json",
+    "file:.ua/.understandignore"
+   ]
+  }
+ ],
+ "tour": [
+  {
+   "order": 1,
+   "title": "Projektüberblick",
+   "description": "Der Einstieg beginnt mit der README: Jaxel ist ein plattformunabhängiger XML/JSON-Editor als Ersatz für den Easy XML Editor, der unter Linux nicht verfügbar ist. Der Stack besteht aus Tauri 2 mit Rust-Kern und einer React/TypeScript-UI, organisiert als npm-Workspaces-Monorepo mit zwei Paketen: dem UI-freien Modellkern in packages/core und der Desktop-App in apps/editor. Diese Zweiteilung ist der rote Faden der gesamten Tour.",
+   "nodeIds": [
+    "document:README.md"
+   ]
+  },
+  {
+   "order": 2,
+   "title": "Architektur und Entscheidungen",
+   "description": "Bevor wir Code lesen, lohnt der Blick auf die beiden maßgeblichen Dokumente: Die Architektur-Landkarte beschreibt die drei Schichten (Rust/Tauri für Datei-I/O, React-UI, headless TypeScript-Kern) und die fünf Leitprinzipien — allen voran „der geparste Baum ist die einzige Wahrheit\". Das Append-only-Entscheidungslog ist bei Widersprüchen die verbindliche Quelle und listet auch, was ausdrücklich NICHT geplant ist, etwa XSD/DTD-Validierung. Wer diese beiden Seiten kennt, versteht das Warum hinter jedem folgenden Schritt.",
+   "nodeIds": [
+    "document:docs/architektur.md",
+    "document:docs/entscheidungen.md"
+   ]
+  },
+  {
+   "order": 3,
+   "title": "DocNode: die einzige Wahrheit",
+   "description": "Das Herzstück des Kerns: DocNode ist das einheitliche Baummodell, das XML und JSON gleichermaßen repräsentiert — mit 20 eingehenden Kanten die mit Abstand meistgenutzte Datei des Projekts. Dazu kommt JaxelDocument, das gemeinsame Dokumentmodell mit Format, Wurzelknoten, Encoding und einem revisionsgetriebenen Render-Zähler, über den React später Änderungen erkennt. Es gibt bewusst kein paralleles Datenmodell und keinen Spiegel-State: Alles Weitere in dieser Tour operiert auf genau diesem Baum.",
+   "nodeIds": [
+    "file:packages/core/src/model/node.ts",
+    "file:packages/core/src/model/document.ts"
+   ],
+   "languageLesson": "TypeScript nutzt strukturelle Typisierung (structural typing): Ein Objekt ist ein DocNode, sobald es die passende Form hat — kein Klassen- oder Vererbungszwang. Fabrikfunktionen wie createNode() ersetzen Konstruktoren und halten das Modell als reine Daten (plain objects) serialisierbar."
+  },
+  {
+   "order": 4,
+   "title": "CommandBus und Undo/Redo",
+   "description": "Die zweite zentrale Invariante: Jede Mutation am Baum läuft als Command. Das Command-Interface definiert den Vertrag (label, do/undo, optionaler coalesceKey), der CommandBus verwaltet die Undo/Redo-Historie pro Dokument und erhöht bei jeder Ausführung die Dokument-Revision aus Schritt 3. Composite-Commands bündeln mehrere Mutationen zu einem einzigen Undo-Schritt — ein sichtbarer Nutzerschritt entspricht so immer genau einem Eintrag in der Historie.",
+   "nodeIds": [
+    "file:packages/core/src/commands/command.ts",
+    "file:packages/core/src/commands/command-bus.ts",
+    "file:packages/core/src/commands/composite.ts"
+   ],
+   "languageLesson": "Die do/undo-Paare sind Closures: Jede Command-Fabrik schließt die für das Rückgängigmachen nötigen Werte (alter Name, alte Position) zum Erstellungszeitpunkt ein. So braucht der CommandBus keinerlei Wissen über die konkrete Mutation."
+  },
+  {
+   "order": 5,
+   "title": "Mutations-Commands und Byte-Ranges",
+   "description": "Die konkreten Mutationen — Einfügen, Entfernen, Verschieben, Umbenennen, Werte setzen — implementieren alle das Command-Interface aus Schritt 4. Das verbindende Fundament ist byte-range.ts: Jede Mutation löscht die byteRange-Markierungen entlang der Ancestor-Kette und kann sie beim Undo wiederherstellen. Diese Markierungen sind der Schlüssel zum minimal-invasiven Speichern, das uns in Schritt 6 wiederbegegnet: Nur Knoten ohne byteRange werden neu serialisiert.",
+   "nodeIds": [
+    "file:packages/core/src/commands/byte-range.ts",
+    "file:packages/core/src/commands/insert-node.ts",
+    "file:packages/core/src/commands/move-node.ts",
+    "file:packages/core/src/commands/set-value.ts"
+   ]
+  },
+  {
+   "order": 6,
+   "title": "XML-Import und -Export",
+   "description": "Die Format-Schicht übersetzt zwischen Quelltext und DocNode-Baum. Der handgeschriebene rekursive XML-Parser hält beim Import per Byte-Offset-Tabelle den originalen Bytebereich jedes Knotens fest — genau die byteRange aus Schritt 5. Beim Export gibt es zwei Wege: komplette Neuformatierung oder minimal-invasives Speichern, bei dem unveränderte Knoten byteweise aus der Originalquelle übernommen werden. Das ist bewusst Best-Effort und kein hartes Byte-Identitäts-Invariant (Entscheidung #1).",
+   "nodeIds": [
+    "file:packages/core/src/format/xml-import.ts",
+    "file:packages/core/src/format/xml-export.ts"
+   ]
+  },
+  {
+   "order": 7,
+   "title": "JSON-Mapping und Pfade",
+   "description": "Damit XML und JSON in derselben Baumkomponente identisch dargestellt werden können, importiert json-import.ts JSON nach festen Mapping-Regeln (Entscheidung #4) in dasselbe DocNode-Modell: Objekt-Properties werden Knoten, Arrays gleichnamige Geschwister. json-export.ts kehrt das Mapping um. path.ts berechnet dazu Pfaddarstellungen für die Statusleiste und die Suche — mit [n]-Indizes bei gleichnamigen Geschwistern.",
+   "nodeIds": [
+    "file:packages/core/src/format/json-import.ts",
+    "file:packages/core/src/format/json-export.ts",
+    "file:packages/core/src/format/path.ts"
+   ]
+  },
+  {
+   "order": 8,
+   "title": "Suche und öffentliche Kern-API",
+   "description": "search.ts implementiert Suchen und Ersetzen über den DocNode-Baum: findAll liefert Treffer nach Scope (Name, Wert, Attribut), replaceAll mutiert direkt und löscht die byteRange der Treffer — die Undo-Einbettung via CommandBus bleibt bewusst dem Aufrufer überlassen. index.ts ist das Tor zur UI: Ein Barrel, das 41 Symbole des Kerns re-exportiert. Alles, was die React-App ab Schritt 9 nutzt, läuft durch diese eine Datei — der Kern selbst bleibt komplett React-frei.",
+   "nodeIds": [
+    "file:packages/core/src/search/search.ts",
+    "file:packages/core/src/index.ts"
+   ],
+   "languageLesson": "Barrel-Dateien bündeln mit 'export * from' bzw. gezielten Re-Exports die öffentliche API eines Pakets in einem Modul. Konsumenten importieren nur aus dem Barrel — die interne Ordnerstruktur des Kerns kann sich ändern, ohne die UI zu brechen."
+  },
+  {
+   "order": 9,
+   "title": "React-Einstieg und App-Shell",
+   "description": "Jetzt wechseln wir in die UI: main.tsx mountet die App, gewickelt in ErrorBoundary und I18nProvider — der schlanke i18n-Layer stellt die Übersetzungsfunktion t() bereit und lädt die deutsche und englische Sprachdatei (Invariante: alle UI-Texte zweisprachig). App.tsx ist mit 17 ausgehenden Kanten die Verdrahtungszentrale des Projekts: Sie verbindet Dokument-Store, Baumansicht, Suche, Panels und Tabs und übersetzt jede Nutzeraktion in Commands auf dem Bus aus Schritt 4.",
+   "nodeIds": [
+    "file:apps/editor/src/main.tsx",
+    "file:apps/editor/src/App.tsx",
+    "file:apps/editor/src/i18n/index.tsx"
+   ],
+   "languageLesson": "Der I18nProvider nutzt React Context: Provider-Komponenten stellen Werte (hier die t()-Funktion und die aktive Sprache) allen darunterliegenden Komponenten bereit, ohne dass Props durch jede Ebene gereicht werden müssen (kein „prop drilling\")."
+  },
+  {
+   "order": 10,
+   "title": "Die virtualisierte Baumansicht",
+   "description": "Das zentrale UI-Element: flatten.ts wandelt den DocNode-Baum unter Berücksichtigung des Expand-Zustands in eine flache Zeilenliste, filter.ts blendet Zeilen nach Suchkriterien aus. TreeView.tsx rendert davon nur die sichtbaren Zeilen plus Overscan — dadurch bleiben auch große XML-Dateien flüssig. Dazu kommen Inline-Editing, Kontextmenü, Reveal-Scrolling und Drag-and-drop mit Gültigkeitsprüfung; jede Änderung läuft wieder als Command über den Bus.",
+   "nodeIds": [
+    "file:apps/editor/src/tree/flatten.ts",
+    "file:apps/editor/src/tree/filter.ts",
+    "file:apps/editor/src/tree/TreeView.tsx"
+   ]
+  },
+  {
+   "order": 11,
+   "title": "State: Dokumente, Tabs, Einstellungen",
+   "description": "document-store.ts ist der Store-Hook für alle offenen Dokumente als Tabs: Er liest und schreibt Dateien über Tauri-invoke, erkennt XML vs. JSON, hängt pro Dokument einen eigenen CommandBus an und hält den sourceText als Basis für das minimal-invasive Speichern aus Schritt 6. settings-store.ts und local-prefs.ts verwalten Nutzereinstellungen und lokale Präferenzen wie zuletzt geöffnete Dateien. Hier schließt sich der Kreis zwischen Kern (Schritte 3-8) und UI (Schritte 9-10).",
+   "nodeIds": [
+    "file:apps/editor/src/state/document-store.ts",
+    "file:apps/editor/src/state/settings-store.ts",
+    "file:apps/editor/src/state/local-prefs.ts"
+   ]
+  },
+  {
+   "order": 12,
+   "title": "Das Tauri/Rust-Backend",
+   "description": "Die dritte Schicht: main.rs ist nur ein minimaler Binary-Einstieg, der an lib.rs delegiert — dort werden die IPC-Commands (Datei lesen/schreiben, Startpfade abholen) registriert und die Plugins Log, Dialog und Single-Instance initialisiert. io.rs ist die encoding-bewusste I/O-Schicht: Sie erkennt Zeichenkodierungen über BOM und XML-Deklaration und schreibt Dateien verlustfrei in der Originalkodierung zurück. tauri.conf.json definiert Build-Kommandos, Fenstergeometrie und die Bundle-Ziele AppImage, deb, rpm und NSIS.",
+   "nodeIds": [
+    "file:apps/editor/src-tauri/src/main.rs",
+    "file:apps/editor/src-tauri/src/lib.rs",
+    "file:apps/editor/src-tauri/src/io.rs",
+    "config:apps/editor/src-tauri/tauri.conf.json"
+   ],
+   "languageLesson": "Tauri-IPC: Mit dem Attribut-Makro #[tauri::command] annotierte Rust-Funktionen werden im invoke_handler registriert und sind dann aus TypeScript per invoke('command_name', args) aufrufbar. Die Serialisierung der Argumente und Rückgabewerte übernimmt serde automatisch."
+  },
+  {
+   "order": 13,
+   "title": "Tests als Sicherheitsnetz",
+   "description": "Der headless Kern zahlt sich hier aus: Die Vitest-Suiten testen CommandBus (Undo/Redo, Revisions-Bump, Composite als ein Undo-Schritt), alle Mutations-Commands und die XML-Roundtrips — komplett ohne React oder Tauri. Genau dafür wurde die Logik React-frei gehalten (Invariante 3). Wer eine Änderung am Kern plant, findet in diesen Tests die präziseste Beschreibung des erwarteten Verhaltens; npm test ist Teil der Definition of Done jeder Änderung.",
+   "nodeIds": [
+    "file:packages/core/tests/command-bus.test.ts",
+    "file:packages/core/tests/mutation-commands.test.ts",
+    "file:packages/core/tests/xml-roundtrip.test.ts"
+   ]
+  }
+ ]
+}

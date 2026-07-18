@@ -1,0 +1,3013 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "5327072b3c065d39823f9fb29b80d94aa9f52beb",
+  "generatedAt": "2026-07-18T09:15:40.249Z",
+  "files": {
+    ".ua/.understandignore": {
+      "filePath": ".ua/.understandignore",
+      "contentHash": "53ab20e15b8c9477b85a7c7c27bb6909bf584570ff9c0c0cb86384fc50690fed",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 55,
+      "hasStructuralAnalysis": false
+    },
+    ".ua/config.json": {
+      "filePath": ".ua/config.json",
+      "contentHash": "1f5ff570a8f0ecfa1ca1f69649f802c300b11849cea938c8873b9f6d80ea9e98",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "AGENTS.md": {
+      "filePath": "AGENTS.md",
+      "contentHash": "1c3c252f40519ae9612fcbd5d25055e69cc8d0ecf905d23711548b56bdd9f637",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 64,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/index.html": {
+      "filePath": "apps/editor/index.html",
+      "contentHash": "73e1eb75de8c30a1c180f17960abece4d45d73805a11aa13fe2bea3ad106a53b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": false
+    },
+    "apps/editor/package.json": {
+      "filePath": "apps/editor/package.json",
+      "contentHash": "14cb241049e2d9267c34922c8951d53eae6ec939ec52b3c2f3a04ce8a66c2b3d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 36,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src-tauri/build.rs": {
+      "filePath": "apps/editor/src-tauri/build.rs",
+      "contentHash": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src-tauri/capabilities/default.json": {
+      "filePath": "apps/editor/src-tauri/capabilities/default.json",
+      "contentHash": "4706ffc7573f65e5b08677db6c945a388d152077d6beb5ed030866d4f055ef11",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 11,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src-tauri/Cargo.toml": {
+      "filePath": "apps/editor/src-tauri/Cargo.toml",
+      "contentHash": "dfc00c4b134622afd5238974b6bb94765bfb3225514e0aa8d185c8ca056fdf50",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 27,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src-tauri/icons/icon.icns": {
+      "filePath": "apps/editor/src-tauri/icons/icon.icns",
+      "contentHash": "0c9e487ddcae65da57a6dc90bd4d838b424f04f853188f83e427b7bfa8527817",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1108,
+      "hasStructuralAnalysis": false
+    },
+    "apps/editor/src-tauri/src/io.rs": {
+      "filePath": "apps/editor/src-tauri/src/io.rs",
+      "contentHash": "964368c7911492b80d0db5cf9230ae86221fe87e51c82861b7e4e8d083525b17",
+      "functions": [
+        {
+          "name": "sniff_xml_declared_encoding",
+          "params": [
+            "bytes"
+          ],
+          "returnType": "Option<&'static Encoding>",
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "detect_encoding",
+          "params": [
+            "bytes"
+          ],
+          "returnType": "&'static Encoding",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "read_text_file",
+          "params": [
+            "path"
+          ],
+          "returnType": "Result<DecodedFile, String>",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "write_text_file",
+          "params": [
+            "path",
+            "content",
+            "encoding_name"
+          ],
+          "returnType": "Result<(), String>",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [
+        {
+          "name": "DecodedFile",
+          "methods": [],
+          "properties": [
+            "content",
+            "encoding"
+          ],
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "imports": [
+        {
+          "source": "encoding_rs",
+          "specifiers": [
+            "Encoding"
+          ]
+        },
+        {
+          "source": "std",
+          "specifiers": [
+            "fs"
+          ]
+        },
+        {
+          "source": "std::path",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [
+        "DecodedFile",
+        "read_text_file",
+        "write_text_file"
+      ],
+      "totalLines": 53,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src-tauri/src/lib.rs": {
+      "filePath": "apps/editor/src-tauri/src/lib.rs",
+      "contentHash": "147800526084c2e3c8bcc3fe15c4c2ce85a7d9d5b34e204c2ac4f5f2e1863994",
+      "functions": [
+        {
+          "name": "take_pending_open_paths",
+          "params": [
+            "state"
+          ],
+          "returnType": "Vec<String>",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "read_text_file",
+          "params": [
+            "path"
+          ],
+          "returnType": "Result<FileContent, InvokeError>",
+          "exported": false,
+          "lineCount": 8
+        },
+        {
+          "name": "write_text_file",
+          "params": [
+            "path",
+            "content",
+            "encoding"
+          ],
+          "returnType": "Result<(), InvokeError>",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "run",
+          "params": [],
+          "exported": true,
+          "lineCount": 22
+        }
+      ],
+      "classes": [
+        {
+          "name": "FileContent",
+          "methods": [],
+          "properties": [
+            "content",
+            "encoding"
+          ],
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "PendingOpenPaths",
+          "methods": [],
+          "properties": [],
+          "exported": false,
+          "lineCount": 1
+        }
+      ],
+      "imports": [
+        {
+          "source": "std::path",
+          "specifiers": [
+            "PathBuf"
+          ]
+        },
+        {
+          "source": "std::sync",
+          "specifiers": [
+            "Mutex"
+          ]
+        },
+        {
+          "source": "tauri::ipc",
+          "specifiers": [
+            "InvokeError"
+          ]
+        },
+        {
+          "source": "tauri",
+          "specifiers": [
+            "Manager"
+          ]
+        }
+      ],
+      "exports": [
+        "run"
+      ],
+      "totalLines": 63,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src-tauri/src/main.rs": {
+      "filePath": "apps/editor/src-tauri/src/main.rs",
+      "contentHash": "e5dfab54c7a9843285d54ff5a783c00813cd3f28d1bb2f6982aa348697cbb1c4",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": false,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 7,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src-tauri/tauri.conf.json": {
+      "filePath": "apps/editor/src-tauri/tauri.conf.json",
+      "contentHash": "d890cc14f476bc296488681c6802fbba81b9a3a3e5d9787da172594b85001cfb",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 38,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/App.test.tsx": {
+      "filePath": "apps/editor/src/App.test.tsx",
+      "contentHash": "5f0b4ca6b73df186ef8a4444d77562a4b5950a3d689c0754bba3f64cad642b28",
+      "functions": [
+        {
+          "name": "stubClipboard",
+          "params": [],
+          "returnType": "void",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "renderApp",
+          "params": [],
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "openSampleFile",
+          "params": [],
+          "exported": false,
+          "lineCount": 8
+        }
+      ],
+      "classes": [
+        {
+          "name": "ResizeObserverStub",
+          "methods": [
+            "observe",
+            "unobserve",
+            "disconnect"
+          ],
+          "properties": [],
+          "exported": false,
+          "lineCount": 5
+        }
+      ],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React"
+          ]
+        },
+        {
+          "source": "vitest",
+          "specifiers": [
+            "afterEach",
+            "beforeEach",
+            "describe",
+            "expect",
+            "it",
+            "vi"
+          ]
+        },
+        {
+          "source": "@testing-library/react",
+          "specifiers": [
+            "cleanup",
+            "fireEvent",
+            "render",
+            "screen"
+          ]
+        },
+        {
+          "source": "@testing-library/user-event",
+          "specifiers": [
+            "userEvent"
+          ]
+        },
+        {
+          "source": "@tauri-apps/api/core",
+          "specifiers": [
+            "invoke"
+          ]
+        },
+        {
+          "source": "@tauri-apps/plugin-dialog",
+          "specifiers": [
+            "open"
+          ]
+        },
+        {
+          "source": "./App.js",
+          "specifiers": [
+            "App"
+          ]
+        },
+        {
+          "source": "./i18n/index.js",
+          "specifiers": [
+            "I18nProvider"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 689,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/App.tsx": {
+      "filePath": "apps/editor/src/App.tsx",
+      "contentHash": "40fb3ada856e8c7e03979d367e19d9ac8e7afb0229164ba6a233f7bdb5be2b85",
+      "functions": [
+        {
+          "name": "isTextInput",
+          "params": [
+            "target"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "App",
+          "params": [],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 698
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React",
+            "useEffect",
+            "useMemo",
+            "useState"
+          ]
+        },
+        {
+          "source": "@tauri-apps/api/core",
+          "specifiers": [
+            "invoke"
+          ]
+        },
+        {
+          "source": "@tauri-apps/plugin-dialog",
+          "specifiers": [
+            "open"
+          ]
+        },
+        {
+          "source": "@jaxel/core",
+          "specifiers": [
+            "cloneSubtree",
+            "computePaths",
+            "createCompositeCommand",
+            "createInsertNodeCommand",
+            "createMoveNodeCommand",
+            "createNode",
+            "createRemoveNodeCommand",
+            "createRenameAttributeCommand",
+            "createRenameCommand",
+            "createSetAttributeCommand",
+            "createSetValueCommand",
+            "findAll",
+            "findAncestorChain",
+            "parseJson",
+            "parseXml",
+            "replaceAll",
+            "serializeJson",
+            "serializeXml",
+            "Command",
+            "DocNode",
+            "SearchMatch",
+            "SearchOptions"
+          ]
+        },
+        {
+          "source": "@phosphor-icons/react",
+          "specifiers": [
+            "ClipboardText",
+            "CopySimple",
+            "FloppyDisk",
+            "FolderOpen",
+            "Gear",
+            "ListNumbers",
+            "MagnifyingGlass",
+            "Plus",
+            "TextAa",
+            "Trash"
+          ]
+        },
+        {
+          "source": "./i18n/index.js",
+          "specifiers": [
+            "useI18n"
+          ]
+        },
+        {
+          "source": "./state/document-store.js",
+          "specifiers": [
+            "useJaxelDocuments"
+          ]
+        },
+        {
+          "source": "./state/settings-store.js",
+          "specifiers": [
+            "useSettings"
+          ]
+        },
+        {
+          "source": "./state/local-prefs.js",
+          "specifiers": [
+            "getLastDir",
+            "rememberLastDir",
+            "addRecentFile"
+          ]
+        },
+        {
+          "source": "./tree/TreeView.js",
+          "specifiers": [
+            "TreeView",
+            "DropPosition",
+            "EditingField"
+          ]
+        },
+        {
+          "source": "./tree/flatten.js",
+          "specifiers": [
+            "flattenTree",
+            "TreeRow"
+          ]
+        },
+        {
+          "source": "./tree/filter.js",
+          "specifiers": [
+            "buildFilterKeepSet",
+            "flattenFiltered"
+          ]
+        },
+        {
+          "source": "./panels/AttributesPanel.js",
+          "specifiers": [
+            "AttributesPanel"
+          ]
+        },
+        {
+          "source": "./search/SearchPanel.js",
+          "specifiers": [
+            "SearchPanel"
+          ]
+        },
+        {
+          "source": "./tabs/TabBar.js",
+          "specifiers": [
+            "TabBar"
+          ]
+        },
+        {
+          "source": "./settings/SettingsDialog.js",
+          "specifiers": [
+            "SettingsDialog"
+          ]
+        },
+        {
+          "source": "./welcome/WelcomeScreen.js",
+          "specifiers": [
+            "WelcomeScreen"
+          ]
+        },
+        {
+          "source": "./ui/IconButton.js",
+          "specifiers": [
+            "IconButton"
+          ]
+        },
+        {
+          "source": "./ui/ContextMenu.js",
+          "specifiers": [
+            "ContextMenu",
+            "ContextMenuItem"
+          ]
+        }
+      ],
+      "exports": [
+        "App"
+      ],
+      "totalLines": 757,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/ErrorBoundary.tsx": {
+      "filePath": "apps/editor/src/ErrorBoundary.tsx",
+      "contentHash": "c6a65daf1e5b9ff0624cd8a041cd95cf2894dfedaff36d859b5c2b2cede6f366",
+      "functions": [],
+      "classes": [
+        {
+          "name": "ErrorBoundary",
+          "methods": [
+            "getDerivedStateFromError",
+            "render"
+          ],
+          "properties": [
+            "state"
+          ],
+          "exported": true,
+          "lineCount": 19
+        }
+      ],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React"
+          ]
+        }
+      ],
+      "exports": [
+        "ErrorBoundary"
+      ],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/i18n/de.json": {
+      "filePath": "apps/editor/src/i18n/de.json",
+      "contentHash": "f0c08cfa45482763cbcdcd934d33137308eaa478bcce497448f4d4c95596b9d1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 75,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/i18n/en.json": {
+      "filePath": "apps/editor/src/i18n/en.json",
+      "contentHash": "999d36b39998e4b2c6667b30b7b677f57659c7fbee6bfd4ae3e0c01f010ce066",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 75,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/i18n/index.tsx": {
+      "filePath": "apps/editor/src/i18n/index.tsx",
+      "contentHash": "08d66f92a22291067e901cbd07878fbd0c73fa927fa17073c3509de7f266c8bb",
+      "functions": [
+        {
+          "name": "detectInitialLocale",
+          "params": [],
+          "returnType": "Locale",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "I18nProvider",
+          "params": [
+            "{ children }"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "useI18n",
+          "params": [],
+          "returnType": "I18nContextValue",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React",
+            "createContext",
+            "useCallback",
+            "useContext",
+            "useMemo",
+            "useState"
+          ]
+        },
+        {
+          "source": "./de.json",
+          "specifiers": [
+            "de"
+          ]
+        },
+        {
+          "source": "./en.json",
+          "specifiers": [
+            "en"
+          ]
+        }
+      ],
+      "exports": [
+        "I18nProvider",
+        "useI18n"
+      ],
+      "totalLines": 48,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/main.tsx": {
+      "filePath": "apps/editor/src/main.tsx",
+      "contentHash": "c25e9358b80d0be513f522eff78faf31110e5a286e576ce8ae37cc25c7247c31",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React"
+          ]
+        },
+        {
+          "source": "react-dom/client",
+          "specifiers": [
+            "ReactDOM"
+          ]
+        },
+        {
+          "source": "./App.js",
+          "specifiers": [
+            "App"
+          ]
+        },
+        {
+          "source": "./ErrorBoundary.js",
+          "specifiers": [
+            "ErrorBoundary"
+          ]
+        },
+        {
+          "source": "./i18n/index.js",
+          "specifiers": [
+            "I18nProvider"
+          ]
+        },
+        {
+          "source": "./styles.css",
+          "specifiers": []
+        }
+      ],
+      "exports": [],
+      "totalLines": 20,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/panels/AttributesPanel.tsx": {
+      "filePath": "apps/editor/src/panels/AttributesPanel.tsx",
+      "contentHash": "0c0051f95945de6986419fcd8a8672e11773fddbcc69acfc40dd9fda81400b3d",
+      "functions": [
+        {
+          "name": "AttributesPanel",
+          "params": [
+            "{\n  node,\n  onSetAttribute,\n  onRenameAttribute,\n  onCreateAttribute,\n}"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 79
+        },
+        {
+          "name": "AttrNameInput",
+          "params": [
+            "{\n  name,\n  autoFocus,\n  onFocused,\n  isDuplicate,\n  onRename,\n}"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": false,
+          "lineCount": 46
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React",
+            "useEffect",
+            "useRef",
+            "useState"
+          ]
+        },
+        {
+          "source": "@jaxel/core",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "../i18n/index.js",
+          "specifiers": [
+            "useI18n"
+          ]
+        }
+      ],
+      "exports": [
+        "AttributesPanel"
+      ],
+      "totalLines": 147,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/search/SearchPanel.tsx": {
+      "filePath": "apps/editor/src/search/SearchPanel.tsx",
+      "contentHash": "c663362e78fd4689a5dc429253b7d41cfbc048637c8eae1bb44a8af91b7d5c73",
+      "functions": [
+        {
+          "name": "SearchPanel",
+          "params": [
+            "{\n  onSearch,\n  onNavigate,\n  onReplaceAll,\n  onFilterChange,\n  getMatchPath,\n  onClose,\n}"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 180
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React",
+            "useMemo",
+            "useState"
+          ]
+        },
+        {
+          "source": "@jaxel/core",
+          "specifiers": [
+            "SearchMatch",
+            "SearchOptions",
+            "SearchScope"
+          ]
+        },
+        {
+          "source": "../i18n/index.js",
+          "specifiers": [
+            "useI18n"
+          ]
+        }
+      ],
+      "exports": [
+        "SearchPanel"
+      ],
+      "totalLines": 203,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/settings/SettingsDialog.tsx": {
+      "filePath": "apps/editor/src/settings/SettingsDialog.tsx",
+      "contentHash": "cfa2f0ab821d2c7832674cd120fa890fe8de69f7528fc2357474df2d5d54a71f",
+      "functions": [
+        {
+          "name": "SettingsDialog",
+          "params": [
+            "{ settings, onChange, onClose }"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 78
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React"
+          ]
+        },
+        {
+          "source": "../i18n/index.js",
+          "specifiers": [
+            "useI18n",
+            "Locale"
+          ]
+        },
+        {
+          "source": "../state/settings-store.js",
+          "specifiers": [
+            "Settings",
+            "Theme",
+            "WindowMode"
+          ]
+        }
+      ],
+      "exports": [
+        "SettingsDialog"
+      ],
+      "totalLines": 89,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/state/document-store.ts": {
+      "filePath": "apps/editor/src/state/document-store.ts",
+      "contentHash": "2fd960ef8f920dd6e3ca4772d2364909c76ab9eef339c657214314c93baddd17",
+      "functions": [
+        {
+          "name": "detectFormat",
+          "params": [
+            "path",
+            "content"
+          ],
+          "returnType": "DocFormat",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "useJaxelDocuments",
+          "params": [],
+          "returnType": "{\n  docs: OpenDocumentState[];\n  activeDoc: OpenDocumentState | null;\n  revision: number;\n  openFile: (path: string) => Promise<void>;\n  saveFile: (path?: string) => Promise<void>;\n  closeTab: (path: string) => void;\n  activate: (path: string) => void;\n}",
+          "exported": true,
+          "lineCount": 94
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "useCallback",
+            "useEffect",
+            "useRef",
+            "useState"
+          ]
+        },
+        {
+          "source": "@tauri-apps/api/core",
+          "specifiers": [
+            "invoke"
+          ]
+        },
+        {
+          "source": "@jaxel/core",
+          "specifiers": [
+            "CommandBus",
+            "createDocument",
+            "parseJson",
+            "parseXml",
+            "serializeJson",
+            "serializeXmlMinimal",
+            "DocFormat",
+            "DocNode",
+            "JaxelDocument"
+          ]
+        }
+      ],
+      "exports": [
+        "useJaxelDocuments"
+      ],
+      "totalLines": 136,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/state/local-prefs.ts": {
+      "filePath": "apps/editor/src/state/local-prefs.ts",
+      "contentHash": "b158dec63d2d7e8c81fa6ff727938318b624124a329cf56df2df781305600b2e",
+      "functions": [
+        {
+          "name": "getLastDir",
+          "params": [],
+          "returnType": "string | null",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "rememberLastDir",
+          "params": [
+            "filePath"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "getRecentFiles",
+          "params": [],
+          "returnType": "string[]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "addRecentFile",
+          "params": [
+            "filePath"
+          ],
+          "returnType": "string[]",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "getLastDir",
+        "rememberLastDir",
+        "getRecentFiles",
+        "addRecentFile"
+      ],
+      "totalLines": 38,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/state/settings-store.ts": {
+      "filePath": "apps/editor/src/state/settings-store.ts",
+      "contentHash": "64192ddb0dfc67f9656ac367420d4f08bbf2e4e322adb0534fd11867f014066b",
+      "functions": [
+        {
+          "name": "load",
+          "params": [],
+          "returnType": "Settings",
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "useSettings",
+          "params": [],
+          "returnType": "{ settings: Settings; setSettings: (patch: Partial<Settings>) => void }",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "useCallback",
+            "useState"
+          ]
+        }
+      ],
+      "exports": [
+        "useSettings"
+      ],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/styles.css": {
+      "filePath": "apps/editor/src/styles.css",
+      "contentHash": "61b19d73cc0c036359d33cffcab81bb4bfb674f2aad2ca3d20692546890d1dca",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 819,
+      "hasStructuralAnalysis": false
+    },
+    "apps/editor/src/tabs/TabBar.tsx": {
+      "filePath": "apps/editor/src/tabs/TabBar.tsx",
+      "contentHash": "68abe9276a85f6606f0a082ea1f22099a5da11886335e58eb8890b1d17a1a474",
+      "functions": [
+        {
+          "name": "fileName",
+          "params": [
+            "path"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "TabBar",
+          "params": [
+            "{ docs, activePath, onActivate, onClose }"
+          ],
+          "returnType": "React.ReactElement | null",
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React"
+          ]
+        },
+        {
+          "source": "../i18n/index.js",
+          "specifiers": [
+            "useI18n"
+          ]
+        },
+        {
+          "source": "../state/document-store.js",
+          "specifiers": [
+            "OpenDocumentState"
+          ]
+        }
+      ],
+      "exports": [
+        "TabBar"
+      ],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/test-setup.ts": {
+      "filePath": "apps/editor/src/test-setup.ts",
+      "contentHash": "9b328c4843431fa76d8de00008fc159e95f99a840211085ff3b8f25e53d14409",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@testing-library/jest-dom/vitest",
+          "specifiers": []
+        }
+      ],
+      "exports": [],
+      "totalLines": 2,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/tree/filter.ts": {
+      "filePath": "apps/editor/src/tree/filter.ts",
+      "contentHash": "009678966ac1102edc8684e9ac3c5908b3c0fe9def24f26a941e138464eb5f2e",
+      "functions": [
+        {
+          "name": "buildFilterKeepSet",
+          "params": [
+            "root",
+            "matchedIds",
+            "includeSubtree"
+          ],
+          "returnType": "Set<string>",
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "flattenFiltered",
+          "params": [
+            "root",
+            "keep"
+          ],
+          "returnType": "TreeRow[]",
+          "exported": true,
+          "lineCount": 14
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@jaxel/core",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./flatten.js",
+          "specifiers": [
+            "TreeRow"
+          ]
+        }
+      ],
+      "exports": [
+        "buildFilterKeepSet",
+        "flattenFiltered"
+      ],
+      "totalLines": 57,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/tree/flatten.ts": {
+      "filePath": "apps/editor/src/tree/flatten.ts",
+      "contentHash": "498ad58693588c9427b7663eebbd412f91ea4c4ed780610ffe6b40e2bdd43623",
+      "functions": [
+        {
+          "name": "flattenTree",
+          "params": [
+            "root",
+            "expanded"
+          ],
+          "returnType": "TreeRow[]",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@jaxel/core",
+          "specifiers": [
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [
+        "flattenTree"
+      ],
+      "totalLines": 29,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/tree/TreeView.tsx": {
+      "filePath": "apps/editor/src/tree/TreeView.tsx",
+      "contentHash": "57d12de068688917d3316041c2c29f55ab30664abbe14ee0f14ad1bcdab2a570",
+      "functions": [
+        {
+          "name": "isInSubtree",
+          "params": [
+            "root",
+            "candidate"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "TreeView",
+          "params": [
+            "{\n  rows,\n  expanded,\n  selectedId,\n  onToggle,\n  onSelect,\n  editingField,\n  onStartEditName,\n  onStartEditValue,\n  onCommitEdit,\n  onCancelEdit,\n  onRowContextMenu,\n  onMoveNode,\n  revealNodeId,\n}"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 129
+        },
+        {
+          "name": "TreeRowView",
+          "params": [
+            "{\n  row,\n  top,\n  expanded,\n  selected,\n  editingField,\n  dropPosition,\n  onToggle,\n  onSelect,\n  onStartEditName,\n  onStartEditValue,\n  onCommitEdit,\n  onCancelEdit,\n  onContextMenu,\n  onDragStart,\n  onDragOver,\n  onDrop,\n  onDragEnd,\n}"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": false,
+          "lineCount": 113
+        },
+        {
+          "name": "InlineEditor",
+          "params": [
+            "{\n  initialValue,\n  onCommit,\n  onCancel,\n}"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": false,
+          "lineCount": 38
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React",
+            "useEffect",
+            "useLayoutEffect",
+            "useRef",
+            "useState"
+          ]
+        },
+        {
+          "source": "@jaxel/core",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./flatten.js",
+          "specifiers": [
+            "TreeRow"
+          ]
+        }
+      ],
+      "exports": [
+        "TreeView"
+      ],
+      "totalLines": 355,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/ui/ContextMenu.tsx": {
+      "filePath": "apps/editor/src/ui/ContextMenu.tsx",
+      "contentHash": "88dd4766a75215e34e0bffb2694f50d13939d8c34def1cd68e056d467d8143b7",
+      "functions": [
+        {
+          "name": "ContextMenu",
+          "params": [
+            "{ x, y, items, onClose }"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 62
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React",
+            "useEffect",
+            "useLayoutEffect",
+            "useRef",
+            "useState"
+          ]
+        }
+      ],
+      "exports": [
+        "ContextMenu"
+      ],
+      "totalLines": 82,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/ui/IconButton.tsx": {
+      "filePath": "apps/editor/src/ui/IconButton.tsx",
+      "contentHash": "c50af6e006f6829ea06eb15a51cc843c0b08f482c0361bcb2ef1afc1fdd2d7c5",
+      "functions": [
+        {
+          "name": "IconButton",
+          "params": [
+            "{\n  icon: IconComponent,\n  label,\n  shortcut,\n  disabled,\n  primary,\n  onClick,\n}"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 21
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React"
+          ]
+        },
+        {
+          "source": "@phosphor-icons/react",
+          "specifiers": [
+            "Icon"
+          ]
+        }
+      ],
+      "exports": [
+        "IconButton"
+      ],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/src/welcome/WelcomeScreen.tsx": {
+      "filePath": "apps/editor/src/welcome/WelcomeScreen.tsx",
+      "contentHash": "7f0c44ea177621215dfa810475dbb581f28f52775def3f16573318ca52f4d401",
+      "functions": [
+        {
+          "name": "fileName",
+          "params": [
+            "path"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 4
+        },
+        {
+          "name": "WelcomeScreen",
+          "params": [
+            "{ onOpen, onOpenPath }"
+          ],
+          "returnType": "React.ReactElement",
+          "exported": true,
+          "lineCount": 70
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "React"
+          ]
+        },
+        {
+          "source": "../i18n/index.js",
+          "specifiers": [
+            "useI18n"
+          ]
+        },
+        {
+          "source": "../state/local-prefs.js",
+          "specifiers": [
+            "getRecentFiles"
+          ]
+        },
+        {
+          "source": "../assets/jaxel-logo.svg",
+          "specifiers": [
+            "logoUrl"
+          ]
+        }
+      ],
+      "exports": [
+        "WelcomeScreen"
+      ],
+      "totalLines": 91,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/tsconfig.json": {
+      "filePath": "apps/editor/tsconfig.json",
+      "contentHash": "73a2718a9189692a000b762b9b3047f015ca79e12b302ccfecd623bbd57de2f7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 20,
+      "hasStructuralAnalysis": true
+    },
+    "apps/editor/vite.config.ts": {
+      "filePath": "apps/editor/vite.config.ts",
+      "contentHash": "147f714857d830d5d25c1cb16844bd46c09e74bc0f242f1e32f69446f4577ea8",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@vitejs/plugin-react",
+          "specifiers": [
+            "react"
+          ]
+        },
+        {
+          "source": "vite",
+          "specifiers": [
+            "defineConfig"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "CHANGELOG.md": {
+      "filePath": "CHANGELOG.md",
+      "contentHash": "3e58d6344994258865de0e94c647ae4820920c43ff29c8af00aaa9e5bd564965",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    "CLAUDE.md": {
+      "filePath": "CLAUDE.md",
+      "contentHash": "1c3c252f40519ae9612fcbd5d25055e69cc8d0ecf905d23711548b56bdd9f637",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 64,
+      "hasStructuralAnalysis": true
+    },
+    "docs/architektur.md": {
+      "filePath": "docs/architektur.md",
+      "contentHash": "d3f8baf6ca807d515d49fd318f5f2213fa452df0e0efa7d1841241cddf695f25",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 58,
+      "hasStructuralAnalysis": true
+    },
+    "docs/archiv/00-kickoff-plan.md": {
+      "filePath": "docs/archiv/00-kickoff-plan.md",
+      "contentHash": "a72094fd83e6fa27a8df152f861577d999e7a1f98c0fa8b6fd12d8f8e7f6bdaa",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 160,
+      "hasStructuralAnalysis": true
+    },
+    "docs/benutzerhandbuch.md": {
+      "filePath": "docs/benutzerhandbuch.md",
+      "contentHash": "4719cd9c0bb36f2af9a2faa22496c7137239bc0c21686d2604e1a790031aa409",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 95,
+      "hasStructuralAnalysis": true
+    },
+    "docs/entscheidungen.md": {
+      "filePath": "docs/entscheidungen.md",
+      "contentHash": "4b972682d2fdb9a84ea5a582796deeff8678f2915b23e3f30f8bb8fdbf5e3f0b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 90,
+      "hasStructuralAnalysis": true
+    },
+    "docs/status.md": {
+      "filePath": "docs/status.md",
+      "contentHash": "6e9efff08da08869b54af3a939a521f17fc2b32a05045899a5e1ed621ce3eace",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 391,
+      "hasStructuralAnalysis": true
+    },
+    "package.json": {
+      "filePath": "package.json",
+      "contentHash": "70fe9063ff6b65d8f9bde81f6a8c507b82568a420ea283d9665a9cde5bd1eafe",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 16,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/package.json": {
+      "filePath": "packages/core/package.json",
+      "contentHash": "57cf6e8b3291506e29f78146547133cf33d847ca7c2aa8622f385c7d7561e792",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/byte-range.ts": {
+      "filePath": "packages/core/src/commands/byte-range.ts",
+      "contentHash": "d892ace6c90eee4c05962fa30d71ae7761d1281b449ab8cb4614b12323fcd14d",
+      "functions": [
+        {
+          "name": "captureByteRanges",
+          "params": [
+            "chain"
+          ],
+          "returnType": "DocNode[\"byteRange\"][]",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "clearByteRanges",
+          "params": [
+            "chain"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "restoreByteRanges",
+          "params": [
+            "chain",
+            "saved"
+          ],
+          "returnType": "void",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [
+        "captureByteRanges",
+        "clearByteRanges",
+        "restoreByteRanges"
+      ],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/command-bus.ts": {
+      "filePath": "packages/core/src/commands/command-bus.ts",
+      "contentHash": "9cb9b2748cbd4909fbba1b79e5868e0daae0b0d166643cc27571724223c34728",
+      "functions": [],
+      "classes": [
+        {
+          "name": "CommandBus",
+          "methods": [
+            "constructor",
+            "getDocument",
+            "execute",
+            "canUndo",
+            "canRedo",
+            "undo",
+            "redo",
+            "subscribe",
+            "notify"
+          ],
+          "properties": [
+            "undoStack",
+            "redoStack",
+            "listeners"
+          ],
+          "exported": true,
+          "lineCount": 73
+        }
+      ],
+      "imports": [
+        {
+          "source": "../model/document.js",
+          "specifiers": [
+            "JaxelDocument"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        }
+      ],
+      "exports": [
+        "CommandBus"
+      ],
+      "totalLines": 81,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/command.ts": {
+      "filePath": "packages/core/src/commands/command.ts",
+      "contentHash": "91b01616b35d6a7945015e16bae24c86e7ac5e69a05336b6bba2608cb0cc1adf",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/document.js",
+          "specifiers": [
+            "JaxelDocument"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 19,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/composite.ts": {
+      "filePath": "packages/core/src/commands/composite.ts",
+      "contentHash": "43fe083435b8a8c10edb6492a4353b9b7db288185a417e930185617fc57997d3",
+      "functions": [
+        {
+          "name": "createCompositeCommand",
+          "params": [
+            "label",
+            "commands"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        }
+      ],
+      "exports": [
+        "createCompositeCommand"
+      ],
+      "totalLines": 17,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/insert-node.ts": {
+      "filePath": "packages/core/src/commands/insert-node.ts",
+      "contentHash": "dc1dcfd7d7a86af7265f68a3bbb17cd57f3433be08dc847572c5e8da19f69c74",
+      "functions": [
+        {
+          "name": "createInsertNodeCommand",
+          "params": [
+            "parent",
+            "index",
+            "node",
+            "parentAncestors"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 21
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "./byte-range.js",
+          "specifiers": [
+            "captureByteRanges",
+            "clearByteRanges",
+            "restoreByteRanges"
+          ]
+        }
+      ],
+      "exports": [
+        "createInsertNodeCommand"
+      ],
+      "totalLines": 34,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/move-node.ts": {
+      "filePath": "packages/core/src/commands/move-node.ts",
+      "contentHash": "d51b9e9f122e0156b7ded158d14da27a483029da8b131516eafaf18a1d175816",
+      "functions": [
+        {
+          "name": "createMoveNodeCommand",
+          "params": [
+            "sourceParent",
+            "sourceIndex",
+            "sourceAncestors",
+            "targetParent",
+            "targetIndex",
+            "targetAncestors"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "./byte-range.js",
+          "specifiers": [
+            "captureByteRanges",
+            "clearByteRanges",
+            "restoreByteRanges"
+          ]
+        }
+      ],
+      "exports": [
+        "createMoveNodeCommand"
+      ],
+      "totalLines": 50,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/remove-node.ts": {
+      "filePath": "packages/core/src/commands/remove-node.ts",
+      "contentHash": "ea7faa500ca24068777a6a9fda1554dd2da65ce0d8e493576c1d9c5f479233b0",
+      "functions": [
+        {
+          "name": "createRemoveNodeCommand",
+          "params": [
+            "parent",
+            "index",
+            "parentAncestors"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 18
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "./byte-range.js",
+          "specifiers": [
+            "captureByteRanges",
+            "clearByteRanges",
+            "restoreByteRanges"
+          ]
+        }
+      ],
+      "exports": [
+        "createRemoveNodeCommand"
+      ],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/rename-attribute.ts": {
+      "filePath": "packages/core/src/commands/rename-attribute.ts",
+      "contentHash": "3db7cec77b8991731b98a42d2b6b64206930e1bb5c253c3b0788c8835ce63dc1",
+      "functions": [
+        {
+          "name": "createRenameAttributeCommand",
+          "params": [
+            "node",
+            "index",
+            "newName",
+            "ancestors",
+            "coalesceKey"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 28
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "./byte-range.js",
+          "specifiers": [
+            "captureByteRanges",
+            "clearByteRanges",
+            "restoreByteRanges"
+          ]
+        }
+      ],
+      "exports": [
+        "createRenameAttributeCommand"
+      ],
+      "totalLines": 40,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/rename.ts": {
+      "filePath": "packages/core/src/commands/rename.ts",
+      "contentHash": "af0bef9f7aa4084cb8f57d0f8706afaf3e480f3ef11e921ca7f4d3cbf0d325f7",
+      "functions": [
+        {
+          "name": "createRenameCommand",
+          "params": [
+            "node",
+            "newName",
+            "ancestors"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "./byte-range.js",
+          "specifiers": [
+            "captureByteRanges",
+            "clearByteRanges",
+            "restoreByteRanges"
+          ]
+        }
+      ],
+      "exports": [
+        "createRenameCommand"
+      ],
+      "totalLines": 30,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/set-attribute.ts": {
+      "filePath": "packages/core/src/commands/set-attribute.ts",
+      "contentHash": "efdc436b98c46f71df5899a4695e93da83169babdc74041986d005f40a456f8a",
+      "functions": [
+        {
+          "name": "createSetAttributeCommand",
+          "params": [
+            "node",
+            "name",
+            "value",
+            "ancestors",
+            "coalesceKey"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 36
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "./byte-range.js",
+          "specifiers": [
+            "captureByteRanges",
+            "clearByteRanges",
+            "restoreByteRanges"
+          ]
+        }
+      ],
+      "exports": [
+        "createSetAttributeCommand"
+      ],
+      "totalLines": 46,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/commands/set-value.ts": {
+      "filePath": "packages/core/src/commands/set-value.ts",
+      "contentHash": "4c1570c3bd68f3334e187ab803bedca074bf30465d702c32a92d645ce4a7caa9",
+      "functions": [
+        {
+          "name": "createSetValueCommand",
+          "params": [
+            "node",
+            "newValue",
+            "newJsonType",
+            "ancestors"
+          ],
+          "returnType": "Command",
+          "exported": true,
+          "lineCount": 25
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode",
+            "JsonPrimitiveType"
+          ]
+        },
+        {
+          "source": "./command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "./byte-range.js",
+          "specifiers": [
+            "captureByteRanges",
+            "clearByteRanges",
+            "restoreByteRanges"
+          ]
+        }
+      ],
+      "exports": [
+        "createSetValueCommand"
+      ],
+      "totalLines": 31,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/format/json-export.ts": {
+      "filePath": "packages/core/src/format/json-export.ts",
+      "contentHash": "49e6f6c6d31dfdf7a64b536df9f4e637184c7c30ae53f4d79eac264299839399",
+      "functions": [
+        {
+          "name": "serializeJson",
+          "params": [
+            "doc"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "nodeToJsonText",
+          "params": [
+            "node",
+            "indent",
+            "level"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 34
+        },
+        {
+          "name": "groupByName",
+          "params": [
+            "nodes"
+          ],
+          "returnType": "Array<[string, DocNode[]]>",
+          "exported": false,
+          "lineCount": 14
+        },
+        {
+          "name": "formatPrimitive",
+          "params": [
+            "value",
+            "jsonType"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 13
+        },
+        {
+          "name": "escapeJsonString",
+          "params": [
+            "value"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 37
+        },
+        {
+          "name": "objectText",
+          "params": [
+            "entries",
+            "indent",
+            "level"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "arrayText",
+          "params": [
+            "items",
+            "indent",
+            "level"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode",
+            "JsonPrimitiveType"
+          ]
+        }
+      ],
+      "exports": [
+        "serializeJson"
+      ],
+      "totalLines": 153,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/format/json-import.ts": {
+      "filePath": "packages/core/src/format/json-import.ts",
+      "contentHash": "0062c0deb2d497a02cf4b57077b19d254fa52a0cccb536e7dba0eb0076fb1acc",
+      "functions": [
+        {
+          "name": "parseJsonSource",
+          "params": [
+            "source"
+          ],
+          "returnType": "JVal",
+          "exported": false,
+          "lineCount": 195
+        },
+        {
+          "name": "jsonTypeOf",
+          "params": [
+            "val"
+          ],
+          "returnType": "JsonPrimitiveType",
+          "exported": false,
+          "lineCount": 12
+        },
+        {
+          "name": "rawTextOf",
+          "params": [
+            "val"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 12
+        },
+        {
+          "name": "primitiveNode",
+          "params": [
+            "name",
+            "val"
+          ],
+          "returnType": "DocNode",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "objectToNode",
+          "params": [
+            "name",
+            "entries"
+          ],
+          "returnType": "DocNode",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "arrayElementToNode",
+          "params": [
+            "name",
+            "val"
+          ],
+          "returnType": "DocNode",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "propertyToNodes",
+          "params": [
+            "name",
+            "val"
+          ],
+          "returnType": "DocNode[]",
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "parseJson",
+          "params": [
+            "source"
+          ],
+          "returnType": "{ root: DocNode }",
+          "exported": true,
+          "lineCount": 40
+        }
+      ],
+      "classes": [
+        {
+          "name": "JsonSyntaxError",
+          "methods": [],
+          "properties": [],
+          "exported": false,
+          "lineCount": 1
+        }
+      ],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "createNode",
+            "DocNode",
+            "JsonPrimitiveType"
+          ]
+        }
+      ],
+      "exports": [
+        "parseJson"
+      ],
+      "totalLines": 348,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/format/path.ts": {
+      "filePath": "packages/core/src/format/path.ts",
+      "contentHash": "e93ed8456b1859af2c25eab121b44d1528f09036c14bcbd5fff9db4646987904",
+      "functions": [
+        {
+          "name": "getPathSegments",
+          "params": [
+            "target",
+            "ancestors"
+          ],
+          "returnType": "PathSegment[]",
+          "exported": true,
+          "lineCount": 24
+        },
+        {
+          "name": "segmentsToRender",
+          "params": [
+            "segments"
+          ],
+          "returnType": "PathSegment[]",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "formatIndexedPath",
+          "params": [
+            "segments"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "formatStaticPath",
+          "params": [
+            "segments"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "formatFullPath",
+          "params": [
+            "segments"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "findAncestorChain",
+          "params": [
+            "node",
+            "target",
+            "path"
+          ],
+          "returnType": "DocNode[] | null",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "computePaths",
+          "params": [
+            "root",
+            "target"
+          ],
+          "returnType": "{ indexed: string; static: string; full: string }",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [
+        "getPathSegments",
+        "formatIndexedPath",
+        "formatStaticPath",
+        "formatFullPath",
+        "findAncestorChain",
+        "computePaths"
+      ],
+      "totalLines": 153,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/format/xml-export.ts": {
+      "filePath": "packages/core/src/format/xml-export.ts",
+      "contentHash": "5c5906b18cc94f1837ccb90d215959250ab90b3dec886b56545994e5d60819ff",
+      "functions": [
+        {
+          "name": "escapeText",
+          "params": [
+            "value"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "escapeAttr",
+          "params": [
+            "value"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "serializeAttributes",
+          "params": [
+            "node"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "serializeNode",
+          "params": [
+            "node",
+            "indent",
+            "depth"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 13
+        },
+        {
+          "name": "serializeXml",
+          "params": [
+            "doc"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "serializeNodeMinimal",
+          "params": [
+            "node",
+            "sourceBytes",
+            "decoder",
+            "indent",
+            "depth"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 25
+        },
+        {
+          "name": "serializeXmlMinimal",
+          "params": [
+            "source",
+            "doc"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [
+        "serializeXml",
+        "serializeXmlMinimal"
+      ],
+      "totalLines": 88,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/format/xml-import.ts": {
+      "filePath": "packages/core/src/format/xml-import.ts",
+      "contentHash": "e06cf2a239197c0176d44072a7518e55fa5756450d5569eacc8878b925891e51",
+      "functions": [
+        {
+          "name": "decodeEntities",
+          "params": [
+            "text"
+          ],
+          "returnType": "string",
+          "exported": false,
+          "lineCount": 21
+        },
+        {
+          "name": "buildByteOffsetTable",
+          "params": [
+            "source"
+          ],
+          "returnType": "Uint32Array",
+          "exported": false,
+          "lineCount": 35
+        },
+        {
+          "name": "parseXml",
+          "params": [
+            "source"
+          ],
+          "returnType": "ParseXmlResult",
+          "exported": true,
+          "lineCount": 195
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "createNode",
+            "DocAttribute",
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [
+        "parseXml"
+      ],
+      "totalLines": 322,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/index.ts": {
+      "filePath": "packages/core/src/index.ts",
+      "contentHash": "5d1a51221a514f0ce1ca55b19fe6471c76e60f80927f964f0ba176ed5f4cd6d8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "DocAttribute",
+        "DocNode",
+        "JsonPrimitiveType",
+        "cloneSubtree",
+        "createNode",
+        "createNodeId",
+        "DocFormat",
+        "JaxelDocument",
+        "createDocument",
+        "Command",
+        "CommandBus",
+        "createCompositeCommand",
+        "captureByteRanges",
+        "clearByteRanges",
+        "restoreByteRanges",
+        "createRenameCommand",
+        "createSetValueCommand",
+        "createSetAttributeCommand",
+        "createRenameAttributeCommand",
+        "createInsertNodeCommand",
+        "createRemoveNodeCommand",
+        "createMoveNodeCommand",
+        "ParseXmlResult",
+        "parseXml",
+        "serializeXml",
+        "serializeXmlMinimal",
+        "parseJson",
+        "JsonExportDoc",
+        "serializeJson",
+        "PathSegment",
+        "computePaths",
+        "findAncestorChain",
+        "formatFullPath",
+        "formatIndexedPath",
+        "formatStaticPath",
+        "getPathSegments",
+        "SearchMatch",
+        "SearchOptions",
+        "SearchScope",
+        "findAll",
+        "replaceAll"
+      ],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/model/document.ts": {
+      "filePath": "packages/core/src/model/document.ts",
+      "contentHash": "3a0c77b6f34e8bd29629995c457c87e124a0c9e412a6fc96f3c71b08db732761",
+      "functions": [
+        {
+          "name": "createDocument",
+          "params": [
+            "partial"
+          ],
+          "returnType": "JaxelDocument",
+          "exported": true,
+          "lineCount": 16
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "./node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [
+        "createDocument"
+      ],
+      "totalLines": 34,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/model/node.ts": {
+      "filePath": "packages/core/src/model/node.ts",
+      "contentHash": "2f451ea50eca931bb54d6e031cc1379358cc6043457d789ac34b35d8928ccf10",
+      "functions": [
+        {
+          "name": "createNodeId",
+          "params": [],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "createNode",
+          "params": [
+            "partial"
+          ],
+          "returnType": "DocNode",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "cloneSubtree",
+          "params": [
+            "node"
+          ],
+          "returnType": "DocNode",
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "createNodeId",
+        "createNode",
+        "cloneSubtree"
+      ],
+      "totalLines": 70,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/src/search/search.ts": {
+      "filePath": "packages/core/src/search/search.ts",
+      "contentHash": "553bbaa2018bc08c0ac0e3ee2f1dffdf026b59ace7cafe0396b6242a33b9c987",
+      "functions": [
+        {
+          "name": "compileMatcher",
+          "params": [
+            "options"
+          ],
+          "returnType": "CompiledMatcher",
+          "exported": false,
+          "lineCount": 55
+        },
+        {
+          "name": "includesName",
+          "params": [
+            "scope"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "includesValue",
+          "params": [
+            "scope"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "includesAttribute",
+          "params": [
+            "scope"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "walk",
+          "params": [
+            "node",
+            "visit"
+          ],
+          "returnType": "void",
+          "exported": false,
+          "lineCount": 6
+        },
+        {
+          "name": "findAll",
+          "params": [
+            "root",
+            "options"
+          ],
+          "returnType": "SearchMatch[]",
+          "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "replaceAll",
+          "params": [
+            "root",
+            "options",
+            "replacement"
+          ],
+          "returnType": "number",
+          "exported": true,
+          "lineCount": 35
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "../model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [
+        "findAll",
+        "replaceAll"
+      ],
+      "totalLines": 184,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/clone.test.ts": {
+      "filePath": "packages/core/tests/clone.test.ts",
+      "contentHash": "cefbbde8070c66398130d039f5283c775ec92d36c7d5d7e7023064bbc20fce5e",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/index.js",
+          "specifiers": [
+            "cloneSubtree",
+            "parseXml"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 35,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/coalescing.test.ts": {
+      "filePath": "packages/core/tests/coalescing.test.ts",
+      "contentHash": "54c8d18a2127c357fc04462ab3c3ae76d3b018b5e48e2085fe5d5c84afae6475",
+      "functions": [
+        {
+          "name": "setup",
+          "params": [
+            "xml"
+          ],
+          "exported": false,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/index.js",
+          "specifiers": [
+            "CommandBus",
+            "createDocument",
+            "createRenameAttributeCommand",
+            "createSetAttributeCommand",
+            "parseXml"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 63,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/command-bus.test.ts": {
+      "filePath": "packages/core/tests/command-bus.test.ts",
+      "contentHash": "a08427cb6257c3c272d92b390baca38051dba5d14137f5e75c027ab004d2c81a",
+      "functions": [
+        {
+          "name": "setValueCommand",
+          "params": [
+            "node",
+            "next"
+          ],
+          "returnType": "Command",
+          "exported": false,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/model/document.js",
+          "specifiers": [
+            "createDocument"
+          ]
+        },
+        {
+          "source": "../src/model/node.js",
+          "specifiers": [
+            "createNode"
+          ]
+        },
+        {
+          "source": "../src/commands/command-bus.js",
+          "specifiers": [
+            "CommandBus"
+          ]
+        },
+        {
+          "source": "../src/commands/command.js",
+          "specifiers": [
+            "Command"
+          ]
+        },
+        {
+          "source": "../src/commands/composite.js",
+          "specifiers": [
+            "createCompositeCommand"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 95,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/json-mapping.test.ts": {
+      "filePath": "packages/core/tests/json-mapping.test.ts",
+      "contentHash": "5f8d3d7e8e910bfe36fdafda2b5ac92adf230cade2c86c9239b373ba75047c3d",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/format/json-import.js",
+          "specifiers": [
+            "parseJson"
+          ]
+        },
+        {
+          "source": "../src/format/json-export.js",
+          "specifiers": [
+            "serializeJson"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 153,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/mutation-commands.test.ts": {
+      "filePath": "packages/core/tests/mutation-commands.test.ts",
+      "contentHash": "91b290bdbc3d9acfc905a26e9632c5c6725ae021b6d3d7ca0d31f9c156766b91",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/model/node.js",
+          "specifiers": [
+            "createNode"
+          ]
+        },
+        {
+          "source": "../src/commands/rename.js",
+          "specifiers": [
+            "createRenameCommand"
+          ]
+        },
+        {
+          "source": "../src/commands/set-value.js",
+          "specifiers": [
+            "createSetValueCommand"
+          ]
+        },
+        {
+          "source": "../src/commands/set-attribute.js",
+          "specifiers": [
+            "createSetAttributeCommand"
+          ]
+        },
+        {
+          "source": "../src/commands/insert-node.js",
+          "specifiers": [
+            "createInsertNodeCommand"
+          ]
+        },
+        {
+          "source": "../src/commands/remove-node.js",
+          "specifiers": [
+            "createRemoveNodeCommand"
+          ]
+        },
+        {
+          "source": "../src/commands/move-node.js",
+          "specifiers": [
+            "createMoveNodeCommand"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 178,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/path.test.ts": {
+      "filePath": "packages/core/tests/path.test.ts",
+      "contentHash": "a0adc2ac827cf9d3ecf3ea28a2e64ededb22121ea7cbda8e12faf2b6581381b6",
+      "functions": [
+        {
+          "name": "buildCatalogTree",
+          "params": [],
+          "exported": false,
+          "lineCount": 12
+        },
+        {
+          "name": "findAncestors",
+          "params": [
+            "root",
+            "target"
+          ],
+          "returnType": "DocNode[]",
+          "exported": false,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/model/node.js",
+          "specifiers": [
+            "createNode"
+          ]
+        },
+        {
+          "source": "../src/model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        },
+        {
+          "source": "../src/format/path.js",
+          "specifiers": [
+            "computePaths",
+            "formatIndexedPath",
+            "formatStaticPath",
+            "getPathSegments"
+          ]
+        },
+        {
+          "source": "../src/format/xml-import.js",
+          "specifiers": [
+            "parseXml"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 128,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/search.test.ts": {
+      "filePath": "packages/core/tests/search.test.ts",
+      "contentHash": "5eefe9ffadf761d3f5828eb8bdb0b1c150c9c0ec08cbf64852cbfe6e024fbc25",
+      "functions": [
+        {
+          "name": "buildCatalog",
+          "params": [],
+          "exported": false,
+          "lineCount": 24
+        },
+        {
+          "name": "options",
+          "params": [
+            "overrides"
+          ],
+          "returnType": "SearchOptions",
+          "exported": false,
+          "lineCount": 9
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/model/node.js",
+          "specifiers": [
+            "createNode"
+          ]
+        },
+        {
+          "source": "../src/search/search.js",
+          "specifiers": [
+            "findAll",
+            "replaceAll",
+            "SearchOptions"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 189,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tests/xml-roundtrip.test.ts": {
+      "filePath": "packages/core/tests/xml-roundtrip.test.ts",
+      "contentHash": "9bb614b3521b68491f05532f269468d4e22304e7b378d63d4b7392dae28d6871",
+      "functions": [
+        {
+          "name": "strip",
+          "params": [
+            "node"
+          ],
+          "returnType": "unknown",
+          "exported": false,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "vitest",
+          "specifiers": [
+            "describe",
+            "expect",
+            "it"
+          ]
+        },
+        {
+          "source": "../src/format/xml-import.js",
+          "specifiers": [
+            "parseXml"
+          ]
+        },
+        {
+          "source": "../src/format/xml-export.js",
+          "specifiers": [
+            "serializeXml",
+            "serializeXmlMinimal"
+          ]
+        },
+        {
+          "source": "../src/model/node.js",
+          "specifiers": [
+            "createNode"
+          ]
+        },
+        {
+          "source": "../src/model/node.js",
+          "specifiers": [
+            "DocNode"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 138,
+      "hasStructuralAnalysis": true
+    },
+    "packages/core/tsconfig.json": {
+      "filePath": "packages/core/tsconfig.json",
+      "contentHash": "cb457c312692f27ab55d7252daa660915db9ac454c1edd749e4fab4f09ab4bb9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 16,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "aced5240e1769e22161643ad89c694e2521e1a01079e9c1c5299d8a18b6539ec",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 53,
+      "hasStructuralAnalysis": true
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "runs": [
+    {
+      "date": "2026-07-18T06:20:38.013154+00:00",
+      "input_tokens": 204303,
+      "output_tokens": 0,
+      "files": 97
+    },
+    {
+      "date": "2026-07-18T06:25:14.691410+00:00",
+      "input_tokens": 176657,
+      "output_tokens": 0,
+      "files": 10,
+      "note": "Nachtraeglich eingearbeiteter Doku-Subagent (spaet zurueckgekehrt, session-limit)"
+    }
+  ],
+  "total_input_tokens": 380960,
+  "total_output_tokens": 0
+}
