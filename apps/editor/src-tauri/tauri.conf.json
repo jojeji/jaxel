@@ -26,6 +26,28 @@
   "bundle": {
     "active": true,
     "targets": ["appimage", "deb", "rpm", "nsis"],
+    "fileAssociations": [
+      {
+        "ext": ["xml"],
+        "mimeType": "application/xml",
+        "name": "XML",
+        "description": "XML-Dokument"
+      },
+      {
+        "ext": ["json"],
+        "mimeType": "application/json",
+        "name": "JSON",
+        "description": "JSON-Dokument"
+      }
+    ],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "./jaxel.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "./jaxel.desktop"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

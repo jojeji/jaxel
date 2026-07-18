@@ -14,6 +14,29 @@ verfügbar), daher sind Rechtsklick-Kontextmenü, Fokus-Breadcrumb, alle neuen D
 Reload, Über) und die Einstellungen-Checkbox nur per jsdom-Interaktionstest abgesichert, nicht
 real geklickt.
 
+## Nachtrag 2026-07-18 — Linux-Dateizuordnung („Öffnen mit" für XML/JSON)
+
+- **Problem**: Jaxel tauchte nach der `.deb`-Installation nicht im „Öffnen mit"-Menü des
+  Dateimanagers auf. Ursache: keine `fileAssociations` in `tauri.conf.json` ⇒ die generierte
+  `.desktop`-Datei hatte keinen `MimeType`-Eintrag; zusätzlich fehlte das `%F`-Feld in `Exec`
+  (das Standard-Template der Tauri-CLI 2.11.4 rendert nur `Exec={{exec}}` — ohne Feldcode
+  übergeben GNOME & Co. den Dateipfad beim Start gar nicht erst).
+- **Lösung**: `bundle.fileAssociations` (xml → `application/xml`, json → `application/json`) plus
+  eigenes Desktop-Template `src-tauri/jaxel.desktop` (`Exec=jaxel %F`,
+  `Categories=Development;Utility;`), eingebunden über `bundle.linux.deb.desktopTemplate` und
+  `bundle.linux.rpm.desktopTemplate`. Frontend-/Rust-Seite war bereits vorbereitet
+  (`std::env::args()` → `PendingOpenPaths` → `take_pending_open_paths`), es war eine reine
+  Bundle-Konfigurationslücke.
+- **Verifikation**: `.deb` neu gebaut, mit `dpkg-deb -x` entpackt und die generierte
+  `Jaxel.desktop` geprüft: `Exec=jaxel %F` und `MimeType=application/xml;application/json`
+  vorhanden. Nicht real durchgeklickt (Installation braucht sudo) — der PO muss das neue
+  `.deb` installieren und einmal per „Öffnen mit" testen.
+- **Offener Punkt**: Läuft Jaxel bereits, ignoriert die zweite Instanz ihre Argumente — der
+  `tauri_plugin_single_instance`-Callback in `lib.rs` ist leer (`|_app, _args, _cwd| {}`), die
+  per „Öffnen mit" gewählte Datei landet dann nicht im laufenden Fenster. Fix bräuchte
+  Args-Weiterleitung + ein Event, auf das das Frontend hört (bisher zieht es Startpfade nur
+  einmalig beim Mount).
+
 ## AP9 — Fokus-Ansicht, Unterbaum-Suche, Neues Dokument, externe Änderungen, DnD-Transparenz,
 Über-Dialog (abgeschlossen; Details/Begründung jeder Entscheidung in `docs/entscheidungen.md`,
 Eintrag 2026-07-18)
