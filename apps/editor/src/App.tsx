@@ -13,6 +13,7 @@ import {
   createRenameCommand,
   createSetAttributeCommand,
   createSetValueCommand,
+  decodeBase64,
   findAll,
   findAncestorChain,
   findNodeById,
@@ -61,6 +62,7 @@ import { IconButton } from "./ui/IconButton.js";
 import { ContextMenu, type ContextMenuItem } from "./ui/ContextMenu.js";
 import { ReloadDialog } from "./ui/ReloadDialog.js";
 import { CloseConfirmDialog } from "./ui/CloseConfirmDialog.js";
+import { Base64PreviewDialog } from "./ui/Base64PreviewDialog.js";
 import { AboutDialog } from "./ui/AboutDialog.js";
 
 function isTextInput(target: EventTarget | null): boolean {
@@ -104,6 +106,8 @@ export function App(): React.ReactElement {
     { kind: "tab"; key: string; filePath: string; focusNodeId: string | null } | { kind: "window" } | null
   >(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  /** Decoded Base64 TEXT waiting in the preview dialog (binary opens externally instead). */
+  const [base64Preview, setBase64Preview] = useState<{ text: string; format: "xml" | "json" | null } | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
 
   // App version for the "Über"/About dialog — read from Tauri (mirrors package.json /
@@ -938,6 +942,38 @@ export function App(): React.ReactElement {
     else void destroyWindow();
   }
 
+  /** Base64-Decode-Ansicht (docs/entscheidungen.md 2026-07-18): text goes to the in-app
+   * preview dialog, binary content (PDF, images, …) is written to a temp file and handed to
+   * the OS default application by the open_decoded_file command. Read-only by design. */
+  function handleDecodeBase64(value: string): void {
+    setError(null);
+    const decoded = decodeBase64(value);
+    if (!decoded) {
+      setError(t("base64.invalid"));
+      return;
+    }
+    if (decoded.kind === "text") {
+      setBase64Preview({ text: decoded.text!, format: decoded.textFormat });
+      return;
+    }
+    invoke<string>("open_decoded_file", { dataBase64: value, extension: decoded.extension }).then(
+      (path) => setStatus(t("base64.openedExternally").replace("{path}", path)),
+      (err) => setError(err instanceof Error ? err.message : String(err)),
+    );
+  }
+
+  /** "Als neuen Tab öffnen" in the Base64 preview: the decoded text becomes a fresh untitled
+   * document — deliberately detached from its source node (read-only view, no write-back). */
+  function handleOpenDecodedAsTab(): void {
+    if (!base64Preview?.format) return;
+    try {
+      newDocument(base64Preview.format, base64Preview.text);
+      setBase64Preview(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   /** Right-click "Fokus ab hier öffnen": a new tab showing only this node's subtree, sharing
    * this document's CommandBus/undo/save (docs/entscheidungen.md 2026-07-18 #1). */
   function handleOpenFocus(): void {
@@ -972,6 +1008,14 @@ export function App(): React.ReactElement {
       { label: t("toolbar.copyPathStatic"), onClick: () => handleCopyPath("static") },
       "separator",
       { label: t("focus.openHere"), disabled: isVisibleRoot, onClick: handleOpenFocus },
+      {
+        // Manual fallback for values the badge heuristic does not catch (short payloads etc.).
+        label: t("base64.decode"),
+        disabled: !selectedRow?.node.value,
+        onClick: () => {
+          if (selectedRow?.node.value) handleDecodeBase64(selectedRow.node.value);
+        },
+      },
       "separator",
       { label: t("toolbar.addChild"), shortcut: `${ctrl}++`, onClick: handleAddChild },
       { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
@@ -1095,6 +1139,9 @@ export function App(): React.ReactElement {
                   setContextMenu({ x, y });
                 }}
                 onMoveNode={handleMoveNode}
+                onDecodeBase64={(row) => {
+                  if (row.node.value) handleDecodeBase64(row.node.value);
+                }}
                 revealNodeId={revealNodeId}
               />
             </div>
@@ -1103,6 +1150,7 @@ export function App(): React.ReactElement {
               onSetAttribute={handleSetAttribute}
               onRenameAttribute={handleRenameAttribute}
               onCreateAttribute={handleCreateAttribute}
+              onDecodeBase64={handleDecodeBase64}
             />
           </>
         ) : (
@@ -1150,6 +1198,14 @@ export function App(): React.ReactElement {
           isDirty={reloadPrompt.isDirty}
           onReload={() => void performReload(reloadPrompt.filePath)}
           onKeepMine={() => setReloadPrompt(null)}
+        />
+      )}
+      {base64Preview && (
+        <Base64PreviewDialog
+          text={base64Preview.text}
+          format={base64Preview.format}
+          onOpenAsTab={handleOpenDecodedAsTab}
+          onClose={() => setBase64Preview(null)}
         />
       )}
       {closePrompt && (

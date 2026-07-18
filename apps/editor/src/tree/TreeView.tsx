@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { DocNode } from "@jaxel/core";
+import { looksLikeBase64, type DocNode } from "@jaxel/core";
+import { useI18n } from "../i18n/index.js";
 import type { TreeRow } from "./flatten.js";
 
 const ROW_HEIGHT = 22;
@@ -65,6 +66,10 @@ interface TreeViewProps {
   onRowContextMenu: (row: TreeRow, x: number, y: number) => void;
   /** Drag&drop move; validity (own subtree etc.) is pre-checked here in TreeView. */
   onMoveNode: (source: TreeRow, target: TreeRow, position: DropPosition) => void;
+  /** Click on the "base64" badge of a row whose value looks like base64 content. The
+   * heuristic runs only for the rows actually rendered (virtualization), so huge documents
+   * pay nothing for it. */
+  onDecodeBase64: (row: TreeRow) => void;
   /**
    * When set (e.g. by "next search match" or keyboard navigation), scrolls this node's
    * row into view. Expanding its ancestors is App's job (it owns the expanded set).
@@ -89,6 +94,7 @@ export function TreeView({
   onCancelEdit,
   onRowContextMenu,
   onMoveNode,
+  onDecodeBase64,
   revealNodeId,
 }: TreeViewProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -188,6 +194,7 @@ export function TreeView({
             onCommitEdit={(field, text) => onCommitEdit(row, field, text)}
             onCancelEdit={onCancelEdit}
             onContextMenu={(x, y) => onRowContextMenu(row, x, y)}
+            onDecodeBase64={() => onDecodeBase64(row)}
             onDragStart={(event) => {
               event.dataTransfer.setData("text/plain", row.node.name);
               event.dataTransfer.effectAllowed = "move";
@@ -221,6 +228,7 @@ interface TreeRowViewProps {
   onCommitEdit: (field: "name" | "value", newText: string) => void;
   onCancelEdit: () => void;
   onContextMenu: (x: number, y: number) => void;
+  onDecodeBase64: () => void;
   onDragStart: (event: React.DragEvent) => void;
   onDragOver: (event: React.DragEvent) => void;
   onDrop: (event: React.DragEvent) => void;
@@ -241,11 +249,13 @@ function TreeRowView({
   onCommitEdit,
   onCancelEdit,
   onContextMenu,
+  onDecodeBase64,
   onDragStart,
   onDragOver,
   onDrop,
   onDragEnd,
 }: TreeRowViewProps): React.ReactElement {
+  const { t } = useI18n();
   const { node, depth, hasChildren } = row;
   const preview = hasChildren ? `(${node.children.length})` : (node.value ?? "");
   const dropClass =
@@ -336,6 +346,20 @@ function TreeRowView({
             {preview}
           </span>
         )
+      )}
+
+      {!hasChildren && editingField !== "value" && looksLikeBase64(node.value) && (
+        <button
+          className="tree-row__base64"
+          title={t("base64.decode")}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+            onDecodeBase64();
+          }}
+        >
+          base64
+        </button>
       )}
     </div>
   );

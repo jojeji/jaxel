@@ -102,6 +102,21 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   sich zusätzlich der komplette Unterbaum jedes Treffers einblenden.
 - **Ersetzen**: „Alle ersetzen" ersetzt in allen Treffern — als ein einziger Undo-Schritt.
 
+## Base64-Inhalte anzeigen
+
+Manche XML-Dateien (z. B. Spooler-VOL-Dateien) betten Dateien als Base64-Text ein. Jaxel
+erkennt solche Werte automatisch (ab ca. 64 Zeichen) und zeigt ein kleines **„base64"-Badge**
+an der Baumzeile bzw. neben dem Attributwert im Attribute-Panel:
+
+- **Klick auf das Badge** dekodiert den Inhalt: Text erscheint in einem Vorschaufenster —
+  ist es XML oder JSON, kann es direkt **als neuer Tab** geöffnet werden (ein eigenständiges,
+  unbenanntes Dokument ohne Verbindung zur Quelle). Binärinhalte (PDF, Bilder, ZIP …) werden
+  als temporäre Datei gespeichert und im Standardprogramm des Systems geöffnet.
+- **Kontextmenü → „Als Base64 dekodieren"** funktioniert auf jedem Knoten mit Wert — auch
+  dann, wenn die automatische Erkennung kein Badge zeigt (z. B. bei sehr kurzen Inhalten).
+- Das Dekodieren ist eine **reine Ansicht**: Änderungen daran fließen nicht in das
+  Ursprungsdokument zurück.
+
 ## Pfad kopieren
 
 Für den ausgewählten Knoten über Toolbar oder Kontextmenü:

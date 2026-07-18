@@ -921,6 +921,39 @@ kbd {
   font-size: 13px;
 }
 
+.tree-row__base64 {
+  margin-left: 8px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tree-row__base64:hover {
+  background: var(--accent);
+  color: var(--bg-1);
+}
+
+.base64-preview {
+  max-width: 720px;
+}
+
+.base64-preview__text {
+  max-height: 50vh;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .new-doc-dialog__choices button {
   flex: 1;
 }

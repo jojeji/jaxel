@@ -113,8 +113,10 @@ export function useJaxelDocuments(): {
   /** Renames an untitled (or any) document's tab identity to a real, now-saved path —
    * updates every tab (full view + any foci) pointing at it. */
   saveFileAs: (currentPath: string, newPath: string) => Promise<void>;
-  /** Creates a brand-new, unsaved document ("Unbenannt-N") and activates its full-view tab. */
-  newDocument: (format: DocFormat) => void;
+  /** Creates a brand-new, unsaved document ("Unbenannt-N") and activates its full-view tab.
+   * `content` overrides the default skeleton (e.g. a decoded Base64 payload) and must parse
+   * in the given format — the caller handles parse errors. */
+  newDocument: (format: DocFormat, content?: string) => void;
   /** Closes a single tab. The underlying document is only unloaded once no tab (full view
    * or focus) references it anymore. */
   closeTab: (key: string) => void;
@@ -279,8 +281,8 @@ export function useJaxelDocuments(): {
     });
   }, []);
 
-  const newDocument = useCallback((format: DocFormat) => {
-    const skeletonText = NEW_DOCUMENT_SKELETON[format];
+  const newDocument = useCallback((format: DocFormat, content?: string) => {
+    const skeletonText = content ?? NEW_DOCUMENT_SKELETON[format];
     let root: DocNode;
     let xmlDeclaration: string | undefined;
     if (format === "xml") {

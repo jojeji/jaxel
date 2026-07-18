@@ -18,9 +18,31 @@ real geklickt.
 
 Nächste APs in PO-Priorität: **1)** ~~Ungespeichert-Warnung (Tab + Fenster schließen)~~ ✔ AP10,
 **2)** ~~„Öffnen mit"-Weiterleitung an die laufende Instanz~~ ✔ AP11, **3)** ~~Sitzung wiederherstellen~~ ✔ AP12,
-**4)** Base64-Decode-Ansicht (Heuristik + Badge + Kontextmenü, zweigleisige Anzeige, read-only).
-Außerdem noch offen: PO-Klick-Review von AP9 + AP10, PO-Test der neuen Linux-Dateizuordnung
+**4)** ~~Base64-Decode-Ansicht~~ ✔ AP13.
+Außerdem noch offen: PO-Klick-Review von AP9–AP14, PO-Test der neuen Linux-Dateizuordnung
 (`.deb` neu installieren), Windows-/NSIS-Build ungetestet.
+
+## AP13 — Base64-Decode-Ansicht (abgeschlossen 2026-07-18; Design: Grilling-Eintrag in `docs/entscheidungen.md`)
+
+- **Core** (`packages/core/src/format/base64.ts`, neue Exporte `looksLikeBase64`/`decodeBase64`):
+  Badge-Heuristik (Mindestlänge 64, Base64-Alphabet, Länge durch 4 teilbar — ohne Decode) und
+  vollständiger Decoder (eigene Implementierung, kein atob/Buffer — läuft identisch in Browser
+  und Node-Tests). Inhaltstyp per Magic Bytes (%PDF, PNG, JPEG, GIF, ZIP, GZIP), sonst strikter
+  UTF-8-Check (Kontrollzeichen ⇒ binary); Text wird zusätzlich als XML/JSON klassifiziert.
+- **UI**: klickbares „base64"-Badge an Blatt-Zeilen (`TreeView`, rendert nur sichtbare Zeilen —
+  große Dateien zahlen nichts) und an Attributwerten (`AttributesPanel`); Kontextmenüpunkt
+  „Als Base64 dekodieren" als manueller Fallback auf jedem Knoten mit Wert (ungültiges Base64
+  ⇒ Fehlerbanner). Text ⇒ Vorschau-Dialog (`ui/Base64PreviewDialog.tsx`, read-only), bei
+  XML/JSON zusätzlich „Als neuen Tab öffnen" (`newDocument` nimmt jetzt optionalen Inhalt —
+  eigenständiges „Unbenannt-N", bewusst KEINE Verknüpfung zur Quelle, kein Re-Encode).
+- **Binär** ⇒ neuer Rust-Command `open_decoded_file` (Cargo-Deps `base64` + `open`): dekodiert,
+  schreibt `jaxel-decoded-<ts>.<ext>` ins Temp-Verzeichnis und öffnet es mit dem
+  System-Standardprogramm (`open::that_detached`); Statuszeile zeigt den Pfad. Bewusster
+  Tradeoff: dekodierter Inhalt liegt danach unverschlüsselt im Temp-Verzeichnis.
+- **Verifikation**: 77/77 Kern-Tests (12 neu für Heuristik/Decoder/Magic Bytes), 81/81
+  Editor-Tests (5 neu: Badge + Vorschau + „Als neuen Tab öffnen", PDF extern mit Statusmeldung,
+  Attribut-Badge, Kontextmenü-Fallback inkl. Fehlerfall, keine Badges an kurzen Werten),
+  `tsc` + `cargo check` sauber. Nicht real geklickt (bekannte Umgebungs-Einschränkung).
 
 ## AP12 — Sitzung wiederherstellen (abgeschlossen 2026-07-18)
 

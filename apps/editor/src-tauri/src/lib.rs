@@ -69,6 +69,33 @@ fn stat_file(path: String) -> Result<FileStatResult, InvokeError> {
         .map_err(InvokeError::from)
 }
 
+/// Base64-Decode-Ansicht (docs/entscheidungen.md 2026-07-18): writes decoded binary content
+/// to a temp file and hands it to the OS default application (PDF viewer, image viewer, …).
+/// The frontend sends base64 (not raw bytes) because invoke serializes arguments as JSON.
+/// Returns the temp file path for the status line.
+#[tauri::command]
+fn open_decoded_file(data_base64: String, extension: String) -> Result<String, InvokeError> {
+    use base64::Engine;
+
+    let compact: String = data_base64.chars().filter(|c| !c.is_whitespace()).collect();
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(compact)
+        .map_err(|e| InvokeError::from(format!("Ungültiges Base64: {e}")))?;
+
+    // Extension comes from our own magic-byte sniffing, but sanitize anyway.
+    let safe_ext: String = extension.chars().filter(|c| c.is_ascii_alphanumeric()).take(5).collect();
+    let safe_ext = if safe_ext.is_empty() { "bin".to_string() } else { safe_ext };
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let path = std::env::temp_dir().join(format!("jaxel-decoded-{stamp}.{safe_ext}"));
+
+    std::fs::write(&path, bytes).map_err(|e| InvokeError::from(format!("Temp-Datei fehlgeschlagen: {e}")))?;
+    open::that_detached(&path).map_err(|e| InvokeError::from(format!("Öffnen fehlgeschlagen: {e}")))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let startup_paths: Vec<String> = std::env::args()
@@ -113,7 +140,8 @@ pub fn run() {
             read_text_file,
             write_text_file,
             stat_file,
-            take_pending_open_paths
+            take_pending_open_paths,
+            open_decoded_file
         ])
         .setup(move |app| {
             app.manage(PendingOpenPaths(Mutex::new(startup_paths)));

@@ -21,6 +21,8 @@ export { createMoveNodeCommand } from "./commands/move-node.js";
 export type { ParseXmlResult } from "./format/xml-import.js";
 export { parseXml } from "./format/xml-import.js";
 export { serializeXml, serializeXmlMinimal } from "./format/xml-export.js";
+export type { DecodedBase64, DecodedContentKind } from "./format/base64.js";
+export { decodeBase64, looksLikeBase64 } from "./format/base64.js";
 export { parseJson } from "./format/json-import.js";
 export type { JsonExportDoc } from "./format/json-export.js";
 export { serializeJson } from "./format/json-export.js";

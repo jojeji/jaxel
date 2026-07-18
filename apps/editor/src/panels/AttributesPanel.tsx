@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { DocNode } from "@jaxel/core";
+import { looksLikeBase64, type DocNode } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
 
 interface AttributesPanelProps {
@@ -10,6 +10,8 @@ interface AttributesPanelProps {
   onRenameAttribute: (index: number, newName: string, coalesceKey: string) => void;
   /** Creates a new attribute (empty value) as soon as the user starts typing a name. */
   onCreateAttribute: (name: string, coalesceKey: string) => void;
+  /** Click on the "base64" badge of an attribute whose value looks like base64 content. */
+  onDecodeBase64: (value: string) => void;
 }
 
 export function AttributesPanel({
@@ -17,6 +19,7 @@ export function AttributesPanel({
   onSetAttribute,
   onRenameAttribute,
   onCreateAttribute,
+  onDecodeBase64,
 }: AttributesPanelProps): React.ReactElement {
   const { t } = useI18n();
   /** Index of a just-created attribute whose name input should grab focus. */
@@ -68,6 +71,15 @@ export function AttributesPanel({
                 />
               </td>
               <td>
+                {looksLikeBase64(attribute.value) && (
+                  <button
+                    className="tree-row__base64"
+                    title={t("base64.decode")}
+                    onClick={() => onDecodeBase64(attribute.value)}
+                  >
+                    base64
+                  </button>
+                )}
                 <button onClick={() => onSetAttribute(attribute.name, null)} title={t("attributes.remove")}>
                   ×
                 </button>

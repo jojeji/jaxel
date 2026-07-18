@@ -64,9 +64,23 @@ const SECOND_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </item>
 </inventory>`;
 
+const B64_XML_PAYLOAD = `<hello>${"x".repeat(60)}</hello>`;
+const B64_XML = Buffer.from(B64_XML_PAYLOAD).toString("base64");
+const B64_PDF = Buffer.from(`%PDF-1.7\n${"y".repeat(60)}`).toString("base64");
+const B64_ATTR_PAYLOAD = `Nur Text im Attribut: ${"z".repeat(50)}`;
+const B64_ATTR = Buffer.from(B64_ATTR_PAYLOAD).toString("base64");
+
+const BLOB_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<vol>
+  <textblob>${B64_XML}</textblob>
+  <pdfblob>${B64_PDF}</pdfblob>
+  <meta hash="${B64_ATTR}"></meta>
+</vol>`;
+
 const FILES: Record<string, string> = {
   "/fake/sample.xml": SAMPLE_XML,
   "/fake/second.xml": SECOND_XML,
+  "/fake/blob.xml": BLOB_XML,
 };
 
 const writeText = vi.fn().mockResolvedValue(undefined);
@@ -85,6 +99,10 @@ beforeEach(() => {
     }
     if (cmd === "write_text_file") return { mtimeMs: 1000, size: 100 };
     if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+    if (cmd === "open_decoded_file") {
+      const ext = (args as { extension?: string } | undefined)?.extension ?? "bin";
+      return `/tmp/jaxel-decoded-1.${ext}`;
+    }
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
@@ -1156,6 +1174,77 @@ describe("Ungespeicherte Änderungen beim Schließen", () => {
       ]);
     });
     await waitFor(() => expect(windowMock.destroy).toHaveBeenCalled());
+  });
+});
+
+describe("Base64-Decode-Ansicht", () => {
+  async function openBlobFile() {
+    const user = userEvent.setup();
+    renderApp();
+    vi.mocked(open).mockResolvedValueOnce("/fake/blob.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("vol");
+    return user;
+  }
+
+  it("zeigt Badges an Base64-Zeilen; Klick auf Text-Inhalt öffnet die Vorschau, daraus wird ein neuer Tab", async () => {
+    const user = await openBlobFile();
+
+    const badges = screen.getAllByText("base64", { selector: ".tree-row__base64" });
+    expect(badges.length).toBeGreaterThanOrEqual(2); // textblob + pdfblob
+
+    await user.click(badges[0]!); // textblob → dekodierter XML-Text
+    expect(await screen.findByText("Dekodierter Base64-Inhalt")).toBeInTheDocument();
+    expect(screen.getByText(/x{60}/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Als neuen Tab öffnen" }));
+    expect(await screen.findByText("Unbenannt-1", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.getByText("hello", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+
+  it("Binärinhalt (PDF) wird per open_decoded_file extern geöffnet, mit Statusmeldung", async () => {
+    const user = await openBlobFile();
+
+    const badges = screen.getAllByText("base64", { selector: ".tree-row__base64" });
+    await user.click(badges[1]!); // pdfblob
+
+    await waitFor(() => {
+      const call = vi.mocked(invoke).mock.calls.find(([cmd]) => cmd === "open_decoded_file");
+      expect(call).toBeDefined();
+      expect((call![1] as { extension: string }).extension).toBe("pdf");
+    });
+    expect(await screen.findByText(/Dekodierter Inhalt geöffnet: \/tmp\/jaxel-decoded-1\.pdf/)).toBeInTheDocument();
+    expect(screen.queryByText("Dekodierter Base64-Inhalt")).not.toBeInTheDocument(); // kein Dialog
+  });
+
+  it("Attribut mit Base64-Wert bekommt im Attribute-Panel ein Badge", async () => {
+    const user = await openBlobFile();
+    await user.click(screen.getByText("meta"));
+
+    const panel = document.querySelector(".attributes-panel")!;
+    await user.click(within(panel as HTMLElement).getByText("base64"));
+
+    expect(await screen.findByText("Dekodierter Base64-Inhalt")).toBeInTheDocument();
+    expect(screen.getByText(/Nur Text im Attribut/)).toBeInTheDocument();
+    // Freitext ist weder XML noch JSON — kein "Als neuen Tab öffnen".
+    expect(screen.queryByRole("button", { name: "Als neuen Tab öffnen" })).not.toBeInTheDocument();
+  });
+
+  it("Kontextmenü-Fallback: ungültiges Base64 zeigt eine Fehlermeldung, Container sind deaktiviert", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // aufklappen, damit "Berlin" sichtbar ist
+
+    fireEvent.contextMenu((await screen.findByText("Berlin")).closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Als Base64 dekodieren" }));
+    expect(await screen.findByText("Der Wert ist kein gültiges Base64")).toBeInTheDocument();
+
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    expect(screen.getByRole("menuitem", { name: "Als Base64 dekodieren" })).toBeDisabled();
+  });
+
+  it("kurze Werte bekommen KEIN Badge (Mindestlänge der Heuristik)", async () => {
+    await openSampleFile();
+    expect(screen.queryByText("base64", { selector: ".tree-row__base64" })).not.toBeInTheDocument();
   });
 });
 
