@@ -6,9 +6,28 @@ use tauri::ipc::InvokeError;
 use tauri::Manager;
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 struct FileContent {
     content: String,
     encoding: String,
+    mtime_ms: u64,
+    size: u64,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileStatResult {
+    mtime_ms: u64,
+    size: u64,
+}
+
+impl From<io::FileStat> for FileStatResult {
+    fn from(stat: io::FileStat) -> Self {
+        FileStatResult {
+            mtime_ms: stat.mtime_ms,
+            size: stat.size,
+        }
+    }
 }
 
 /// File paths passed on the command line (e.g. `jaxel some.xml`, or a future "open with"
@@ -28,13 +47,24 @@ fn read_text_file(path: String) -> Result<FileContent, InvokeError> {
         .map(|decoded| FileContent {
             content: decoded.content,
             encoding: decoded.encoding,
+            mtime_ms: decoded.stat.mtime_ms,
+            size: decoded.stat.size,
         })
         .map_err(InvokeError::from)
 }
 
 #[tauri::command]
-fn write_text_file(path: String, content: String, encoding: String) -> Result<(), InvokeError> {
-    io::write_text_file(&PathBuf::from(path), &content, &encoding).map_err(InvokeError::from)
+fn write_text_file(path: String, content: String, encoding: String) -> Result<FileStatResult, InvokeError> {
+    io::write_text_file(&PathBuf::from(path), &content, &encoding)
+        .map(FileStatResult::from)
+        .map_err(InvokeError::from)
+}
+
+#[tauri::command]
+fn stat_file(path: String) -> Result<FileStatResult, InvokeError> {
+    io::stat_file(&PathBuf::from(path))
+        .map(FileStatResult::from)
+        .map_err(InvokeError::from)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -51,6 +81,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_text_file,
             write_text_file,
+            stat_file,
             take_pending_open_paths
         ])
         .setup(move |app| {

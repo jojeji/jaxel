@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   cloneSubtree,
   computePaths,
@@ -15,22 +15,28 @@ import {
   createSetValueCommand,
   findAll,
   findAncestorChain,
+  findNodeById,
+  getPathSegments,
   parseJson,
   parseXml,
   replaceAll,
   serializeJson,
   serializeXml,
   type Command,
+  type DocFormat,
   type DocNode,
+  type PathSegment,
   type SearchMatch,
   type SearchOptions,
 } from "@jaxel/core";
 import {
   ClipboardText,
   CopySimple,
+  FilePlus,
   FloppyDisk,
   FolderOpen,
   Gear,
+  Info,
   ListNumbers,
   MagnifyingGlass,
   Plus,
@@ -42,6 +48,7 @@ import { useJaxelDocuments } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
 import { getLastDir, rememberLastDir, addRecentFile } from "./state/local-prefs.js";
 import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
+import { FocusBreadcrumb } from "./tree/FocusBreadcrumb.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
 import { buildFilterKeepSet, flattenFiltered } from "./tree/filter.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
@@ -49,8 +56,11 @@ import { SearchPanel } from "./search/SearchPanel.js";
 import { TabBar } from "./tabs/TabBar.js";
 import { SettingsDialog } from "./settings/SettingsDialog.js";
 import { WelcomeScreen } from "./welcome/WelcomeScreen.js";
+import { NewDocumentDialog } from "./welcome/NewDocumentDialog.js";
 import { IconButton } from "./ui/IconButton.js";
 import { ContextMenu, type ContextMenuItem } from "./ui/ContextMenu.js";
+import { ReloadDialog } from "./ui/ReloadDialog.js";
+import { AboutDialog } from "./ui/AboutDialog.js";
 
 function isTextInput(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
@@ -59,7 +69,20 @@ function isTextInput(target: EventTarget | null): boolean {
 export function App(): React.ReactElement {
   const { t } = useI18n();
   const { settings, setSettings } = useSettings();
-  const { docs, activeDoc, openFile, saveFile, closeTab, activate } = useJaxelDocuments();
+  const {
+    tabs,
+    activeTab,
+    activeDoc,
+    openFile,
+    saveFile,
+    saveFileAs,
+    newDocument,
+    closeTab,
+    activate,
+    openFocusTab,
+    retargetFocusTab,
+    reloadFile,
+  } = useJaxelDocuments();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
@@ -67,14 +90,66 @@ export function App(): React.ReactElement {
   const [status, setStatus] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newDocOpen, setNewDocOpen] = useState(false);
   const [revealNodeId, setRevealNodeId] = useState<string | null>(null);
   /** null = filter off; otherwise the current search matches the tree is reduced to. */
   const [filterMatches, setFilterMatches] = useState<SearchMatch[] | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [reloadPrompt, setReloadPrompt] = useState<{ filePath: string; isDirty: boolean } | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
 
-  const root = activeDoc?.document.root ?? null;
+  // App version for the "Über"/About dialog — read from Tauri (mirrors package.json /
+  // tauri.conf.json); unavailable outside a real Tauri window (e.g. plain `vite` dev/tests).
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { getVersion } = await import("@tauri-apps/api/app");
+        setAppVersion(await getVersion());
+      } catch {
+        setAppVersion(null);
+      }
+    })();
+  }, []);
+
+  const trueRoot = activeDoc?.document.root ?? null;
   const revision = activeDoc?.document.revision ?? 0;
+
+  /**
+   * When the active tab is a "focused view ab Knoten X" (docs/entscheidungen.md 2026-07-18
+   * #1), `focus.node` becomes the tab's visible root and `focus.ancestors` is its TRUE
+   * ancestor chain (root-first) — used for the breadcrumb and to prefix `row.ancestors` below
+   * so mutation Commands still invalidate byteRange all the way to the real document root.
+   */
+  const focus = useMemo(() => {
+    if (!trueRoot || !activeTab?.focusNodeId) return null;
+    const node = findNodeById(trueRoot, activeTab.focusNodeId);
+    if (!node) return null;
+    return { node, ancestors: findAncestorChain(trueRoot, node) ?? [] };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates after mutations
+  }, [trueRoot, activeTab?.focusNodeId, revision]);
+
+  /** The tab's own visible root — the real document root, or the focused node's subtree. */
+  const root = focus ? focus.node : trueRoot;
+
+  // If the focused node was deleted (from this tab or another one on the same document),
+  // auto-refocus one level up using the ancestor chain captured when focus was last set —
+  // repeats until an ancestor that still exists is found (the real root always does).
+  useEffect(() => {
+    if (!activeTab?.focusNodeId || !trueRoot || focus) return;
+    const chain = activeTab.focusAncestorIds;
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const id = chain[i]!;
+      const node = findNodeById(trueRoot, id);
+      if (node) {
+        const isTrueRoot = i === 0;
+        retargetFocusTab(activeTab.key, isTrueRoot ? null : id, isTrueRoot ? null : node.name, chain.slice(0, i));
+        setStatus(t("focus.autoRefocused"));
+        return;
+      }
+    }
+  }, [activeTab, focus, trueRoot, retargetFocusTab, t]);
 
   // Light is the CSS default (:root); only dark needs the data attribute.
   useEffect(() => {
@@ -125,29 +200,39 @@ export function App(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- openPath only wraps the stable openFile
   }, []);
 
-  // Reset per-document view state whenever the active tab changes.
+  // Reset per-tab view state whenever the active TAB changes (not just the document — switching
+  // between the full view and a focus tab of the same document is also a fresh view context).
   useEffect(() => {
     setSelectedId(null);
     setEditingField(null);
     setFilterMatches(null);
-    setExpanded(activeDoc ? new Set([activeDoc.document.root.id]) : new Set());
-  }, [activeDoc?.filePath]);
+    const visibleRootId = focus ? focus.node.id : activeDoc?.document.root.id;
+    setExpanded(visibleRootId ? new Set([visibleRootId]) : new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on the tab only
+  }, [activeTab?.key]);
 
   /**
    * The flattened, currently visible row list. Normal mode: expand/collapse driven.
    * Filter mode (search panel): reduced to matches + ancestors (+ subtree per setting),
    * ignoring the expanded set. `revision` invalidates on every mutation (commands
-   * mutate the tree in place, `root`'s reference never changes — see TreeView docs).
+   * mutate the tree in place, `root`'s reference never changes — see TreeView docs). In a
+   * focus tab, `root` is the focused node, so `ancestors` is prefixed with the TRUE chain
+   * above it (see `focus` above) — mutation Commands need the full chain to invalidate
+   * byteRange up to the real document root, not just up to the focus point.
    */
   const rows = useMemo<TreeRow[]>(() => {
     if (!root) return [];
+    let base: TreeRow[];
     if (filterMatches) {
       const matchedIds = new Set(filterMatches.map((m) => m.node.id));
       const keep = buildFilterKeepSet(root, matchedIds, settings.filterIncludesSubtree);
-      return flattenFiltered(root, keep);
+      base = flattenFiltered(root, keep);
+    } else {
+      base = flattenTree(root, expanded);
     }
-    return flattenTree(root, expanded);
-  }, [root, expanded, revision, filterMatches, settings.filterIncludesSubtree]);
+    if (!focus) return base;
+    return base.map((row) => ({ ...row, ancestors: [...focus.ancestors, ...row.ancestors] }));
+  }, [root, expanded, revision, filterMatches, settings.filterIncludesSubtree, focus]);
 
   const selectedRow = useMemo<TreeRow | null>(
     () => rows.find((row) => row.node.id === selectedId) ?? null,
@@ -184,6 +269,65 @@ export function App(): React.ReactElement {
     setRevealNodeId(node.id);
   }
 
+  function fileNameOf(path: string): string {
+    return path.split(/[/\\]/).pop() ?? path;
+  }
+
+  /**
+   * Re-reads `filePath` from disk (docs/entscheidungen.md 2026-07-18 #4). If it's the active
+   * tab's document, the current selection and expanded nodes are captured as path SEGMENTS
+   * (not ids — the fresh parse assigns entirely new ids) before reloading, then resolved
+   * against the new tree afterwards so the view stays as close as possible to where it was.
+   */
+  async function performReload(filePath: string): Promise<void> {
+    setReloadPrompt(null);
+    const isActiveDoc = activeDoc?.filePath === filePath;
+    let selectionSegments: PathSegment[] | null = null;
+    const expandedSegmentsList: PathSegment[][] = [];
+    if (isActiveDoc && trueRoot) {
+      if (selectedRow) {
+        selectionSegments = getPathSegments(selectedRow.node, selectedRow.ancestors);
+      }
+      for (const id of expanded) {
+        const node = findNodeById(trueRoot, id);
+        if (!node) continue;
+        expandedSegmentsList.push(getPathSegments(node, findAncestorChain(trueRoot, node) ?? []));
+      }
+    }
+    const { selectedId: newSelectedId, expandedIds } = await reloadFile(filePath, selectionSegments, expandedSegmentsList);
+    if (isActiveDoc) {
+      setSelectedId(newSelectedId);
+      setExpanded(new Set(expandedIds));
+    }
+    setStatus(t("reload.reloaded").replace("{name}", fileNameOf(filePath)));
+  }
+
+  // External-change detection (docs/entscheidungen.md 2026-07-18 #4): checked only when the
+  // window regains focus (no background file watcher), only for the active tab's document
+  // (a background tab is checked lazily once the user switches to it), and via cheap
+  // metadata (mtime+size) rather than re-reading the file — see stat_file in src-tauri.
+  useEffect(() => {
+    function handleFocus(): void {
+      if (!activeDoc || activeDoc.isUntitled) return;
+      const { filePath, isDirty, lastKnownMtimeMs, lastKnownSize } = activeDoc;
+      invoke<{ mtimeMs: number; size: number }>("stat_file", { path: filePath })
+        .then((stat) => {
+          if (stat.mtimeMs === lastKnownMtimeMs && stat.size === lastKnownSize) return; // unchanged
+          if (!isDirty && settings.autoReloadOnExternalChange) {
+            void performReload(filePath);
+          } else {
+            setReloadPrompt({ filePath, isDirty });
+          }
+        })
+        .catch(() => {
+          // File might have been deleted/moved externally — out of scope for this feature,
+          // and nagging about it on every focus regain would be worse than staying silent.
+        });
+    }
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  });
+
   async function handleOpen(): Promise<void> {
     setError(null);
     try {
@@ -209,10 +353,28 @@ export function App(): React.ReactElement {
   async function handleSave(): Promise<void> {
     setError(null);
     try {
-      await saveFile();
+      if (activeDoc?.isUntitled) {
+        const extension = activeDoc.format === "xml" ? "xml" : "json";
+        const dir = getLastDir();
+        const path = await save({
+          defaultPath: dir ? `${dir}/${activeDoc.filePath}.${extension}` : `${activeDoc.filePath}.${extension}`,
+          filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
+        });
+        if (typeof path !== "string") return; // user cancelled the dialog
+        await saveFileAs(activeDoc.filePath, path);
+        rememberLastDir(path);
+        addRecentFile(path);
+      } else {
+        await saveFile();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  function handleNew(format: DocFormat): void {
+    setNewDocOpen(false);
+    newDocument(format);
   }
 
   function handleCommitEdit(row: TreeRow, field: "name" | "value", newText: string): void {
@@ -438,6 +600,11 @@ export function App(): React.ReactElement {
         void handleOpen();
         return;
       }
+      if (ctrl && event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        setNewDocOpen(true);
+        return;
+      }
       if (!activeDoc) return;
 
       if (ctrl && event.key.toLowerCase() === "s") {
@@ -497,9 +664,12 @@ export function App(): React.ReactElement {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  function handleSearch(options: SearchOptions): SearchMatch[] {
-    if (!activeDoc) return [];
-    return findAll(activeDoc.document.root, options);
+  function handleSearch(options: SearchOptions, subtreeOnly: boolean): SearchMatch[] {
+    if (!activeDoc || !root) return [];
+    // "Whole document" defaults to the tab's own visible root — in a focus tab that's the
+    // focused subtree, not the real document root (see docs/entscheidungen.md 2026-07-18 #1).
+    const searchRoot = subtreeOnly && selectedRow ? selectedRow.node : root;
+    return findAll(searchRoot, options);
   }
 
   function handleNavigate(match: SearchMatch): void {
@@ -526,10 +696,14 @@ export function App(): React.ReactElement {
    * wrapped in one CompositeCommand — so "Alle ersetzen" is a single, real undo step instead
    * of an untracked direct mutation.
    */
-  function handleReplaceAllInternal(options: SearchOptions, replacement: string): number {
-    if (!activeDoc) return 0;
-    const docRoot = activeDoc.document.root;
-    const matches = findAll(docRoot, options);
+  function handleReplaceAllInternal(options: SearchOptions, replacement: string, subtreeOnly: boolean): number {
+    if (!activeDoc || !trueRoot || !root) return 0;
+    // Ancestor chains below are always traced from the real trueRoot (needed for byteRange
+    // invalidation up to the true document root, see commands/byte-range.ts) — only the
+    // search/replace scope itself narrows to the selected subtree (or the tab's own visible
+    // root, e.g. the focused subtree — see docs/entscheidungen.md 2026-07-18 #1).
+    const searchRoot = subtreeOnly && selectedRow ? selectedRow.node : root;
+    const matches = findAll(searchRoot, options);
     if (matches.length === 0) return 0;
 
     interface Touched {
@@ -543,7 +717,7 @@ export function App(): React.ReactElement {
     for (const match of matches) {
       const key = `${match.node.id}|${match.matchedIn}|${match.attributeName ?? ""}`;
       if (touched.has(key)) continue;
-      const ancestors = findAncestorChain(docRoot, match.node) ?? [];
+      const ancestors = findAncestorChain(trueRoot, match.node) ?? [];
       if (match.matchedIn === "name") {
         touched.set(key, { node: match.node, ancestors, kind: "name", before: match.node.name });
       } else if (match.matchedIn === "value") {
@@ -560,7 +734,7 @@ export function App(): React.ReactElement {
       }
     }
 
-    const count = replaceAll(docRoot, options, replacement); // mutates directly, see search.ts
+    const count = replaceAll(searchRoot, options, replacement); // mutates directly, see search.ts
 
     const commands: Command[] = [];
     for (const entry of touched.values()) {
@@ -595,13 +769,34 @@ export function App(): React.ReactElement {
     );
   }
 
-  function handleCloseTab(path: string): void {
-    closeTab(path);
+  function handleCloseTab(key: string): void {
+    closeTab(key);
+  }
+
+  /** Right-click "Fokus ab hier öffnen": a new tab showing only this node's subtree, sharing
+   * this document's CommandBus/undo/save (docs/entscheidungen.md 2026-07-18 #1). */
+  function handleOpenFocus(): void {
+    if (!activeDoc || !selectedRow) return;
+    const ancestorIds = selectedRow.ancestors.map((a) => a.id);
+    openFocusTab(activeDoc.filePath, selectedRow.node.id, selectedRow.node.name, ancestorIds);
+  }
+
+  /** Breadcrumb click: `index` into `focus.ancestors` (0 = the real root, i.e. leave focus). */
+  function handleBreadcrumbNavigate(index: number): void {
+    if (!activeTab || !focus) return;
+    if (index === 0) {
+      retargetFocusTab(activeTab.key, null, null, []);
+      return;
+    }
+    const node = focus.ancestors[index]!;
+    const ancestorIds = focus.ancestors.slice(0, index).map((a) => a.id);
+    retargetFocusTab(activeTab.key, node.id, node.name, ancestorIds);
   }
 
   function buildContextMenuItems(): ContextMenuItem[] {
     const ctrl = t("key.ctrl");
     const isRoot = !selectedRow || selectedRow.ancestors.length === 0;
+    const isVisibleRoot = !selectedRow || (root !== null && selectedRow.node === root);
     return [
       {
         label: t("toolbar.copyPathFull"),
@@ -610,6 +805,8 @@ export function App(): React.ReactElement {
       },
       { label: t("toolbar.copyPath"), onClick: () => handleCopyPath("indexed") },
       { label: t("toolbar.copyPathStatic"), onClick: () => handleCopyPath("static") },
+      "separator",
+      { label: t("focus.openHere"), disabled: isVisibleRoot, onClick: handleOpenFocus },
       "separator",
       { label: t("toolbar.addChild"), shortcut: `${ctrl}++`, onClick: handleAddChild },
       { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
@@ -629,6 +826,12 @@ export function App(): React.ReactElement {
           <span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>
         </div>
         <div className="app-titlebar__actions">
+          <IconButton
+            icon={FilePlus}
+            label={t("welcome.newDocument")}
+            shortcut={`${t("key.ctrl")}+N`}
+            onClick={() => setNewDocOpen(true)}
+          />
           <IconButton icon={FolderOpen} label={t("welcome.openFile")} shortcut={`${t("key.ctrl")}+O`} onClick={handleOpen} />
           <IconButton
             icon={FloppyDisk}
@@ -688,32 +891,48 @@ export function App(): React.ReactElement {
           />
           <span className="app-titlebar__sep" />
           <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
+          <IconButton icon={Info} label={t("toolbar.about")} onClick={() => setAboutOpen(true)} />
         </div>
       </header>
-      <TabBar docs={docs} activePath={activeDoc?.filePath ?? null} onActivate={activate} onClose={handleCloseTab} />
+      <TabBar
+        tabs={tabs}
+        activeKey={activeTab?.key ?? null}
+        onActivate={activate}
+        onClose={handleCloseTab}
+        onNewDocument={() => setNewDocOpen(true)}
+      />
       {error && <div className="app-error">{error}</div>}
       {status && <div className="app-status">{status}</div>}
       <main className="app-main">
         {activeDoc ? (
           <>
-            <TreeView
-              rows={rows}
-              expanded={expanded}
-              selectedId={selectedId}
-              onToggle={toggleRow}
-              onSelect={selectRow}
-              editingField={editingField}
-              onStartEditName={(row) => setEditingField({ nodeId: row.node.id, field: "name" })}
-              onStartEditValue={(row) => setEditingField({ nodeId: row.node.id, field: "value" })}
-              onCommitEdit={handleCommitEdit}
-              onCancelEdit={() => setEditingField(null)}
-              onRowContextMenu={(row, x, y) => {
-                setSelectedId(row.node.id);
-                setContextMenu({ x, y });
-              }}
-              onMoveNode={handleMoveNode}
-              revealNodeId={revealNodeId}
-            />
+            <div className="tree-pane">
+              {focus && (
+                <FocusBreadcrumb
+                  ancestors={focus.ancestors}
+                  focusNode={focus.node}
+                  onNavigate={handleBreadcrumbNavigate}
+                />
+              )}
+              <TreeView
+                rows={rows}
+                expanded={expanded}
+                selectedId={selectedId}
+                onToggle={toggleRow}
+                onSelect={selectRow}
+                editingField={editingField}
+                onStartEditName={(row) => setEditingField({ nodeId: row.node.id, field: "name" })}
+                onStartEditValue={(row) => setEditingField({ nodeId: row.node.id, field: "value" })}
+                onCommitEdit={handleCommitEdit}
+                onCancelEdit={() => setEditingField(null)}
+                onRowContextMenu={(row, x, y) => {
+                  setSelectedId(row.node.id);
+                  setContextMenu({ x, y });
+                }}
+                onMoveNode={handleMoveNode}
+                revealNodeId={revealNodeId}
+              />
+            </div>
             <AttributesPanel
               node={selectedRow?.node ?? null}
               onSetAttribute={handleSetAttribute}
@@ -722,7 +941,11 @@ export function App(): React.ReactElement {
             />
           </>
         ) : (
-          <WelcomeScreen onOpen={() => void handleOpen()} onOpenPath={(path) => void openPath(path)} />
+          <WelcomeScreen
+            onOpen={() => void handleOpen()}
+            onOpenPath={(path) => void openPath(path)}
+            onNew={() => setNewDocOpen(true)}
+          />
         )}
       </main>
       {dragOver && <div className="drop-overlay">{t("welcome.dropNow")}</div>}
@@ -734,22 +957,35 @@ export function App(): React.ReactElement {
           onClose={() => setContextMenu(null)}
         />
       )}
-      {searchOpen && activeDoc && (
+      {searchOpen && activeDoc && activeTab && (
         <SearchPanel
-          // Remount per document: search state (matches, query, filter) holds live node
-          // references into ONE document's tree and must never survive a tab switch —
-          // stale matches resolved against the new root crashed computePaths (see test).
-          key={activeDoc.filePath}
+          // Remount per TAB (not just per document): search state (matches, query, filter)
+          // holds live node references into one view and must never survive a tab switch —
+          // stale matches resolved against a different root crashed computePaths (see test).
+          // Two tabs on the same document (full view + a focus tab) must each get their own
+          // independent search session too, hence keying on the tab, not the file path.
+          key={activeTab.key}
           onSearch={handleSearch}
           onNavigate={handleNavigate}
           onReplaceAll={handleReplaceAllInternal}
           onFilterChange={setFilterMatches}
           getMatchPath={getMatchPath}
           onClose={() => setSearchOpen(false)}
+          hasSelection={selectedRow !== null}
         />
       )}
       {settingsOpen && (
         <SettingsDialog settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
+      )}
+      {newDocOpen && <NewDocumentDialog onChoose={handleNew} onClose={() => setNewDocOpen(false)} />}
+      {aboutOpen && <AboutDialog version={appVersion} onClose={() => setAboutOpen(false)} />}
+      {reloadPrompt && (
+        <ReloadDialog
+          fileName={fileNameOf(reloadPrompt.filePath)}
+          isDirty={reloadPrompt.isDirty}
+          onReload={() => void performReload(reloadPrompt.filePath)}
+          onKeepMine={() => setReloadPrompt(null)}
+        />
       )}
     </div>
   );

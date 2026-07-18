@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { App } from "./App.js";
 import { I18nProvider } from "./i18n/index.js";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
 
 // jsdom has no ResizeObserver; TreeView only needs it to know the viewport height for
 // virtualization, and the tests here use small trees that fit well within the fallback
@@ -51,13 +51,15 @@ beforeEach(() => {
   localStorage.setItem("jaxel.locale", "de");
   vi.mocked(invoke).mockReset();
   vi.mocked(open).mockReset();
+  vi.mocked(save).mockReset();
   vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
     if (cmd === "take_pending_open_paths") return [];
     if (cmd === "read_text_file") {
       const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
-      return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8" };
+      return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
     }
-    if (cmd === "write_text_file") return undefined;
+    if (cmd === "write_text_file") return { mtimeMs: 1000, size: 100 };
+    if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
@@ -459,6 +461,33 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
   });
 
+  it("'Nur im ausgewaehlten Unterbaum' beschraenkt die Suche auf den selektierten Knoten", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // selektiert + expandiert P-1
+
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    const checkbox = screen.getByRole("checkbox", { name: "Nur im ausgewählten Unterbaum" });
+    expect(checkbox).not.toBeDisabled(); // ein Knoten ist ausgewaehlt
+
+    await user.click(checkbox);
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "city");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+
+    // Ohne Unterbaum-Beschraenkung gaebe es zwei "city"-Treffer (P-1 und P-2); mit
+    // Beschraenkung auf den selektierten P-1-Unterbaum nur einer.
+    expect(await screen.findByText("1/1")).toBeInTheDocument();
+
+    await user.click(checkbox); // Haken raus -> wieder das gesamte Dokument
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+  });
+
+  it("'Nur im ausgewaehlten Unterbaum' ist ohne Auswahl deaktiviert", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    expect(screen.getByRole("checkbox", { name: "Nur im ausgewählten Unterbaum" })).toBeDisabled();
+  });
+
   it("Tab-Wechsel setzt das Suchpanel zurueck (kein Absturz durch Treffer des alten Dokuments)", async () => {
     // Regression: XML oeffnen, suchen, dann zweites Dokument oeffnen fuehrte zu
     // "computePaths: node ... is not root ..." weil die Ergebnisliste alte Knoten
@@ -546,6 +575,88 @@ describe("Kontextmenü und vollständiger Pfad", () => {
 
     fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
     expect(screen.getByRole("menuitem", { name: /Löschen/ })).toBeEnabled();
+  });
+});
+
+describe("Fokus-Ansicht ab Knoten", () => {
+  it("'Fokus ab hier öffnen' zeigt nur den Unterbaum in einem neuen Tab", async () => {
+    const user = await openSampleFile();
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!); // P-1
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+
+    // Neuer, aktiver Tab neben dem Datei-Tab.
+    expect(await screen.findByText("person — sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.getByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+
+    // Nur der P-1-Unterbaum ist sichtbar (automatisch aufgeklappt) — nicht "catalog" oder P-2.
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(1);
+    expect(await screen.findByText("Anna")).toBeInTheDocument();
+    expect(screen.queryByText("catalog", { selector: ".tree-row__name" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Bert")).not.toBeInTheDocument();
+
+    // Breadcrumb zeigt den Pfad von der echten Wurzel bis zum Fokus-Knoten.
+    expect(screen.getByText("catalog", { selector: ".focus-breadcrumb__segment" })).toBeInTheDocument();
+    expect(screen.getByText("person", { selector: ".focus-breadcrumb__current" })).toBeInTheDocument();
+  });
+
+  it("ist auf dem sichtbaren Wurzelknoten deaktiviert (Vollansicht UND innerhalb einer Fokus-Ansicht)", async () => {
+    const user = await openSampleFile();
+    fireEvent.contextMenu(screen.getByText("catalog").closest(".tree-row")!);
+    expect(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" })).toBeDisabled();
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+    await screen.findByText("person — sample.xml", { selector: ".tab__label" });
+
+    fireEvent.contextMenu(screen.getByText("person", { selector: ".tree-row__name" }).closest(".tree-row")!);
+    expect(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" })).toBeDisabled();
+  });
+
+  it("Bearbeitung im Fokus-Tab wirkt auf dasselbe Dokument (geteilter CommandBus)", async () => {
+    const user = await openSampleFile();
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+    await screen.findByText("person — sample.xml", { selector: ".tab__label" });
+
+    await user.dblClick(await screen.findByText("Anna"));
+    const input = screen.getByDisplayValue("Anna");
+    await user.clear(input);
+    await user.type(input, "Annika");
+    await user.keyboard("{Enter}");
+
+    // Zurueck zur Vollansicht desselben Dokuments: die Aenderung ist da (kein Klon).
+    await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
+    await user.click(screen.getAllByText("person")[0]!);
+    expect(await screen.findByText("Annika")).toBeInTheDocument();
+  });
+
+  it("Klick auf die Wurzel im Breadcrumb verlaesst den Fokus (kein Duplikat-Tab)", async () => {
+    const user = await openSampleFile();
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+    await screen.findByText("person — sample.xml", { selector: ".tab__label" });
+
+    await user.click(screen.getByText("catalog", { selector: ".focus-breadcrumb__segment" }));
+
+    expect(screen.queryByText("person — sample.xml", { selector: ".tab__label" })).not.toBeInTheDocument();
+    expect(await screen.findByText("catalog")).toBeInTheDocument();
+    expect(screen.getAllByText("person")).toHaveLength(2);
+  });
+
+  it("Loeschen des Fokus-Knotens refokussiert automatisch eine Ebene hoeher", async () => {
+    const user = await openSampleFile();
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+    await screen.findByText("person — sample.xml", { selector: ".tab__label" });
+
+    await user.click(screen.getByText("person", { selector: ".tree-row__name" }));
+    fireEvent.keyDown(window, { key: "Delete" });
+
+    // Fokus-Tab verschmilzt mit dem vorhandenen Vollansicht-Tab (kein Absturz, kein toter Tab).
+    expect(screen.queryByText("person — sample.xml", { selector: ".tab__label" })).not.toBeInTheDocument();
+    expect(await screen.findByText("catalog")).toBeInTheDocument();
+    expect(screen.getAllByText("person")).toHaveLength(1); // nur noch P-2 uebrig
   });
 });
 
@@ -652,6 +763,21 @@ describe("Tabs (mehrere Dokumente)", () => {
   });
 });
 
+describe("Über Jaxel", () => {
+  it("zeigt Titel, Entwickler und einen Versions-Platzhalter (kein echtes Tauri-Fenster im Test)", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Über Jaxel" }));
+
+    expect(screen.getByText("Jaxel", { selector: "h2" })).toBeInTheDocument();
+    expect(screen.getByText("Joey Lauterbach")).toBeInTheDocument();
+    expect(screen.getByText(/Claude/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(screen.queryByText("Joey Lauterbach")).not.toBeInTheDocument();
+  });
+});
+
 describe("Einstellungen", () => {
   it("oeffnet den Dialog, wechselt das Theme und persistiert es", async () => {
     const user = userEvent.setup();
@@ -684,5 +810,197 @@ describe("Einstellungen", () => {
     expect(JSON.parse(localStorage.getItem("jaxel.settings")!)).toMatchObject({
       filterIncludesSubtree: true,
     });
+  });
+});
+
+describe("Neues Dokument anlegen", () => {
+  it("legt ein neues XML-Dokument mit leerem <root> an und nennt den Tab 'Unbenannt-1'", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "Neues Dokument" })[0]!);
+    await user.click(screen.getByRole("button", { name: "XML" }));
+
+    expect(await screen.findByText("Unbenannt-1", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.getByText("root", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+
+  it("Klick auf die freie Fläche der Tab-Leiste öffnet den Formatwahl-Dialog", async () => {
+    const user = await openSampleFile();
+    const tabBar = document.querySelector(".tab-bar")!;
+    await user.click(tabBar as HTMLElement);
+
+    expect(await screen.findByRole("button", { name: "XML" })).toBeInTheDocument();
+  });
+
+  it("Klick auf einen Tab selbst öffnet den Formatwahl-Dialog NICHT", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
+
+    expect(screen.queryByRole("button", { name: "XML" })).not.toBeInTheDocument();
+  });
+
+  it("legt ein neues JSON-Dokument an ($root, da leeres Objekt)", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "Neues Dokument" })[0]!);
+    await user.click(screen.getByRole("button", { name: "JSON" }));
+
+    expect(await screen.findByText("$root", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+
+  it("Strg+S bei einem unbenannten Dokument oeffnet 'Speichern unter' und schluesselt den Tab um", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "Neues Dokument" })[0]!);
+    await user.click(screen.getByRole("button", { name: "XML" }));
+    await screen.findByText("Unbenannt-1", { selector: ".tab__label" });
+
+    vi.mocked(save).mockResolvedValue("/fake/neu.xml");
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "take_pending_open_paths") return [];
+      if (cmd === "write_text_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    await user.keyboard("{Control>}s{/Control}");
+
+    expect(await screen.findByText("neu.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith(
+      "write_text_file",
+      expect.objectContaining({ path: "/fake/neu.xml" }),
+    );
+  });
+
+  it("Abbrechen im Speichern-unter-Dialog laesst das unbenannte Dokument unveraendert", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "Neues Dokument" })[0]!);
+    await user.click(screen.getByRole("button", { name: "XML" }));
+    await screen.findByText("Unbenannt-1", { selector: ".tab__label" });
+
+    vi.mocked(save).mockResolvedValue(null); // Nutzer bricht den Dialog ab
+
+    await user.keyboard("{Control>}s{/Control}");
+
+    expect(screen.getByText("Unbenannt-1", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+});
+
+describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
+  it("zeigt den Reload-Dialog, wenn sich mtime/Größe seit dem Laden geändert haben", async () => {
+    await openSampleFile();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      }
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+    expect(screen.getByText(/wurde von einem anderen Programm geändert\. Jetzt neu laden\?/)).toBeInTheDocument();
+  });
+
+  it("unveränderte mtime/Größe lösen gar nichts aus", async () => {
+    await openSampleFile();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 }; // identisch zum Ladezeitpunkt
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+  });
+
+  it("'Neu laden' übernimmt die geänderte Datei und behält Auswahl/aufgeklappte Knoten so gut wie möglich", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // P-1 aufklappen + selektieren
+
+    const CHANGED_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+  <person id="P-1">
+    <name>Anna</name>
+    <city>München</city>
+  </person>
+</catalog>`;
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") return { content: CHANGED_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await user.click(await screen.findByRole("button", { name: "Neu laden" }));
+
+    expect(await screen.findByText("München")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument(); // P-1 blieb ausgewaehlt
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+  });
+
+  it("'Meine Version behalten' verwirft die externe Änderung", async () => {
+    const user = await openSampleFile();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await user.click(await screen.findByRole("button", { name: "Meine Version behalten" }));
+
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+    expect(screen.getByText("catalog")).toBeInTheDocument(); // unveraendert, kein Reload gelaufen
+  });
+
+  it("automatisches Neuladen (Einstellung an) laedt ohne Dialog neu, wenn nichts Eigenes ungespeichert ist", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: /Automatisch neu laden/ }));
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") return { content: SECOND_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+
+    expect(await screen.findByText("inventory")).toBeInTheDocument();
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+  });
+
+  it("bei ungespeicherten Änderungen erscheint der Dialog IMMER, auch mit aktivierter Automatik", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: /Automatisch neu laden/ }));
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+
+    await user.click(screen.getByText("catalog")); // Wurzel selektieren
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true }); // Kind einfuegen -> Dokument "dirty"
+
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+    expect(screen.getByText(/gibt es hier ungespeicherte Änderungen/)).toBeInTheDocument();
   });
 });

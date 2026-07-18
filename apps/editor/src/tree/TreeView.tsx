@@ -20,6 +20,32 @@ function isInSubtree(root: DocNode, candidate: DocNode): boolean {
   return root.children.some((child) => isInSubtree(child, candidate));
 }
 
+/** Ghost opacity while dragging a row — the native browser/WebKitGTK drag image is often
+ * near-opaque, which hides the insert-line/drop-target highlight underneath the cursor. */
+const DRAG_GHOST_OPACITY = "0.5";
+
+/**
+ * Replaces the native (often opaque) drag ghost with a translucent clone of the row, so the
+ * drop indicator underneath the cursor stays visible while dragging. No-op in environments
+ * without `setDragImage` (e.g. jsdom in tests).
+ */
+function setDragGhost(event: React.DragEvent): void {
+  if (typeof event.dataTransfer.setDragImage !== "function") return;
+  const original = event.currentTarget as HTMLElement;
+  const rect = original.getBoundingClientRect();
+  const clone = original.cloneNode(true) as HTMLElement;
+  clone.style.position = "fixed";
+  clone.style.top = "-9999px";
+  clone.style.left = "-9999px";
+  clone.style.width = `${rect.width}px`;
+  clone.style.height = `${rect.height}px`;
+  clone.style.opacity = DRAG_GHOST_OPACITY;
+  clone.style.pointerEvents = "none";
+  document.body.appendChild(clone);
+  event.dataTransfer.setDragImage(clone, event.clientX - rect.left, event.clientY - rect.top);
+  window.setTimeout(() => document.body.removeChild(clone), 0);
+}
+
 interface TreeViewProps {
   /**
    * Already-flattened visible rows. Expanded/collapsed state (and filter mode) live in
@@ -166,6 +192,7 @@ export function TreeView({
               event.dataTransfer.setData("text/plain", row.node.name);
               event.dataTransfer.effectAllowed = "move";
               setDragRowId(row.node.id);
+              setDragGhost(event);
             }}
             onDragOver={(event) => handleDragOver(row, event)}
             onDrop={(event) => handleDrop(row, event)}

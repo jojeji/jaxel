@@ -1,6 +1,8 @@
 # Benutzerhandbuch — Jaxel
 
-> Stand: AP8 (Kontextmenü, vollständiger Pfad, Attribut-Editing, Drag&Drop im Baum, Logo).
+> Stand: AP9 (Neues Dokument, Fokus-Ansicht, Unterbaum-Suche, externe Änderungserkennung,
+> Drag&Drop-Transparenz, Über-Dialog). Vorher: AP8 (Kontextmenü, vollständiger Pfad,
+> Attribut-Editing, Drag&Drop im Baum, Logo).
 
 ## Was ist Jaxel?
 
@@ -15,10 +17,22 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 - **Startscreen**: Ohne offenes Dokument zeigt Jaxel die zuletzt geöffneten Dateien (Klick öffnet
   direkt) und eine Übersicht der Tastenkürzel.
 - **Kommandozeile**: `jaxel datei.xml` öffnet die Datei direkt beim Start.
+- **Neu**: Toolbar-Button, `Strg+N`, der Startscreen-Button „Neues Dokument" oder ein Klick auf
+  die freie Fläche rechts neben den Tabs — ein kleiner
+  Dialog fragt XML oder JSON ab. Das neue Dokument startet minimal (leerer `<root></root>` bzw.
+  ein leeres JSON-Objekt) und heißt bis zum ersten Speichern „Unbenannt-1" (fortlaufend
+  nummeriert); `Strg+S` öffnet dafür automatisch „Speichern unter".
 - **Speichern**: Toolbar-Button oder `Strg+S`. XML wird minimal-invasiv gespeichert: unveränderte
   Bereiche der Datei bleiben byte-genau erhalten.
 - **Mehrere Dokumente**: jede Datei bekommt einen Tab; erneutes Öffnen derselben Datei aktiviert
   den vorhandenen Tab.
+- **Extern geänderte Dateien**: Wurde eine offene Datei von einem anderen Programm verändert,
+  fragt Jaxel beim nächsten Zurückwechseln ins Fenster nach, ob neu geladen werden soll (Namen,
+  Werte, Attribute — der komplette Baum wird neu eingelesen; die Auswahl und aufgeklappte
+  Knoten bleiben dabei so gut wie möglich erhalten, sofern sie noch existieren). Gibt es zu
+  diesem Zeitpunkt eigene, ungespeicherte Änderungen, erscheint der Dialog **immer** — ein
+  „Neu laden" verwirft dann die eigenen Änderungen. In den Einstellungen lässt sich stattdessen
+  ein automatisches Neuladen aktivieren (greift ebenfalls nie bei ungespeicherten Änderungen).
 
 ## Baumansicht und Navigation
 
@@ -27,10 +41,17 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   anlegen, Duplizieren, Kopieren/Einfügen, Löschen).
 - **Pfeiltasten**: `↑`/`↓` bewegen die Auswahl, `→` klappt auf bzw. springt ins erste Kind,
   `←` klappt zu bzw. springt zum Elternknoten.
-- **Verschieben per Drag&Drop**: Knoten einfach ziehen. Eine Linie zwischen den Zeilen zeigt
-  die Ziel-Position als Geschwister; landet der Mauszeiger mittig auf einer Zeile, wird sie
-  hervorgehoben und der Knoten dort als Kind eingehängt. Nicht möglich: die Wurzel ziehen
-  oder einen Knoten in seinen eigenen Unterbaum verschieben.
+- **Verschieben per Drag&Drop**: Knoten einfach ziehen. Beim Ziehen ist die Zeile halbtransparent,
+  damit die Einfüge-Linie/Als-Kind-Markierung darunter sichtbar bleibt. Eine Linie zwischen den
+  Zeilen zeigt die Ziel-Position als Geschwister; landet der Mauszeiger mittig auf einer Zeile,
+  wird sie hervorgehoben und der Knoten dort als Kind eingehängt. Nicht möglich: die Wurzel
+  ziehen oder einen Knoten in seinen eigenen Unterbaum verschieben.
+- **Fokus-Ansicht ab einem Knoten**: Rechtsklick → „Fokus ab hier öffnen" öffnet einen neuen Tab,
+  der nur den Unterbaum ab diesem Knoten zeigt (praktisch wie ein eigenes kleines Dokument) —
+  bearbeiten, Undo/Redo und Speichern wirken dabei weiterhin auf die eine echte Datei. Eine
+  Breadcrumb-Leiste über dem Baum zeigt den Pfad von der echten Wurzel bis zum Fokus-Knoten;
+  Klick auf ein höheres Element verschiebt den Fokus dorthin (Klick auf die Wurzel verlässt den
+  Fokus). Wird der fokussierte Knoten gelöscht, springt der Fokus automatisch eine Ebene höher.
 - Das rechte Seitenpanel zeigt die **Attribute** des ausgewählten Knotens: Namen UND Werte
   direkt ändern, `×` entfernt ein Attribut. Ein neues Attribut entsteht, sobald du im
   Namensfeld der letzten Zeile zu tippen beginnst — es erscheint sofort im Baum.
@@ -55,6 +76,10 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 
 - **Scope**: Alles, nur Namen, nur Werte oder nur Attribute; optional Groß-/Kleinschreibung
   und Regex.
+- **Nur im ausgewählten Unterbaum**: schränkt die Suche (und „Alle ersetzen") auf den im Baum
+  gerade ausgewählten Knoten samt Nachfahren ein — folgt live der aktuellen Auswahl, ohne
+  Auswahl deaktiviert. In einer Fokus-Ansicht (siehe oben) bezieht sich „Alles" ohnehin nur auf
+  den fokussierten Unterbaum.
 - **Trefferliste**: alle Treffer erscheinen als klickbare Liste mit ihrem indizierten Pfad —
   ein Klick springt zum Knoten im Baum. `Weiter`/`Zurück` navigieren zyklisch.
 - **Filtern**: reduziert den Baum auf Treffer und ihre Vorfahren. In den Einstellungen lässt
@@ -73,13 +98,19 @@ Für den ausgewählten Knoten über Toolbar oder Kontextmenü:
 ## Einstellungen
 
 Zahnrad-Button oben rechts: **Theme** (Hell ist Standard, Dunkel optional), **Sprache**
-(Deutsch/Englisch), Such-Filter-Verhalten und der Fenster-Modus („eigene Fenster pro Dokument"
-ist angekündigt, aber noch nicht verfügbar).
+(Deutsch/Englisch), Such-Filter-Verhalten, **externe Änderungen** (automatisches Neuladen
+ein-/ausschalten) und der Fenster-Modus („eigene Fenster pro Dokument" ist angekündigt, aber
+noch nicht verfügbar).
+
+## Über Jaxel
+
+Info-Symbol (ⓘ) oben rechts in der Toolbar: Versionsnummer und die Entwickler des Projekts.
 
 ## Tastenkürzel
 
 | Kürzel | Aktion |
 | --- | --- |
+| `Strg+N` | Neues Dokument |
 | `Strg+O` | Datei öffnen |
 | `Strg+S` | Speichern |
 | `Strg+F` | Suchen/Ersetzen |

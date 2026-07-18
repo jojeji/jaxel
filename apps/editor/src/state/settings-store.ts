@@ -11,10 +11,20 @@ export interface Settings {
   windowMode: WindowMode;
   /** Filter mode in the search panel: also keep the whole subtree below a match visible. */
   filterIncludesSubtree: boolean;
+  /** External-change detection (docs/entscheidungen.md 2026-07-18 #4): when a document changed
+   * on disk since it was loaded and there are no unsaved local edits, reload automatically
+   * instead of asking. Default off (ask every time) — this NEVER applies while local edits
+   * are unsaved, regardless of this setting. */
+  autoReloadOnExternalChange: boolean;
 }
 
 const STORAGE_KEY = "jaxel.settings";
-const DEFAULTS: Settings = { theme: "light", windowMode: "tabs", filterIncludesSubtree: false };
+const DEFAULTS: Settings = {
+  theme: "light",
+  windowMode: "tabs",
+  filterIncludesSubtree: false,
+  autoReloadOnExternalChange: false,
+};
 
 function load(): Settings {
   try {

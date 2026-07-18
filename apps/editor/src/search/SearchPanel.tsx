@@ -6,13 +6,15 @@ import { useI18n } from "../i18n/index.js";
 const RESULT_LIMIT = 200;
 
 interface SearchPanelProps {
-  onSearch: (options: SearchOptions) => SearchMatch[];
+  onSearch: (options: SearchOptions, subtreeOnly: boolean) => SearchMatch[];
   onNavigate: (match: SearchMatch) => void;
-  onReplaceAll: (options: SearchOptions, replacement: string) => number;
+  onReplaceAll: (options: SearchOptions, replacement: string, subtreeOnly: boolean) => number;
   /** null = filter off; otherwise the matches the tree should be reduced to. */
   onFilterChange: (matches: SearchMatch[] | null) => void;
   getMatchPath: (match: SearchMatch) => string;
   onClose: () => void;
+  /** Whether a node is currently selected in the tree — "subtree only" needs one to scope to. */
+  hasSelection: boolean;
 }
 
 /**
@@ -27,6 +29,7 @@ export function SearchPanel({
   onFilterChange,
   getMatchPath,
   onClose,
+  hasSelection,
 }: SearchPanelProps): React.ReactElement {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
@@ -34,6 +37,7 @@ export function SearchPanel({
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
   const [filterOn, setFilterOn] = useState(false);
+  const [subtreeOnly, setSubtreeOnly] = useState(false);
   const [replacement, setReplacement] = useState("");
   const [matches, setMatches] = useState<SearchMatch[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -53,7 +57,7 @@ export function SearchPanel({
       return [];
     }
     try {
-      const found = onSearch(options);
+      const found = onSearch(options, subtreeOnly && hasSelection);
       setMatches(found);
       onFilterChange(filterOn ? found : null);
       if (found.length === 0) {
@@ -95,7 +99,7 @@ export function SearchPanel({
   function handleReplaceAll(): void {
     setMessage(null);
     try {
-      const count = onReplaceAll(options, replacement);
+      const count = onReplaceAll(options, replacement, subtreeOnly && hasSelection);
       setMatches([]);
       setCurrentIndex(-1);
       onFilterChange(null);
@@ -154,6 +158,15 @@ export function SearchPanel({
         <label>
           <input type="checkbox" checked={filterOn} onChange={(event) => toggleFilter(event.target.checked)} />
           {t("search.filter")}
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={subtreeOnly}
+            disabled={!hasSelection}
+            onChange={(event) => setSubtreeOnly(event.target.checked)}
+          />
+          {t("search.subtreeOnly")}
         </label>
         <button onClick={() => runSearch(true)}>{t("search.find")}</button>
         <button onClick={() => goToOffset(1)} disabled={matches.length === 0}>

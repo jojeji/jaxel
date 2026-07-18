@@ -3,7 +3,95 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
-## 🚦 Hier weitermachen (Stand 2026-07-17)
+## 🚦 Hier weitermachen (Stand 2026-07-18)
+
+**AP9 ist fertig, getestet und committet (auf PO-Wunsch, Klick-Review steht noch aus)** — sechs vom PO gewünschte/nachgereichte
+Features (Grilling-Details/Begründung in `docs/entscheidungen.md`, Eintrag 2026-07-18):
+Fokus-Ansicht, Unterbaum-Suche, Neues Dokument, externe Änderungserkennung, Drag&Drop-Transparenz,
+Über-Dialog. **Nächster Schritt: PO-Klick-Review am echten Fenster** — siehe "Verifikation" unten,
+diese Session hatte wie AP7/AP8 kein Klick-Automationswerkzeug (kein xdotool/ydotool/wtype/xte
+verfügbar), daher sind Rechtsklick-Kontextmenü, Fokus-Breadcrumb, alle neuen Dialoge (Neu,
+Reload, Über) und die Einstellungen-Checkbox nur per jsdom-Interaktionstest abgesichert, nicht
+real geklickt.
+
+## AP9 — Fokus-Ansicht, Unterbaum-Suche, Neues Dokument, externe Änderungen, DnD-Transparenz,
+Über-Dialog (abgeschlossen; Details/Begründung jeder Entscheidung in `docs/entscheidungen.md`,
+Eintrag 2026-07-18)
+
+- **Drag&Drop-Transparenz** (`tree/TreeView.tsx`): `setDragGhost` klont die gezogene Zeile,
+  setzt sie per `dataTransfer.setDragImage` mit ~50% Deckkraft als Ghost-Bild ein (Feature-Check
+  auf `setDragImage`, damit jsdom-Tests mit ihrem einfachen `dataTransfer`-Stub unverändert
+  funktionieren) — löst das Problem, dass WebKitGTKs natives Drag-Bild oft blickdicht ist und
+  die Einfüge-Linie darunter verdeckt.
+- **Suche im Unterbaum** (`search/SearchPanel.tsx`, `App.tsx`): neue Checkbox „Nur im
+  ausgewählten Unterbaum", ohne Auswahl deaktiviert, liest die aktuelle Auswahl live bei jeder
+  Suche/„Alle ersetzen" neu (kein fixierter Zusatzzustand). `findAll`/`replaceAll` in core
+  brauchten keine Änderung (nehmen bereits einen beliebigen Knoten als Wurzel).
+- **Neues Dokument** (`state/document-store.ts`, `welcome/NewDocumentDialog.tsx`): Strg+N,
+  Toolbar-Icon, Startscreen-Button, Formatwahl-Dialog. Zusätzlich (PO-Nachwunsch): Klick auf die
+  freie Fläche rechts neben den Tabs (`tabs/TabBar.tsx`, `onNewDocument`-Prop; nur wenn das
+  Klickziel die Leiste selbst ist, Tabs stoppen den Klick nicht extra) öffnet denselben
+  Formatwahl-Dialog; Tooltip auf der Leiste weist darauf hin. XML startet mit `<root></root>`, JSON mit
+  `{}` (ergibt automatisch einen leeren `$root`, kein Sonderfall in core nötig). Tab heißt bis
+  zum ersten Speichern „Unbenannt-N"; Strg+S öffnet dafür automatisch den Tauri-„Speichern
+  unter"-Dialog (`saveFileAs` schlüsselt den Tab danach intern auf den echten Pfad um).
+- **Fokus-Ansicht ab Knoten** (größte Einzeländerung, `state/document-store.ts`,
+  `tree/FocusBreadcrumb.tsx`, `App.tsx`): Rechtsklick → „Fokus ab hier öffnen" öffnet einen
+  neuen Tab, der nur den Unterbaum zeigt, aber denselben CommandBus/dieselbe Undo-Historie wie
+  die Vollansicht teilt (kein Klon — Invariante 1 bleibt gewahrt). Dafür wurde das
+  Tab-Datenmodell aufgeteilt: `docs` (ein Eintrag pro geladenem Dokument, dedupliziert nach
+  Pfad) und `tabs` (ein Eintrag pro sichtbarem Tab, Schlüssel `Pfad` oder `Pfad#Knoten-Id`) —
+  mehrere Tabs (Vollansicht + beliebig viele Foki) können jetzt denselben Pfad referenzieren.
+  `TreeView` bekommt weiterhin den fokussierten Knoten als „Wurzel" (`flattenTree` unverändert,
+  damit Auf-/Zuklappen und Tiefe korrekt bleiben), aber jede Zeilen-`ancestors`-Kette wird
+  danach um die ECHTE Vorfahrenkette bis zur wirklichen Wurzel ergänzt (`focus.ancestors`) —
+  ohne das würden Mutationen im Fokus-Tab das `byteRange`-Invalidieren nur bis zum Fokus-Knoten
+  statt bis zur echten Wurzel durchführen und Änderungen könnten beim minimal-invasiven
+  Speichern verloren gehen. Breadcrumb-Leiste über dem Baum navigiert hoch (Klick auf die
+  Wurzel verlässt den Fokus, verschmilzt dabei mit einer schon offenen Vollansicht statt sie zu
+  duplizieren). Wird der fokussierte Knoten gelöscht, refokussiert eine `useEffect` in `App.tsx`
+  automatisch eine Ebene höher, anhand einer beim Fokussieren mitgespeicherten
+  Vorfahren-Id-Kette (der lebende Knoten ist ja weg). Neuer Core-Export `findNodeById`.
+- **Externe Dateiänderungen + Reload** (`src-tauri/src/io.rs`+`lib.rs` neuer `stat_file`-Command,
+  `state/document-store.ts` `reloadFile`, `state/settings-store.ts`, `App.tsx`): Prüfung nur
+  beim Zurückgewinnen des Fenster-Fokus (`window`-„focus"-Event, kein Hintergrund-Watcher),
+  Vergleich über mtime+Größe (kein Volltext-Reread, Rücksicht auf mehrere-100-MB-Dateien).
+  `read_text_file`/`write_text_file` liefern jetzt zusätzlich `mtimeMs`/`size` zurück (camelCase
+  via `#[serde(rename_all = "camelCase")]`). **Neues Dirty-Flag pro Dokument** (`isDirty`, per
+  CommandBus-Subscription auf `true` gesetzt, bei Speichern/Reload auf `false`) — vorher gab es
+  gar keine Undo-Historie-Unabhängige „ungespeichert"-Erkennung. Ohne eigene ungespeicherte
+  Änderungen entscheidet eine neue Einstellung („Automatisch neu laden"), ob still neu geladen
+  wird oder ein Dialog fragt (Default: fragen); MIT ungespeicherten Änderungen erscheint der
+  Dialog immer, auch bei aktivierter Automatik. Reload baut Dokument/CommandBus komplett neu
+  (Undo-Historie geht zwangsläufig verloren, neue Knoten-Ids). View-Erhalt: Auswahl und
+  aufgeklappte Knoten werden vor dem Reload als `PathSegment[]` (Name + Index-unter-Geschwistern,
+  aus `getPathSegments`) festgehalten und danach gegen den neuen Baum aufgelöst — neuer
+  Core-Export `resolveNodeBySegments` (probiert bei fehlendem Pfad progressiv kürzere Präfixe,
+  damit zumindest der nächste noch existierende Vorfahre gefunden wird). Jeder Tab (auch
+  Fokus-Tabs) auf demselben Dokument wird beim Reload mit derselben Fallback-Logik neu verankert.
+- **Über-Dialog** (`ui/AboutDialog.tsx`, PO-Nachtrag während der Session): Info-Icon in der
+  Toolbar zeigt Versionsnummer (`@tauri-apps/api/app` `getVersion()`, spiegelt
+  `tauri.conf.json`/`package.json`, außerhalb eines echten Tauri-Fensters `null`) sowie
+  Joey Lauterbach und Claude (KI-Agent, Anthropic) als Entwickler.
+- **Bewusste Vereinfachungen / offene Punkte**: Tab schließen warnt weiterhin NICHT vor
+  ungespeicherten Änderungen (das neue `isDirty` wird bisher nur für die Reload-Konflikt-Logik
+  genutzt, nicht für einen generellen Schließen-Schutz — expliziter Scope-Cut, siehe
+  Entscheidungslog). Zieht man einen Knoten exakt aufs obere/untere Viertel der ERSTEN Zeile
+  einer Fokus-Ansicht (= der Fokus-Knoten selbst), reiht das Ziel als ECHTES Geschwister außerhalb
+  des sichtbaren Unterbaums ein (verschwindet dann sofort aus der Ansicht) — ein schmaler,
+  vorbestehender Rand­fall des generischen DnD-Mechanismus, nicht eigens abgefangen.
+- **Verifikation**: 60/60 Editor-Tests (18 neu: Drag&Drop-Transparenz per Typecheck/bestehende
+  DnD-Tests mitabgesichert, Unterbaum-Suche 2, Neues Dokument 4, Fokus-Ansicht 5, externe
+  Änderungen 6, Über-Dialog 1),
+  65/65 Kern-Tests (6 neu: `findNodeById`, `resolveNodeBySegments`), `tsc --noEmit` sauber in
+  beiden Paketen, `cargo check` sauber. Real mit `tauri dev` gestartet: Startscreen (neuer
+  „Neues Dokument"-Button, Info-Icon in der Toolbar) und eine geöffnete Testdatei mit
+  vollständiger Toolbar per Screenshot bestätigt. **Nicht real geklickt** (kein
+  Automationswerkzeug in dieser Umgebung, siehe oben): Kontextmenü-Eintrag „Fokus ab hier
+  öffnen", Fokus-Breadcrumb-Navigation, Reload-Dialog, Über-Dialog-Inhalt, Speichern-unter-Flow
+  am echten Tauri-Dialog.
+
+## 🚦 Vorheriger Stand (2026-07-17)
 
 **AP0–AP8 sind fertig, getestet und committet.** Jaxel ist ein funktionierender XML/JSON-Editor
 mit Minimal-Theme, Startscreen, eigenem Logo, Kontextmenü, vollständiger Tastatur-Bedienung

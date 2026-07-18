@@ -129,6 +129,41 @@ export function findAncestorChain(node: DocNode, target: DocNode, path: DocNode[
 }
 
 /**
+ * Resolves `segments` (as produced by `getPathSegments`) against a DIFFERENT tree — used to
+ * re-find "the same" node after a full reparse (external file reload, docs/entscheidungen.md
+ * 2026-07-18 #4), where ids don't survive since the whole node graph is rebuilt from scratch.
+ * `segments[0]` is the root's own segment and is skipped (the given `root` IS the new root by
+ * definition); each subsequent segment is resolved as "the Nth child named X among same-named
+ * siblings". Returns `null` as soon as a segment can't be found — the caller can retry with a
+ * shorter prefix of `segments` to fall back to the nearest still-resolvable ancestor.
+ */
+export function resolveNodeBySegments(root: DocNode, segments: PathSegment[]): DocNode | null {
+  let current = root;
+  for (let i = 1; i < segments.length; i++) {
+    const segment = segments[i]!;
+    const sameName = current.children.filter((c) => c.name === segment.name);
+    const candidate = sameName[segment.indexAmongSameName];
+    if (!candidate) return null;
+    current = candidate;
+  }
+  return current;
+}
+
+/**
+ * Depth-first search for a node by id under `root` (root itself included), or `null` if
+ * not found. Used by the focus-view feature (docs/entscheidungen.md 2026-07-18 #1): a focus
+ * tab stores only the focused node's id — the node object itself goes stale on reparse.
+ */
+export function findNodeById(root: DocNode, id: string): DocNode | null {
+  if (root.id === id) return root;
+  for (const child of root.children) {
+    const found = findNodeById(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
  * Convenience wrapper: locates `target` under `root` via depth-first traversal of
  * `children`, then returns both path flavors. Throws if `target` is not `root` itself
  * and not a descendant of `root`.

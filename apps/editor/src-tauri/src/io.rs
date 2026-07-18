@@ -4,10 +4,33 @@
 use encoding_rs::Encoding;
 use std::fs;
 use std::path::Path;
+use std::time::UNIX_EPOCH;
+
+/// Cheap file identity for external-change detection (docs/entscheidungen.md 2026-07-18 #4):
+/// mtime + size, not a full re-read — files can be several 100 MB (see docs/architektur.md).
+pub struct FileStat {
+    pub mtime_ms: u64,
+    pub size: u64,
+}
+
+fn stat_of(path: &Path) -> Result<FileStat, String> {
+    let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
+    let mtime_ms = metadata
+        .modified()
+        .map_err(|error| error.to_string())?
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_millis() as u64;
+    Ok(FileStat {
+        mtime_ms,
+        size: metadata.len(),
+    })
+}
 
 pub struct DecodedFile {
     pub content: String,
     pub encoding: String,
+    pub stat: FileStat,
 }
 
 fn sniff_xml_declared_encoding(bytes: &[u8]) -> Option<&'static Encoding> {
@@ -39,14 +62,23 @@ pub fn read_text_file(path: &Path) -> Result<DecodedFile, String> {
     let bytes = fs::read(path).map_err(|error| error.to_string())?;
     let encoding = detect_encoding(&bytes);
     let (content, _actual_encoding, _had_errors) = encoding.decode(&bytes);
+    let stat = stat_of(path)?;
     Ok(DecodedFile {
         content: content.into_owned(),
         encoding: encoding.name().to_string(),
+        stat,
     })
 }
 
-pub fn write_text_file(path: &Path, content: &str, encoding_name: &str) -> Result<(), String> {
+pub fn write_text_file(path: &Path, content: &str, encoding_name: &str) -> Result<FileStat, String> {
     let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(encoding_rs::UTF_8);
     let (bytes, _actual_encoding, _had_unmappable) = encoding.encode(content);
-    fs::write(path, bytes).map_err(|error| error.to_string())
+    fs::write(path, bytes).map_err(|error| error.to_string())?;
+    stat_of(path)
+}
+
+/// Used for the external-change check (Fenster-Fokus-Wiedergewinn, siehe App.tsx) — metadata
+/// only, deliberately no content read.
+pub fn stat_file(path: &Path) -> Result<FileStat, String> {
+    stat_of(path)
 }

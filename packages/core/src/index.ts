@@ -28,10 +28,12 @@ export type { PathSegment } from "./format/path.js";
 export {
   computePaths,
   findAncestorChain,
+  findNodeById,
   formatFullPath,
   formatIndexedPath,
   formatStaticPath,
   getPathSegments,
+  resolveNodeBySegments,
 } from "./format/path.js";
 
 export type { SearchMatch, SearchOptions, SearchScope } from "./search/search.js";

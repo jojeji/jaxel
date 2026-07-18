@@ -63,6 +63,18 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
         </fieldset>
 
         <fieldset>
+          <legend>{t("settings.externalChanges")}</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.autoReloadOnExternalChange}
+              onChange={(event) => onChange({ autoReloadOnExternalChange: event.target.checked })}
+            />
+            {t("settings.autoReload")}
+          </label>
+        </fieldset>
+
+        <fieldset>
           <legend>{t("settings.windowMode")}</legend>
           <label>
             <input

@@ -6,6 +6,7 @@ import logoUrl from "../assets/jaxel-logo.svg";
 interface WelcomeScreenProps {
   onOpen: () => void;
   onOpenPath: (path: string) => void;
+  onNew: () => void;
 }
 
 function fileName(path: string): string {
@@ -18,12 +19,13 @@ function fileName(path: string): string {
  * list and the keyboard-shortcut overview. Drag&drop onto the window is handled
  * globally in App (Tauri drag-drop event), the hint here just advertises it.
  */
-export function WelcomeScreen({ onOpen, onOpenPath }: WelcomeScreenProps): React.ReactElement {
+export function WelcomeScreen({ onOpen, onOpenPath, onNew }: WelcomeScreenProps): React.ReactElement {
   const { t } = useI18n();
   const recent = getRecentFiles();
   const ctrl = t("key.ctrl");
 
   const shortcuts: Array<[string, string]> = [
+    [`${ctrl}+N`, t("shortcut.new")],
     [`${ctrl}+O`, t("shortcut.open")],
     [`${ctrl}+S`, t("shortcut.save")],
     [`${ctrl}+F`, t("shortcut.search")],
@@ -52,6 +54,7 @@ export function WelcomeScreen({ onOpen, onOpenPath }: WelcomeScreenProps): React
           <button className="primary" onClick={onOpen}>
             {t("welcome.openFile")}
           </button>
+          <button onClick={onNew}>{t("welcome.newDocument")}</button>
           <span className="welcome__drop-hint">{t("welcome.dropHint")}</span>
         </div>
 

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createNode } from "../src/model/node.js";
 import type { DocNode } from "../src/model/node.js";
-import { computePaths, formatIndexedPath, formatStaticPath, getPathSegments } from "../src/format/path.js";
+import {
+  computePaths,
+  findNodeById,
+  formatIndexedPath,
+  formatStaticPath,
+  getPathSegments,
+  resolveNodeBySegments,
+} from "../src/format/path.js";
 import { parseXml } from "../src/format/xml-import.js";
 
 /**
@@ -106,6 +113,52 @@ describe("path", () => {
     const segments = getPathSegments(leaf, ancestors);
     expect(formatIndexedPath(segments)).toBe(indexed);
     expect(formatStaticPath(segments)).toBe(staticPath);
+  });
+});
+
+describe("findNodeById", () => {
+  it("findet einen tief verschachtelten Knoten anhand seiner Id", () => {
+    const { root, theme } = buildCatalogTree();
+    expect(findNodeById(root, theme.id)).toBe(theme);
+  });
+
+  it("findet die Wurzel selbst", () => {
+    const { root } = buildCatalogTree();
+    expect(findNodeById(root, root.id)).toBe(root);
+  });
+
+  it("liefert null fuer eine unbekannte Id", () => {
+    const { root } = buildCatalogTree();
+    expect(findNodeById(root, "unbekannte-id")).toBeNull();
+  });
+});
+
+describe("resolveNodeBySegments", () => {
+  it("findet den entsprechenden Knoten in einem frisch geparsten (andere Ids habenden) Baum", () => {
+    const original = buildCatalogTree();
+    const segments = getPathSegments(original.theme, [original.root, original.settings]);
+
+    // Frisch neu aufgebauter Baum mit denselben Namen, aber komplett neuen Node-Ids.
+    const fresh = buildCatalogTree();
+    expect(fresh.theme.id).not.toBe(original.theme.id);
+
+    const resolved = resolveNodeBySegments(fresh.root, segments);
+    expect(resolved).toBe(fresh.theme);
+  });
+
+  it("liefert null, wenn der Pfad im neuen Baum nicht mehr existiert", () => {
+    const { root } = buildCatalogTree();
+    const segments = [
+      { name: "catalog", indexAmongSameName: 0, hasSiblingsWithSameName: false },
+      { name: "nichtvorhanden", indexAmongSameName: 0, hasSiblingsWithSameName: false },
+    ];
+    expect(resolveNodeBySegments(root, segments)).toBeNull();
+  });
+
+  it("liefert die Wurzel selbst bei einer Ein-Element-Segmentkette", () => {
+    const { root } = buildCatalogTree();
+    const segments = getPathSegments(root, []);
+    expect(resolveNodeBySegments(root, segments)).toBe(root);
   });
 });
 

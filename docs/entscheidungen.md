@@ -82,6 +82,61 @@ Praxis stört, wäre die Abhilfe ein optionales `arrayHint`-Flag am Knoten (Prop
 ein Array) — bewusst nicht in V1 gebaut, da es die Konvention verkompliziert, ohne dass ein
 konkreter Bedarf danach besteht.
 
+## 2026-07-18 — Grilling: Fokus-Ansicht, Unterbaum-Suche, Neu anlegen, externe Änderungen, DnD-Transparenz
+
+Fünf vom PO gewünschte Features, per Grilling (AskUserQuestion-Runde) festgelegt, bevor die
+Umsetzung beginnt.
+
+1. **"Virtuelles Dokument ab Knoten X" = fokussierte Ansicht auf denselben lebenden Baum, kein
+   Klon.** Neuer Tab zeigt nur den Unterbaum, aber Bearbeiten/Undo/Speichern wirken weiterhin auf
+   das eine echte Dokument — ein separates Klon-Dokument hätte Invariante 1 ("geparster Baum ist
+   die einzige Wahrheit, kein Parallel-Modell") verletzt. Tab-Identität wird **Pfad + Knoten-Id**
+   (nicht nur Pfad wie bisher), damit mehrere Fokus-Tabs (und Fokus + Vollansicht) auf demselben
+   Dokument gleichzeitig offen sein können; alle teilen sich CommandBus/Undo/Speichern. Navigation
+   per **Breadcrumb-Leiste** über dem Baum (echte Wurzel bis Fokus-Knoten, klickbar, Klick auf
+   höheres Element verschiebt den Fokus dorthin — bis zur Wurzel = Fokus verlassen). Wird der
+   fokussierte Knoten gelöscht (z. B. aus einem anderen Tab auf demselben Dokument), springt der
+   Fokus automatisch eine Ebene höher (bis maximal zur echten Wurzel) statt den Tab zu schließen.
+   Rechtsklick-Aktion auf der Wurzel selbst ist sinnlos (identisch zur Vollansicht) und wird nicht
+   angeboten.
+
+2. **Suche im Unterbaum**: neue Checkbox im SearchPanel neben den bestehenden Optionen, schließt
+   den ausgewählten Knoten selbst ein (nicht nur Nachfahren). Ohne Auswahl deaktiviert/fällt auf
+   Gesamtdokument zurück. Verhält sich **live** — folgt bei jeder Suche der aktuell im Baum
+   ausgewählten Zeile, kein fixierter Zusatzzustand (konsistent zu den bestehenden Scope-Optionen
+   Name/Wert/Attribute, die genauso live aus dem UI-Zustand gelesen werden). `findAll`/`replaceAll`
+   in core nehmen bereits einen beliebigen Knoten als Wurzel entgegen — kein Core-Änderungsbedarf.
+
+3. **Neues Dokument anlegen (XML und JSON)**: Einstieg konsistent zu "Datei öffnen" — Strg+N,
+   Toolbar-Icon, Startscreen-Button. Dialog fragt das Format ab. XML startet mit leerem
+   Wurzelknoten `<root></root>` (Name direkt wie jeder andere Knoten umbenennbar, kein
+   Extra-Abfragedialog für den Namen). Tab heißt bis zum ersten Speichern **"Unbenannt-1"**
+   (fortlaufend nummeriert, da Tabs bisher eindeutig über den Dateipfad identifiziert waren und ein
+   neues Dokument noch keinen hat); Strg+S öffnet automatisch "Speichern unter"; nach erfolgreichem
+   Speichern wird der Tab intern auf den echten Pfad umgeschlüsselt.
+
+4. **Erkennung externer Dateiänderungen + Reload**: Prüfung nur **beim Fokus-Zurückgewinnen des
+   Fensters** (wie VS Code/Notepad++), kein Hintergrund-Datei-Watcher (kein neuer Rust-Dependency
+   wie `notify` nötig). Vergleichsmethode: **Datei-Metadaten (mtime + Größe)** über einen neuen
+   schlanken Rust-Command — bewusst kein Volltextvergleich, mit Rücksicht auf die mehrere-100-MB-
+   Dateien, die Jaxel unterstützen soll (siehe `architektur.md`). Bei Änderung ohne eigene
+   ungespeicherte Änderungen: eine neue Einstellung (SettingsDialog) steuert, ob automatisch neu
+   geladen wird oder ein Dialog nachfragt (Default: Dialog). Bei Änderung **mit** eigenen
+   ungespeicherten Änderungen erscheint **immer** der Dialog, auch wenn "automatisch" aktiv ist, mit
+   Warnhinweis, dass die eigenen Änderungen beim Neuladen verloren gehen. Dafür wird erstmals ein
+   **Dirty-Flag pro Dokument** gebraucht (gibt es aktuell gar nicht — auch Tab schließen warnt
+   bisher nicht vor Datenverlust; das bleibt ein offener, hier nicht behobener Punkt, siehe
+   `status.md`). Nach einem Reload wird die Ansicht bestmöglich erhalten: Auswahl und aufgeklappte
+   Knoten werden anhand des **indizierten Pfads** wiederhergestellt (nicht der Knoten-Id, die bei
+   jedem Parse neu vergeben wird), soweit der Pfad im neuen Baum noch existiert — sonst greift der
+   gleiche Fallback wie bei Punkt 1 (nächster noch existierender Vorfahre). Die Undo-Historie geht
+   bei einem Reload zwangsläufig verloren (neuer Baum = neue Knoten-Ids). Betrifft alle Tabs
+   (Vollansicht + Fokus-Tabs), die auf dasselbe Dokument zeigen, gemeinsam.
+
+5. **Baum-Drag&Drop-Transparenz**: eigenes, halbtransparentes Drag-Bild via
+   `dataTransfer.setDragImage()` (statt sich auf das browser-/WebKitGTK-native, oft blickdichte
+   Ghost-Bild zu verlassen) — damit die Einfüge-Linie/Als-Kind-Markierung darunter sichtbar bleibt.
+
 ## Ausdrücklich NICHT geplant (damit es nicht versehentlich nachgebaut wird)
 
 - XSD/DTD-Validierung.
