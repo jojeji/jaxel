@@ -137,6 +137,36 @@ Umsetzung beginnt.
    `dataTransfer.setDragImage()` (statt sich auf das browser-/WebKitGTK-native, oft blickdichte
    Ghost-Bild zu verlassen) — damit die Einfüge-Linie/Als-Kind-Markierung darunter sichtbar bleibt.
 
+## 2026-07-18 — Grilling: Base64-Decode-Ansicht + Desktop-Reife (Planung, noch nicht gebaut)
+
+Vorbild ist das Base64-Feature aus dem PO-Projekt `vscode-tci` (bo4e-Ordner): dort dekodiert eine
+CodeLens `<file>…</file>`-Inhalte aus Spooler-VOL-XMLs und öffnet sie fest verdrahtet als PDF.
+Für Jaxel wurde im Interview entschieden:
+
+1. **Erkennung: Heuristik + Kontextmenü-Fallback.** Kein Schema-/Attributwissen nötig: ein Wert
+   (Elementinhalt ODER Attributwert) gilt als Base64-Kandidat, wenn er Mindestlänge, gültiges
+   Base64-Alphabet und Dekodierbarkeit erfüllt. Die Heuristik läuft nur über die gerade
+   **sichtbaren Baumzeilen** (Rücksicht auf sehr große Dateien). Zusätzlich gibt es auf jedem
+   Knoten einen manuellen Kontextmenüpunkt „Als Base64 dekodieren" — für Fälle, die die Heuristik
+   nicht greift.
+2. **Sichtbarkeit: klickbares „base64"-Badge in der Baumzeile** (analog CodeLens), Klick
+   dekodiert sofort.
+3. **Anzeige zweigleisig per Magic-Byte-Erkennung** (%PDF, PNG, ZIP …): Binärinhalte werden als
+   temporäre Datei gespeichert und mit dem System-Standardprogramm geöffnet; Textinhalte zeigt
+   ein Vorschau-Dialog in Jaxel; ist der Text XML oder JSON, gibt es zusätzlich „Als neuen Tab
+   öffnen" (eigenständiges Dokument, keine Verknüpfung zur Quelle).
+4. **Read-only, kein Re-Encode** (bewusster Scope-Cut): Dekodieren ist reine Ansicht. Ein
+   Rückweg (Bearbeiten + Zurückschreiben als Command) kann später ein eigenes AP werden.
+
+**Priorisierung der Desktop-Reife-Lücken durch den PO** (in dieser Reihenfolge einplanen):
+1. **Ungespeichert-Warnung** beim Tab- UND Fenster-Schließen (nutzt das AP9-`isDirty`-Flag).
+2. **„Öffnen mit" bei laufender App**: zweite Instanz reicht Dateipfade an die laufende Instanz
+   weiter (`single_instance`-Callback + Event ans Frontend).
+3. **Sitzung wiederherstellen** beim Start (per Einstellung abschaltbar).
+
+Zurückgestellt (nicht abgewählt, aber ohne Termin): Update-Hinweis im Über-Dialog,
+„Logdatei öffnen"-Button.
+
 ## Ausdrücklich NICHT geplant (damit es nicht versehentlich nachgebaut wird)
 
 - XSD/DTD-Validierung.

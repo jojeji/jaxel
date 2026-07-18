@@ -14,6 +14,14 @@ verfügbar), daher sind Rechtsklick-Kontextmenü, Fokus-Breadcrumb, alle neuen D
 Reload, Über) und die Einstellungen-Checkbox nur per jsdom-Interaktionstest abgesichert, nicht
 real geklickt.
 
+## Geplant (Grilling 2026-07-18, Details in `docs/entscheidungen.md`)
+
+Nächste APs in PO-Priorität: **1)** Ungespeichert-Warnung (Tab + Fenster schließen),
+**2)** „Öffnen mit"-Weiterleitung an die laufende Instanz, **3)** Sitzung wiederherstellen,
+**4)** Base64-Decode-Ansicht (Heuristik + Badge + Kontextmenü, zweigleisige Anzeige, read-only).
+Außerdem noch offen: PO-Klick-Review von AP9, PO-Test der neuen Linux-Dateizuordnung
+(`.deb` neu installieren), Windows-/NSIS-Build ungetestet.
+
 ## Nachtrag 2026-07-18 — Linux-Dateizuordnung („Öffnen mit" für XML/JSON)
 
 - **Problem**: Jaxel tauchte nach der `.deb`-Installation nicht im „Öffnen mit"-Menü des
