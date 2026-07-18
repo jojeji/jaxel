@@ -15,6 +15,16 @@ const windowMock = vi.hoisted(() => ({
   closeHandlers: [] as Array<(event: { preventDefault: () => void }) => void>,
   destroy: vi.fn(),
 }));
+/** Captures event listeners (z. B. jaxel://pending-open-paths) zum Simulieren im Test. */
+const eventMock = vi.hoisted(() => ({
+  listeners: new Map<string, () => void>(),
+}));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: async (name: string, handler: () => void) => {
+    eventMock.listeners.set(name, handler);
+    return () => {};
+  },
+}));
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     onCloseRequested: async (handler: (event: { preventDefault: () => void }) => void) => {
@@ -78,6 +88,7 @@ beforeEach(() => {
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
+  eventMock.listeners.clear();
   windowMock.closeHandlers.length = 0;
   windowMock.destroy.mockClear();
   writeText.mockClear();
@@ -1145,5 +1156,45 @@ describe("Ungespeicherte Änderungen beim Schließen", () => {
       ]);
     });
     await waitFor(() => expect(windowMock.destroy).toHaveBeenCalled());
+  });
+});
+
+describe("Öffnen mit / Kommandozeilen-Pfade (pending open paths)", () => {
+  it("öffnet beim Start ALLE wartenden Pfade, nicht nur den ersten", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "take_pending_open_paths") return ["/fake/sample.xml", "/fake/second.xml"];
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    renderApp();
+
+    expect(await screen.findByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(await screen.findByText("second.xml", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+
+  it("zweite Instanz: das Event zieht die Queue erneut ab und öffnet die Datei im laufenden Fenster", async () => {
+    await openSampleFile();
+    await waitFor(() => expect(eventMock.listeners.has("jaxel://pending-open-paths")).toBe(true));
+
+    // Die zweite Instanz hat "/fake/second.xml" in die Queue gelegt und pingt uns jetzt an.
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "take_pending_open_paths") return ["/fake/second.xml"];
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    act(() => eventMock.listeners.get("jaxel://pending-open-paths")!());
+
+    expect(await screen.findByText("second.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(await screen.findByText("inventory")).toBeInTheDocument(); // neuer Tab ist aktiv
+    expect(screen.getByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument(); // alter Tab bleibt
   });
 });

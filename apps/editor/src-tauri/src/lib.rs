@@ -3,7 +3,7 @@ mod io;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::ipc::InvokeError;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,10 +30,12 @@ impl From<io::FileStat> for FileStatResult {
     }
 }
 
-/// File paths passed on the command line (e.g. `jaxel some.xml`, or a future "open with"
-/// file association) at startup. Held here rather than emitted as an event immediately,
-/// because the frontend's event listener may not be attached yet when the app starts —
-/// the frontend pulls these once via `take_pending_open_paths` after it has mounted.
+/// File paths waiting to be opened by the frontend: passed on the command line at startup
+/// (`jaxel some.xml`, "Öffnen mit" file association), or queued by the single-instance
+/// callback when a second launch forwards its arguments. Held here rather than emitted as
+/// an event immediately, because the frontend's event listener may not be attached yet when
+/// the app starts — the frontend pulls via `take_pending_open_paths` (once after mount, and
+/// again whenever the `jaxel://pending-open-paths` event pings it).
 struct PendingOpenPaths(Mutex<Vec<String>>);
 
 #[tauri::command]
@@ -75,9 +77,38 @@ pub fn run() {
         .collect();
 
     tauri::Builder::default()
+        // single-instance as the FIRST plugin (per its docs): a second launch must be caught
+        // before anything else initializes in the doomed second process. Its file arguments
+        // are queued for the running instance ("Öffnen mit" while Jaxel is already open) and
+        // the frontend is pinged to pull them; relative paths are resolved against the SECOND
+        // instance's cwd, which is generally not our own.
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            let mut paths: Vec<String> = args
+                .iter()
+                .skip(1)
+                .map(|arg| {
+                    let path = PathBuf::from(arg);
+                    if path.is_absolute() { path } else { PathBuf::from(&cwd).join(path) }
+                })
+                .filter(|path| path.is_file())
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect();
+            if !paths.is_empty() {
+                let state = app.state::<PendingOpenPaths>();
+                state
+                    .0
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .append(&mut paths);
+                let _ = app.emit("jaxel://pending-open-paths", ());
+            }
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .invoke_handler(tauri::generate_handler![
             read_text_file,
             write_text_file,

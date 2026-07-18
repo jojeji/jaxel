@@ -17,10 +17,34 @@ real geklickt.
 ## Geplant (Grilling 2026-07-18, Details in `docs/entscheidungen.md`)
 
 Nächste APs in PO-Priorität: **1)** ~~Ungespeichert-Warnung (Tab + Fenster schließen)~~ ✔ AP10,
-**2)** „Öffnen mit"-Weiterleitung an die laufende Instanz, **3)** Sitzung wiederherstellen,
+**2)** ~~„Öffnen mit"-Weiterleitung an die laufende Instanz~~ ✔ AP11, **3)** Sitzung wiederherstellen,
 **4)** Base64-Decode-Ansicht (Heuristik + Badge + Kontextmenü, zweigleisige Anzeige, read-only).
 Außerdem noch offen: PO-Klick-Review von AP9 + AP10, PO-Test der neuen Linux-Dateizuordnung
 (`.deb` neu installieren), Windows-/NSIS-Build ungetestet.
+
+## AP11 — „Öffnen mit" bei laufender App: Weiterleitung an die laufende Instanz (abgeschlossen 2026-07-18)
+
+- **Rust** (`src-tauri/src/lib.rs`): Der bisher leere `tauri_plugin_single_instance`-Callback
+  reiht die Dateiargumente der zweiten Instanz in die bestehende `PendingOpenPaths`-Queue ein
+  (relative Pfade werden gegen das cwd der ZWEITEN Instanz aufgelöst — das ist i. d. R. nicht
+  unseres), pingt das Frontend per Event `jaxel://pending-open-paths` an und holt das Fenster
+  nach vorn (`unminimize` + `set_focus`). Das Plugin steht jetzt als ERSTES in der Kette
+  (Empfehlung der Plugin-Doku: die zweite Instanz soll sterben, bevor andere Plugins in ihr
+  initialisieren).
+- **Frontend** (`App.tsx`): Der bisherige Einmal-Pull von `take_pending_open_paths` beim Mount
+  bleibt (Startpfade), zusätzlich abonniert derselbe Effekt das Ping-Event und zieht die Queue
+  dann erneut ab — ein Mechanismus für beide Fälle, keine Pfad-Duplikation im Event-Payload.
+  Dynamischer Import von `@tauri-apps/api/event` wie bei Fenster-Schließen/Über-Dialog (Browser/
+  jsdom ohne Tauri laufen sauber durch).
+- **Nebenbei behoben**: Beim Start wurde bisher nur der ERSTE wartende Pfad geöffnet
+  (`paths[0]`) — jetzt öffnen alle; außerdem laufen die Pfade jetzt durch `openPath` statt
+  `openFile` und landen damit auch in „Zuletzt geöffnet"/letzter Ordner.
+- **Verifikation**: 72/72 Editor-Tests (2 neu: mehrere Startpfade → mehrere Tabs; Event-Ping
+  öffnet die Datei der zweiten Instanz im laufenden Fenster), 65/65 Kern-Tests, `tsc` und
+  `cargo check` sauber. Real (Release-Binary, Bildschirm gesperrt, daher ohne Screenshot):
+  Instanz 1 gestartet, Instanz 2 mit Testdatei — Instanz 2 beendet sich sofort, Instanz 1
+  lebt weiter (Prozess-Beweis für die Weiterleitung; ob der Tab wirklich aufgeht, bitte im
+  PO-Klick-Review mitprüfen: Jaxel offen lassen, Datei per „Öffnen mit" öffnen).
 
 ## AP10 — Ungespeichert-Warnung beim Tab- und Fenster-Schließen (abgeschlossen 2026-07-18)
 

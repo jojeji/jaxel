@@ -16,13 +16,13 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   Der Öffnen-Dialog startet immer im zuletzt benutzten Ordner.
 - **Startscreen**: Ohne offenes Dokument zeigt Jaxel die zuletzt geöffneten Dateien (Klick öffnet
   direkt) und eine Übersicht der Tastenkürzel.
-- **Kommandozeile**: `jaxel datei.xml` öffnet die Datei direkt beim Start.
+- **Kommandozeile**: `jaxel datei.xml` öffnet die Datei direkt beim Start — auch mehrere
+  Dateien auf einmal (`jaxel a.xml b.json`), jede bekommt ihren Tab.
 - **„Öffnen mit" aus dem Dateimanager (Linux)**: Nach der Installation über das `.deb`-/`.rpm`-Paket
   ist Jaxel für XML- und JSON-Dateien als Programm registriert und erscheint im
   „Öffnen mit"-Menü des Dateimanagers (ggf. einmal ab- und wieder anmelden, falls der
-  Dateimanager die Liste noch gecacht hat). Hinweis: Läuft Jaxel bereits, öffnet ein
-  „Öffnen mit" aus dem Dateimanager die Datei derzeit **nicht** im laufenden Fenster
-  (bekannte Einschränkung, siehe `docs/status.md`).
+  Dateimanager die Liste noch gecacht hat). Läuft Jaxel bereits, öffnet die Datei als
+  neuer Tab im laufenden Fenster, und das Fenster kommt nach vorn.
 - **Neu**: Toolbar-Button, `Strg+N`, der Startscreen-Button „Neues Dokument" oder ein Klick auf
   die freie Fläche rechts neben den Tabs — ein kleiner
   Dialog fragt XML oder JSON ab. Das neue Dokument startet minimal (leerer `<root></root>` bzw.

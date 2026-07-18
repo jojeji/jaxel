@@ -166,14 +166,39 @@ export function App(): React.ReactElement {
     }
   }, [settings.theme]);
 
-  // Files passed on the command line (`jaxel some.xml`) or a future "open with" file
-  // association arrive here — the backend queues them until the frontend is ready to pull them.
+  // Files passed on the command line (`jaxel some.xml`) or via "Öffnen mit" arrive here —
+  // the backend queues them until the frontend pulls. A second app launch (single-instance)
+  // queues its paths too and pings us via event; the running window then opens them as well.
+  // openPath (defined below) is reached through a ref so the once-registered listener always
+  // sees the current closure.
+  const openPathRef = useRef<(path: string) => Promise<void>>(() => Promise.resolve());
   useEffect(() => {
-    invoke<string[]>("take_pending_open_paths").then((paths) => {
-      const first = paths[0];
-      if (first) void openFile(first);
-    });
-  }, [openFile]);
+    openPathRef.current = openPath;
+  });
+  useEffect(() => {
+    const pullPending = (): void => {
+      invoke<string[]>("take_pending_open_paths").then((paths) => {
+        for (const path of paths) void openPathRef.current(path);
+      });
+    };
+    pullPending();
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void (async () => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        const fn = await listen("jaxel://pending-open-paths", pullPending);
+        if (disposed) fn();
+        else unlisten = fn;
+      } catch {
+        // not running inside a Tauri window
+      }
+    })();
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Intercept the window close while any document has unsaved changes (docs/entscheidungen.md
   // 2026-07-18, Desktop-Reife #1). Registered once; the handler reads the live docs via ref.
