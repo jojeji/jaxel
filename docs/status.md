@@ -50,6 +50,36 @@ Verwaltungsdialog, Windows-/macOS-Packaging, XSD-Validierung (dauerhaft ausgesch
 
 ---
 
+## Werkzeuge — VS-Code-Tasks/Launch, CHANGELOG (2026-07-17)
+
+Auf PO-Wunsch: `.vscode/tasks.json` und `.vscode/launch.json` (Muster von `../xdp-designer`
+übernommen, an Jaxel angepasst) sowie `CHANGELOG.md`.
+
+- **Tasks**: „Jaxel starten" (Hintergrund-Task, Start MUSS im Root laufen, siehe Falle oben),
+  „Prüfkette" (Standard-Build, Strg+Shift+B) fährt exakt die in diesem Dokument unter „Wie
+  verifizieren" beschriebene Befehlskette (Tests + `../../node_modules/.bin/tsc` je Paket +
+  `cargo check`) — bewusst NICHT `npm run typecheck --workspaces`, siehe dortige Begründung.
+  „Alle Tests", „cargo check", „Release (Linux: AppImage/deb/rpm)" (mit dem AP6-Flag,
+  schließt `nsis` aus) und „Release (Windows: nsis)".
+- **Windows-Release-Task ist auf dieser Maschine NICHT lauffähig**: kein Cross-Compile-
+  Toolchain (kein `mingw-w64`/`cargo-xwin`) installiert, und laut `entscheidungen.md` #7
+  ohnehin bewusst erst nach Linux dran. Der Task ist trotzdem hinterlegt (inkl. PowerShell-
+  Zweig) für den Tag, an dem er auf einem echten Windows-Host bzw. per Remote-Verbindung
+  dorthin ausgeführt wird; auf Linux gibt er stattdessen einen klaren Hinweistext aus statt
+  fälschlich Erfolg vorzutäuschen.
+- **CHANGELOG.md**: Format/Ton von `../xdp-designer` übernommen (Keep a Changelog, SemVer,
+  grob aus Nutzersicht, Details bleiben in diesem Dokument). Da bisher keine Version
+  geschnitten wurde, steht der komplette bisherige Funktionsstand (AP0–AP8) unter
+  „Unreleased" — eine erste Versionsnummer entsteht erst beim PO-Kommando „Release".
+- **Verifikation**: Prüfkette-Befehlskette manuell 1:1 ausgeführt (42/42 Editor-Tests,
+  `tsc` beide Pakete sauber, `cargo check` sauber). Start-Task real ausgeführt: Fenster
+  öffnet, die Log-Zeile trifft exakt das im Task hinterlegte `endsPattern`-Regex. Beide
+  JSON-Dateien nach dem Schreiben mit einem JSONC-tauglichen Parser gegengeprüft (VS Codes
+  `tasks.json`/`launch.json` erlauben `//`-Kommentare, was reines `json.load` fälschlich als
+  Fehler meldet — das Stolpern beim ersten Validierungsversuch war dieser Kommentar-Fall,
+  kein echter Syntaxfehler). Windows-Zweig der Tasks konnte mangels Windows-Host nur durch
+  sorgfältiges manuelles Nachrechnen der JSON-Escapes geprüft werden, nicht real ausgeführt.
+
 ## AP8 — Kontextmenü, voller Pfad, Attribut-Editing, Baum-DnD, Logo (abgeschlossen)
 
 Vom PO per Grilling festgelegt (2026-07-17): voller Pfad = alle Ebenen inkl. Wurzel, keine

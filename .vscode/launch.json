@@ -1,0 +1,19 @@
+{
+  // "Start drücken" (F5 / Ausführen-Panel): startet Jaxel im Tauri-Dev-Modus
+  // (Hot-Reload; das Fenster öffnet, sobald Vite bereit ist). Jaxel hat KEINEN
+  // separaten Browser-Modus (siehe AGENTS.md / README.md) — ein reiner
+  // Vite-Server ohne Tauri-Fenster lässt jeden invoke()-Aufruf scheitern.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Jaxel starten (Tauri dev)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && npm run dev",
+      "windows": {
+        "command": "npm run dev"
+      },
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

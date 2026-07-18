@@ -1,0 +1,101 @@
+{
+  // Tasks für Jaxel: Terminal → "Aufgabe ausführen…" oder die Standard-Kürzel
+  // (Strg+Shift+B = Build). Cargo liegt benutzerlokal in ~/.cargo/bin — der
+  // PATH-Prefix macht die Tauri-Tasks unabhängig davon, ob die Shell rustup
+  // schon im Profil hat.
+  //
+  // FALLE (siehe AGENTS.md / README.md): "Jaxel starten" MUSS im Wurzelverzeichnis
+  // laufen (startet Tauri + Vite zusammen). apps/editor hat ein eigenes, gleichnamiges
+  // "dev"-Skript, das NUR Vite startet — im Browser statt im Tauri-Fenster geöffnet
+  // schlägt jeder invoke()-Aufruf fehl (window.__TAURI_INTERNALS__ fehlt dort).
+  //
+  // Die Prüfkette nutzt bewusst NICHT "npm run typecheck --workspaces": auf dieser
+  // Maschine griff ein bloßes "npx tsc" teils auf eine fremde Alt-Version zu (siehe
+  // docs/status.md, "Wie verifizieren"). Der sichere Aufruf ist der explizite Pfad
+  // zum gehobenen Root-node_modules/.bin/tsc aus dem jeweiligen Paket heraus.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Jaxel starten (Tauri dev)",
+      "type": "shell",
+      "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && npm run dev",
+      "windows": {
+        "command": "npm run dev"
+      },
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "tauri",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Running `target[\\\\/](debug|release)[\\\\/]jaxel"
+        }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "Prüfkette (Tests + Typecheck + cargo check) — DoD",
+      "type": "shell",
+      "command": "npm test && (cd packages/core && ../../node_modules/.bin/tsc --noEmit) && (cd apps/editor && ../../node_modules/.bin/tsc --noEmit -p tsconfig.json) && (export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/editor/src-tauri && cargo check)",
+      "windows": {
+        "command": "npm test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cd packages/core; ..\\..\\node_modules\\.bin\\tsc --noEmit; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cd ..\\..\\apps\\editor; ..\\..\\node_modules\\.bin\\tsc --noEmit -p tsconfig.json; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cd src-tauri; cargo check",
+        "options": {
+          "shell": { "executable": "powershell", "args": ["-NoProfile", "-Command"] }
+        }
+      },
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Alle Tests",
+      "type": "shell",
+      "command": "npm test",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "cargo check (Rust-Kern)",
+      "type": "shell",
+      "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo check",
+      "windows": { "command": "cargo check" },
+      "options": { "cwd": "${workspaceFolder}/apps/editor/src-tauri" },
+      "group": "test",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      // AppImage + .deb + .rpm. --bundles schließt bewusst das in tauri.conf.json
+      // ebenfalls konfigurierte "nsis"-Ziel aus (auf Linux ohne Cross-Compile-
+      // Toolchain nicht baubar) — siehe docs/status.md AP6 und
+      // docs/entscheidungen.md #7 (Linux zuerst).
+      "label": "Release (Linux: AppImage/deb/rpm)",
+      "type": "shell",
+      "command": "export PATH=\"$HOME/.cargo/bin:$PATH\" && npm run tauri -- build --bundles appimage,deb,rpm",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      // Baut den portablen .exe/.msi-Installer (nsis). Funktioniert NUR, wenn VS
+      // Code tatsächlich auf einem Windows-Host läuft (oder per Remote in eine
+      // Windows-Umgebung) — auf dieser Linux-Entwicklungsmaschine fehlt die
+      // Cross-Compile-Toolchain (kein mingw-w64/cargo-xwin), Windows-Packaging
+      // ist laut docs/entscheidungen.md #7 bewusst erst NACH Linux dran.
+      "label": "Release (Windows: nsis)",
+      "type": "shell",
+      "command": "echo 'Windows-Release erfordert einen echten Windows-Host — hier nicht ausführbar.' && exit 1",
+      "windows": {
+        "command": "npm run tauri -- build --bundles nsis; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+        "options": {
+          "shell": { "executable": "powershell", "args": ["-NoProfile", "-Command"] }
+        }
+      },
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

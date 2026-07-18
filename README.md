@@ -39,5 +39,14 @@ Erzeugt unter `apps/editor/src-tauri/target/release/bundle/`:
 Das `--bundles`-Flag lässt das in `tauri.conf.json` ebenfalls konfigurierte Windows-Ziel `nsis`
 aus, das auf einem Linux-Host nicht baubar ist.
 
+## VS Code
+
+`.vscode/tasks.json` und `.vscode/launch.json` bündeln die üblichen Abläufe:
+„Jaxel starten (Tauri dev)" (Start-Button / F5), „Prüfkette" (Strg+Shift+B, Tests +
+Typecheck + `cargo check`), „Alle Tests" sowie die Release-Tasks für Linux
+(AppImage/deb/rpm) und Windows (nsis — läuft nur auf einem echten Windows-Host).
+
+Änderungen: siehe [CHANGELOG.md](CHANGELOG.md).
+
 Doku: [docs/architektur.md](docs/architektur.md), [docs/entscheidungen.md](docs/entscheidungen.md),
 [docs/status.md](docs/status.md), [docs/benutzerhandbuch.md](docs/benutzerhandbuch.md).
