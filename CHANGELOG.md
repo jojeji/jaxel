@@ -11,6 +11,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-19
+
 ### Hinzugefügt
 
 - **XML-/JSON-Baumeditor:** Datei öffnen (Dialog, Kommandozeilen-Argument oder Drag&Drop
@@ -23,7 +25,7 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
   = ein Undo-Schritt).
 - **Tastaturbedienung:** Pfeiltasten zum Navigieren, `F2`/`Enter` zum Umbenennen/Editieren,
   `Strg+D` Duplizieren, `Strg+C`/`Strg+V` Kopieren/Einfügen über die System-Zwischenablage,
-  `Strg` + `+` neues Kind anlegen.
+  `Strg` + `+` neuer Knoten als Geschwister, `Strg+Shift` + `+` neuer Knoten als Kind.
 - **Suchen/Ersetzen** mit Trefferliste, Filtermodus (Baum auf Treffer + Vorfahren reduzieren)
   und „Alle ersetzen" als ein einziger Undo-Schritt.
 - **Pfad kopieren** in drei Notationen: indiziert (`person[0].name`), statisch
@@ -33,11 +35,20 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 - **Startscreen** mit „Zuletzt geöffnet"-Liste und Tastenkürzel-Übersicht.
 - **Eigenes Logo** und App-Icons; deutsch/englische Oberfläche.
 - **Linux-Pakete:** AppImage (portabel), .deb, .rpm.
+- **Absturz- und Fehler-Logging:** Rust-Panics und JavaScript-Fehler landen mit Kontext in
+  einer Logdatei (über den Über-Dialog erreichbar), ebenso jede angezeigte Fehlermeldung und
+  ein schlankes Grundrauschen (Programmstart, Datei geöffnet/gespeichert/neu geladen — nur
+  Pfade, nie Inhalte). Ein Renderfehler zeigt jetzt eine Fehlerseite mit Hinweis auf die
+  Logdatei statt eines weißen Fensters.
 
 ### Geändert
 
 - Optik grundlegend überarbeitet: helles, aufgeräumtes Theme als Standard (zuvor dunkel),
   neue Icon-Toolbar statt Text-Buttons.
+- `Strg+Plus` legt jetzt ein Geschwister (gleiche Ebene) statt eines Kindes an; ein neues Kind
+  entsteht über `Strg+Shift+Plus`. Auf der Wurzel der aktuell sichtbaren Ansicht (Dokument
+  oder Fokus-Ansicht) legen weiterhin beide Kürzel ein Kind an, da es dort keine sichtbare
+  Geschwister-Ebene gibt.
 
 ### Behoben
 
