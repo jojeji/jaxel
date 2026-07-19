@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { App } from "./App.js";
+import { ErrorBoundary } from "./ErrorBoundary.js";
 import { I18nProvider } from "./i18n/index.js";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -104,6 +105,7 @@ beforeEach(() => {
       return `/tmp/jaxel-decoded-1.${ext}`;
     }
     if (cmd === "open_log") return "/fake/logs/Jaxel.log";
+    if (cmd === "log_frontend") return undefined;
     throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
   });
   vi.mocked(open).mockResolvedValue("/fake/sample.xml");
@@ -389,11 +391,48 @@ describe("Knoten einfuegen/loeschen/duplizieren", () => {
     expect(screen.queryByText("extra")).not.toBeInTheDocument();
   });
 
-  it("Strg+Plus legt ein Kind an und startet die Namens-Eingabe", async () => {
+  it("Strg+Plus auf der Wurzel legt ein Kind an (keine Geschwister-Ebene möglich)", async () => {
     const user = await openSampleFile();
     await user.click(screen.getByText("catalog"));
     fireEvent.keyDown(window, { key: "+", ctrlKey: true });
     expect(screen.getByDisplayValue("node")).toBeInTheDocument();
+  });
+
+  it("Strg+Shift+Plus auf der Wurzel legt ebenfalls ein Kind an", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByText("catalog"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true });
+    expect(screen.getByDisplayValue("node")).toBeInTheDocument();
+  });
+
+  it("Strg+Plus (ohne Shift) fügt bei einem Nicht-Wurzel-Knoten ein Geschwister ein, nicht ein Kind", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // aufklappen
+    await user.click(screen.getByText("Anna")); // Blattknoten "name" auswählen
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true });
+    const input = screen.getByDisplayValue("node");
+    await user.clear(input);
+    await user.type(input, "extra");
+    await user.keyboard("{Enter}");
+
+    const extraRow = screen.getByText("extra", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
+    const nameRow = screen.getByText("name", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
+    expect(extraRow.style.paddingLeft).toBe(nameRow.style.paddingLeft); // gleiche Ebene wie "name"/"city"
+  });
+
+  it("Strg+Shift+Plus fügt bei einem Nicht-Wurzel-Knoten ein Kind eine Ebene tiefer ein", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // aufklappen
+    await user.click(screen.getByText("Anna")); // Blattknoten "name" auswählen
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true });
+    const input = screen.getByDisplayValue("node");
+    await user.clear(input);
+    await user.type(input, "extra");
+    await user.keyboard("{Enter}");
+
+    const extraRow = screen.getByText("extra", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
+    const nameRow = screen.getByText("name", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
+    expect(parseInt(extraRow.style.paddingLeft, 10)).toBe(parseInt(nameRow.style.paddingLeft, 10) + 16);
   });
 
   it("Strg+D dupliziert den ausgewaehlten Knoten samt Unterbaum als naechstes Geschwister", async () => {
@@ -834,6 +873,86 @@ describe("Über Jaxel", () => {
       expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "open_log")).toBe(true),
     );
     expect(await screen.findByText("Log geöffnet: /fake/logs/Jaxel.log")).toBeInTheDocument();
+  });
+});
+
+describe("Absturz- und Fehler-Logging (AP15)", () => {
+  function logCallsMatching(predicate: (message: string, level: string) => boolean): boolean {
+    return vi.mocked(invoke).mock.calls.some(([cmd, args]) => {
+      if (cmd !== "log_frontend") return false;
+      const { level, message } = args as { level?: string; message?: string };
+      return predicate(message ?? "", level ?? "");
+    });
+  }
+
+  it("globaler window-error-Handler meldet Fehler per log_frontend", async () => {
+    renderApp();
+    fireEvent(window, new ErrorEvent("error", { message: "Kaputt", error: new Error("Kaputt") }));
+    await waitFor(() =>
+      expect(logCallsMatching((message, level) => level === "error" && message.startsWith("[onerror]"))).toBe(true),
+    );
+  });
+
+  it("unhandledrejection wird per log_frontend gemeldet", async () => {
+    renderApp();
+    const rejectionEvent = new Event("unhandledrejection");
+    Object.defineProperty(rejectionEvent, "reason", { value: new Error("Async kaputt"), configurable: true });
+    fireEvent(window, rejectionEvent);
+    await waitFor(() =>
+      expect(logCallsMatching((message) => message.startsWith("[unhandledrejection]"))).toBe(true),
+    );
+  });
+
+  it("Fehlerbanner wird zusätzlich per log_frontend geloggt", async () => {
+    vi.mocked(open).mockRejectedValueOnce(new Error("Dialog-Fehler"));
+    const user = userEvent.setup();
+    renderApp();
+    const openButtons = screen.getAllByRole("button", { name: "Datei öffnen…" });
+    await user.click(openButtons[0]!);
+    await screen.findByText("Dialog-Fehler");
+    await waitFor(() => expect(logCallsMatching((message) => message === "[banner] Dialog-Fehler")).toBe(true));
+  });
+
+  it("Breadcrumb: Datei öffnen loggt nur den Pfad", async () => {
+    await openSampleFile();
+    await waitFor(() =>
+      expect(
+        logCallsMatching(
+          (message, level) => level === "info" && message === "[breadcrumb] Datei geöffnet: /fake/sample.xml",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("ErrorBoundary zeigt eine Fehlerseite statt eines Weißbilds und loggt", async () => {
+    function ThrowingChild(): React.ReactElement {
+      throw new Error("Render kaputt");
+    }
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <I18nProvider>
+        <ErrorBoundary>
+          <ThrowingChild />
+        </ErrorBoundary>
+      </I18nProvider>,
+    );
+    expect(await screen.findByText("Etwas ist schiefgelaufen")).toBeInTheDocument();
+    await waitFor(() => expect(logCallsMatching((message) => message.startsWith("[errorboundary]"))).toBe(true));
+    consoleError.mockRestore();
+  });
+
+  it("ein fehlschlagender log_frontend-Aufruf stört die App nicht (Story 15)", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "log_frontend") throw new Error("Backend nicht erreichbar");
+      if (cmd === "take_pending_open_paths") return [];
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    await openSampleFile();
+    expect(screen.getByText("catalog")).toBeInTheDocument();
   });
 });
 

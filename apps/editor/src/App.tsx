@@ -45,6 +45,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
+import { installGlobalErrorLogging, logError } from "./logging.js";
 import { tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
 import { getLastDir, rememberLastDir, addRecentFile, getStoredSession, storeSession } from "./state/local-prefs.js";
@@ -122,6 +123,15 @@ export function App(): React.ReactElement {
       }
     })();
   }, []);
+
+  // Globale Absturzspuren (AP15 Story 2, 3): window.onerror/unhandledrejection landen im Log.
+  useEffect(() => installGlobalErrorLogging(), []);
+
+  // Jede Fehlermeldung, die als rotes Banner erscheint, wird auch geloggt (AP15 Story 5) —
+  // eine einzige Stelle statt aller bestehenden setError-Aufrufe.
+  useEffect(() => {
+    if (error) logError("banner", error);
+  }, [error]);
 
   const trueRoot = activeDoc?.document.root ?? null;
   const revision = activeDoc?.document.revision ?? 0;
@@ -561,7 +571,7 @@ export function App(): React.ReactElement {
     setRevealNodeId(source.node.id);
   }
 
-  /** Strg+Plus / toolbar: insert a child and jump straight into naming it. */
+  /** Strg+Shift+Plus / toolbar: insert a child and jump straight into naming it. */
   function handleAddChild(): void {
     if (!activeDoc || !selectedRow) return;
     const child = createNode({ name: "node" });
@@ -572,6 +582,29 @@ export function App(): React.ReactElement {
     setSelectedId(child.id);
     setRevealNodeId(child.id);
     setEditingField({ nodeId: child.id, field: "name" });
+  }
+
+  /**
+   * Strg+Plus: insert a new sibling right after the selected node (same level) and jump
+   * straight into naming it. At the tab's own visible root (true document root, or a focus
+   * tab's focus node) there is no sibling level to insert into — falls back to a child,
+   * same as Strg+Shift+Plus.
+   */
+  function handleAddSibling(): void {
+    if (!activeDoc || !selectedRow) return;
+    if (selectedRow.node === root) {
+      handleAddChild();
+      return;
+    }
+    const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
+    const parentAncestors = selectedRow.ancestors.slice(0, -1);
+    const index = parent.children.indexOf(selectedRow.node);
+    if (index === -1) return;
+    const sibling = createNode({ name: "node" });
+    activeDoc.commandBus.execute(createInsertNodeCommand(parent, index + 1, sibling, parentAncestors));
+    setSelectedId(sibling.id);
+    setRevealNodeId(sibling.id);
+    setEditingField({ nodeId: sibling.id, field: "name" });
   }
 
   function handleDelete(): void {
@@ -765,9 +798,16 @@ export function App(): React.ReactElement {
       } else if (ctrl && event.key.toLowerCase() === "v" && selectedRow) {
         event.preventDefault();
         void handlePasteNode();
-      } else if (ctrl && (event.key === "+" || event.code === "NumpadAdd")) {
+      } else if (ctrl && (event.key === "+" || event.key === "*" || event.code === "NumpadAdd")) {
+        // "+" auf Nummernblock ist Shift-unabhängig; auf der Hauptreihe erzeugt Shift+Plus
+        // je nach Tastaturlayout ein anderes Zeichen (z. B. "*" auf QWERTZ) — deshalb wird
+        // hier über event.shiftKey verzweigt statt über das erzeugte Zeichen.
         event.preventDefault();
-        handleAddChild();
+        if (event.shiftKey) {
+          handleAddChild();
+        } else {
+          handleAddSibling();
+        }
       } else if (ctrl && event.key.toLowerCase() === "f") {
         event.preventDefault();
         setSearchOpen(true);
@@ -1017,7 +1057,7 @@ export function App(): React.ReactElement {
         },
       },
       "separator",
-      { label: t("toolbar.addChild"), shortcut: `${ctrl}++`, onClick: handleAddChild },
+      { label: t("toolbar.addChild"), shortcut: `${ctrl}+Shift++`, onClick: handleAddChild },
       { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
       "separator",
       { label: t("menu.copyNode"), shortcut: `${ctrl}+C`, onClick: handleCopyNode },
@@ -1060,7 +1100,7 @@ export function App(): React.ReactElement {
           <IconButton
             icon={Plus}
             label={t("toolbar.addChild")}
-            shortcut={`${t("key.ctrl")}++`}
+            shortcut={`${t("key.ctrl")}+Shift++`}
             disabled={!selectedRow}
             onClick={handleAddChild}
           />

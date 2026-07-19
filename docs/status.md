@@ -3,16 +3,42 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
-## 🚦 Hier weitermachen (Stand 2026-07-18)
+## 🚦 Hier weitermachen (Stand 2026-07-19)
 
-**AP9 ist fertig, getestet und committet (auf PO-Wunsch, Klick-Review steht noch aus)** — sechs vom PO gewünschte/nachgereichte
-Features (Grilling-Details/Begründung in `docs/entscheidungen.md`, Eintrag 2026-07-18):
-Fokus-Ansicht, Unterbaum-Suche, Neues Dokument, externe Änderungserkennung, Drag&Drop-Transparenz,
-Über-Dialog. **Nächster Schritt: PO-Klick-Review am echten Fenster** — siehe "Verifikation" unten,
-diese Session hatte wie AP7/AP8 kein Klick-Automationswerkzeug (kein xdotool/ydotool/wtype/xte
-verfügbar), daher sind Rechtsklick-Kontextmenü, Fokus-Breadcrumb, alle neuen Dialoge (Neu,
-Reload, Über) und die Einstellungen-Checkbox nur per jsdom-Interaktionstest abgesichert, nicht
-real geklickt.
+**AP15 (Absturz-/Fehler-Logging) und die Strg+Plus-Hotkey-Korrektur sind fertig und getestet,
+werden als Version 0.1.0 released.** **Nächster Schritt: PO-Klick-Review am echten Fenster** —
+wie bei AP9/AP13/AP14 stand in dieser Session kein Klick-Automationswerkzeug zur Verfügung
+(kein xdotool/ydotool/wtype/xte), daher sind Fehlerbanner-Logging, die ErrorBoundary-Fehlerseite,
+die Breadcrumbs und die neue Geschwister/Kind-Unterscheidung nur per jsdom-Interaktionstest
+abgesichert (bei letzterer strukturell über die Einrückungstiefe der Baumzeilen, nicht nur
+Sichtbarkeit). Panic-Hook und Start-Log-Eintrag wurden dagegen real via `npm run dev`
+verifiziert (siehe AP15-Abschnitt), das war ohne Maus-Interaktion möglich.
+
+## Nachtrag 2026-07-19 — Strg+Plus: Geschwister statt Kind (Hotkey-Korrektur)
+
+PO-Feedback: `Strg+Plus` legte bisher immer ein KIND unterhalb des ausgewählten Knotens an.
+Erwartet wird stattdessen: `Strg+Plus` = neuer Knoten als Geschwister (gleiche Ebene),
+`Strg+Shift+Plus` = neuer Knoten als Kind (eine Ebene tiefer). Ausnahme: auf der Wurzel der
+aktuell sichtbaren Ansicht (Dokumentwurzel ODER Wurzel einer Fokus-Ansicht — es gibt dort keine
+sichtbare Geschwister-Ebene) legen beide Kürzel ein Kind an.
+
+- **Neue Funktion `handleAddSibling`** (`App.tsx`) neben dem bestehenden `handleAddChild`:
+  fällt auf `handleAddChild` zurück, wenn `selectedRow.node === root` (derselbe Ausdruck wie
+  das bestehende `isVisibleRoot` im Kontextmenü) — das deckt sowohl die echte Dokumentwurzel
+  als auch die Wurzel einer Fokus-Ansicht ab.
+- **Tastatur-Handler**: Verzweigung jetzt über `event.shiftKey`, nicht mehr über das erzeugte
+  Zeichen — auf Nummernblock ist `+` Shift-unabhängig, auf der Hauptreihe erzeugt Shift+Plus je
+  nach Tastaturlayout ein anderes Zeichen (z. B. `*` auf QWERTZ), daher zusätzlich `event.key
+  === "*"` als Trigger für die "Plus-Familie" mit aufgenommen.
+- Toolbar-Button/Kontextmenü-Eintrag „Kind hinzufügen" bleibt unverändert an `handleAddChild`
+  gebunden (Klick ist eindeutig, keine Modifier-Mehrdeutigkeit) — nur der angezeigte Shortcut-
+  Hinweis wurde auf `Strg+Shift++` korrigiert. Startscreen-Tastenkürzelliste zeigt jetzt beide
+  Kürzel getrennt.
+- **Verifikation**: 3 neue/angepasste Tests, die die Einrückungstiefe (`paddingLeft`) der neu
+  angelegten Zeile mit der des Referenzknotens vergleichen, um Geschwister- von Kind-Einfügung
+  strukturell zu unterscheiden (nicht nur Sichtbarkeit prüfen). Alle bestehenden Tests, die
+  `Strg+Plus` zum reinen "Dokument dirty machen" nutzten, wählen dabei zufällig immer die
+  jeweilige Tab-Wurzel aus und sind daher unverändert gültig geblieben.
 
 ## Geplant (Grilling 2026-07-18, Details in `docs/entscheidungen.md`)
 
@@ -22,8 +48,45 @@ Nächste APs in PO-Priorität: **1)** ~~Ungespeichert-Warnung (Tab + Fenster sch
 **Update-Hinweis bleibt blockiert** — es gibt keine Release-Quelle (kein Git-Remote, kein
 Release-Server), gegen die eine Versionsprüfung laufen könnte; braucht eine PO-Entscheidung,
 wo Releases künftig veröffentlicht werden.
-Außerdem noch offen: PO-Klick-Review von AP9–AP14, PO-Test der neuen Linux-Dateizuordnung
+Außerdem noch offen: PO-Klick-Review von AP9–AP15, PO-Test der neuen Linux-Dateizuordnung
 (`.deb` neu installieren), Windows-/NSIS-Build ungetestet.
+
+## AP15 — Absturz- und Fehler-Logging (abgeschlossen 2026-07-19; Spec: `.scratch/ap15-crash-logging/spec.md`)
+
+- **Auslöser**: Die seit AP14 erreichbare Logdatei war 0 Bytes — `tauri-plugin-log` war zwar
+  registriert, aber es gab im gesamten Code keinen einzigen `log::`-Aufruf.
+- **Rust**: Panic-Hook (`std::panic::set_hook`, vor dem Tauri-Builder registriert) schreibt
+  Panic-Meldung + Backtrace per `log::error!`, bevor der bisherige Hook weiterläuft — real mit
+  einem temporären Debug-Panic verifiziert (Meldung + Backtrace landeten in der Logdatei,
+  Prozess danach sauber beendet, kein Leichenprozess). `tauri-plugin-log` bekommt
+  `.max_file_size(5_000_000)` + explizites `RotationStrategy::KeepOne`; die Default-Targets
+  (Stdout+LogDir) und die Default-Rotation passten bereits, nur die winzige Default-
+  Maximalgröße von 40 KB und das fehlende Logging selbst waren das eigentliche Problem.
+  Start-Log mit Version+Plattform in `.setup(...)` (real bestätigt), Single-Instance-
+  Weiterleitung loggt die weitergereichten Pfade. Neuer Command `log_frontend(level, message)`
+  als einzige Frontend-Logging-Brücke. Bestehende Commands (`read_text_file`, `write_text_file`,
+  `stat_file`, `open_decoded_file`, `open_log`) loggen jetzt Fehlschläge (Pfad + Grund)
+  unmittelbar vor der Rückgabe ans Frontend — Erfolgsfälle bewusst NICHT (das übernimmt das
+  Frontend als Breadcrumb; `stat_file` bleibt auch dort ohne Erfolgslog, da es bei jedem
+  Fenster-Fokus-Wechsel pollt und sonst nur Rauschen erzeugen würde).
+- **Frontend**: neues Modul `apps/editor/src/logging.ts` (fire-and-forget, schluckt eigene
+  Fehler — Loggen darf die App nie stören) kapselt `log_frontend` mit Quell-Präfix im
+  Message-Text (`[onerror]`, `[banner]`, `[breadcrumb]`, `[errorboundary]`, …) und registriert
+  die globalen `window`-Handler für `error`/`unhandledrejection`. `App.tsx` bekommt einen
+  einzigen `useEffect` auf den `error`-State, der jeden Banner mitloggt — keine der ~18
+  bestehenden `setError`-Aufrufstellen wurde angefasst. Breadcrumbs (nur Pfad, kein Inhalt) bei
+  Datei öffnen/speichern/neu laden in `state/document-store.ts`.
+- **ErrorBoundary**: loggt Renderfehler jetzt (`componentDidCatch`) und zeigt eine zweisprachige
+  Fehlerseite (`useI18n`) mit Hinweis auf „Logdatei öffnen" statt eines weißen Fensters. Dafür
+  musste die Provider-Reihenfolge in `main.tsx` getauscht werden (`I18nProvider` jetzt außen),
+  sonst hätte die Fehlerseite beim Fangen eines Fehlers keinen i18n-Context mehr gehabt.
+- **Bewusste Vereinfachungen**: keine Rust-Unit-Tests (PO-Entscheidung, nur `cargo check` +
+  manuelle Verifikation), kein konfigurierbares Log-Level, keine Doppel-Breadcrumbs.
+- **Verifikation**: 165/165 Tests (88 Editor-Tests, 6 neu für AP15), `tsc --noEmit` +
+  `cargo check` sauber in beiden Workspaces. Real per `npm run dev`: Start-Log-Eintrag in der
+  echten Logdatei (`~/.local/share/de.profiforms.jaxel/logs/Jaxel.log`) bestätigt, Panic-Hook
+  real mit einem temporären Debug-Panic verifiziert (danach wieder entfernt, sauberer
+  Normal-Neustart bestätigt). Klick-Review am echten Fenster steht noch aus (siehe oben).
 
 ## AP14 — „Logdatei öffnen" im Über-Dialog (abgeschlossen 2026-07-18)
 

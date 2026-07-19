@@ -45,28 +45,37 @@ fn take_pending_open_paths(state: tauri::State<PendingOpenPaths>) -> Vec<String>
 
 #[tauri::command]
 fn read_text_file(path: String) -> Result<FileContent, InvokeError> {
-    io::read_text_file(&PathBuf::from(path))
+    io::read_text_file(&PathBuf::from(&path))
         .map(|decoded| FileContent {
             content: decoded.content,
             encoding: decoded.encoding,
             mtime_ms: decoded.stat.mtime_ms,
             size: decoded.stat.size,
         })
-        .map_err(InvokeError::from)
+        .map_err(|error| {
+            log::error!("read_text_file fehlgeschlagen ({path}): {error}");
+            InvokeError::from(error)
+        })
 }
 
 #[tauri::command]
 fn write_text_file(path: String, content: String, encoding: String) -> Result<FileStatResult, InvokeError> {
-    io::write_text_file(&PathBuf::from(path), &content, &encoding)
+    io::write_text_file(&PathBuf::from(&path), &content, &encoding)
         .map(FileStatResult::from)
-        .map_err(InvokeError::from)
+        .map_err(|error| {
+            log::error!("write_text_file fehlgeschlagen ({path}): {error}");
+            InvokeError::from(error)
+        })
 }
 
 #[tauri::command]
 fn stat_file(path: String) -> Result<FileStatResult, InvokeError> {
-    io::stat_file(&PathBuf::from(path))
+    io::stat_file(&PathBuf::from(&path))
         .map(FileStatResult::from)
-        .map_err(InvokeError::from)
+        .map_err(|error| {
+            log::error!("stat_file fehlgeschlagen ({path}): {error}");
+            InvokeError::from(error)
+        })
 }
 
 /// Base64-Decode-Ansicht (docs/entscheidungen.md 2026-07-18): writes decoded binary content
@@ -78,9 +87,10 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
     use base64::Engine;
 
     let compact: String = data_base64.chars().filter(|c| !c.is_whitespace()).collect();
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(compact)
-        .map_err(|e| InvokeError::from(format!("Ungültiges Base64: {e}")))?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(compact).map_err(|e| {
+        log::error!("open_decoded_file: ungültiges Base64: {e}");
+        InvokeError::from(format!("Ungültiges Base64: {e}"))
+    })?;
 
     // Extension comes from our own magic-byte sniffing, but sanitize anyway.
     let safe_ext: String = extension.chars().filter(|c| c.is_ascii_alphanumeric()).take(5).collect();
@@ -91,8 +101,14 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
         .unwrap_or(0);
     let path = std::env::temp_dir().join(format!("jaxel-decoded-{stamp}.{safe_ext}"));
 
-    std::fs::write(&path, bytes).map_err(|e| InvokeError::from(format!("Temp-Datei fehlgeschlagen: {e}")))?;
-    open::that_detached(&path).map_err(|e| InvokeError::from(format!("Öffnen fehlgeschlagen: {e}")))?;
+    std::fs::write(&path, bytes).map_err(|e| {
+        log::error!("open_decoded_file: Temp-Datei fehlgeschlagen ({}): {e}", path.display());
+        InvokeError::from(format!("Temp-Datei fehlgeschlagen: {e}"))
+    })?;
+    open::that_detached(&path).map_err(|e| {
+        log::error!("open_decoded_file: Öffnen fehlgeschlagen ({}): {e}", path.display());
+        InvokeError::from(format!("Öffnen fehlgeschlagen: {e}"))
+    })?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -101,18 +117,40 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
 /// to opening the log directory if the file does not exist yet.
 #[tauri::command]
 fn open_log(app: tauri::AppHandle) -> Result<String, InvokeError> {
-    let dir = app
-        .path()
-        .app_log_dir()
-        .map_err(|e| InvokeError::from(format!("Log-Verzeichnis unbekannt: {e}")))?;
+    let dir = app.path().app_log_dir().map_err(|e| {
+        log::error!("open_log: Log-Verzeichnis unbekannt: {e}");
+        InvokeError::from(format!("Log-Verzeichnis unbekannt: {e}"))
+    })?;
     let file = dir.join(format!("{}.log", app.package_info().name));
     let target = if file.is_file() { file } else { dir };
-    open::that_detached(&target).map_err(|e| InvokeError::from(format!("Öffnen fehlgeschlagen: {e}")))?;
+    open::that_detached(&target).map_err(|e| {
+        log::error!("open_log: Öffnen fehlgeschlagen ({}): {e}", target.display());
+        InvokeError::from(format!("Öffnen fehlgeschlagen: {e}"))
+    })?;
     Ok(target.to_string_lossy().into_owned())
+}
+
+/// Einzige Logging-Brücke des Frontends (AP15) — Level auf eine kleine Menge beschränkt,
+/// unbekannte Level fallen auf `error` zurück.
+#[tauri::command]
+fn log_frontend(level: String, message: String) {
+    match level.as_str() {
+        "info" => log::info!("{message}"),
+        "warn" => log::warn!("{message}"),
+        _ => log::error!("{message}"),
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Vor dem Tauri-Builder registriert, damit auch frühe Panics erfasst werden (Einträge vor
+    // Plugin-Init landen ggf. nur auf Stdout — akzeptiert, siehe .scratch/ap15-crash-logging/spec.md).
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("Panic: {info}\n{}", std::backtrace::Backtrace::force_capture());
+        previous_hook(info);
+    }));
+
     let startup_paths: Vec<String> = std::env::args()
         .skip(1)
         .filter(|arg| PathBuf::from(arg).is_file())
@@ -136,6 +174,7 @@ pub fn run() {
                 .map(|path| path.to_string_lossy().into_owned())
                 .collect();
             if !paths.is_empty() {
+                log::info!("Zweite Instanz: {} Pfad(e) weitergereicht: {paths:?}", paths.len());
                 let state = app.state::<PendingOpenPaths>();
                 state
                     .0
@@ -149,7 +188,17 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(
+            // Default-Targets (Stdout + LogDir) und Default-Rotation (KeepOne) passen bereits;
+            // nur Maximalgröße (Default 40 KB) und Level (Default Trace) werden angehoben bzw.
+            // eingeschränkt. rotation_strategy explizit gesetzt, um die Größenbegrenzung (Story
+            // 10) nicht stillschweigend von einem Library-Default abhängig zu machen.
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .max_file_size(5_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             read_text_file,
@@ -157,10 +206,17 @@ pub fn run() {
             stat_file,
             take_pending_open_paths,
             open_decoded_file,
-            open_log
+            open_log,
+            log_frontend
         ])
         .setup(move |app| {
             app.manage(PendingOpenPaths(Mutex::new(startup_paths)));
+            log::info!(
+                "Jaxel {} gestartet ({} {})",
+                app.package_info().version,
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
             Ok(())
         })
         .run(tauri::generate_context!())

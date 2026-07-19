@@ -103,9 +103,12 @@
   "shortcut.duplicate": "Duplicate",
   "shortcut.copyPaste": "Copy / paste node",
   "shortcut.addChild": "Add child",
+  "shortcut.addSibling": "Add sibling",
   "shortcut.delete": "Delete",
   "shortcut.undo": "Undo / redo",
   "toolbar.copyPathFull": "Copy full path",
   "menu.copyNode": "Copy node",
-  "menu.pasteNode": "Paste"
+  "menu.pasteNode": "Paste",
+  "errorPage.title": "Something went wrong",
+  "errorPage.hint": "Open the log file via \"About Jaxel\" → \"Open log file\" for details."
 }

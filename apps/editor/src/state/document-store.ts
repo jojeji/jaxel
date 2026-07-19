@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { logInfo } from "../logging.js";
 import {
   CommandBus,
   createDocument,
@@ -161,6 +162,7 @@ export function useJaxelDocuments(): {
       "read_text_file",
       { path },
     );
+    logInfo("breadcrumb", `Datei geöffnet: ${path}`);
     const format = detectFormat(path, result.content);
 
     let root: DocNode;
@@ -225,6 +227,7 @@ export function useJaxelDocuments(): {
       content: text,
       encoding: target.encoding,
     });
+    logInfo("breadcrumb", `Datei gespeichert: ${target.filePath}`);
     // The file on disk now matches the tree again — that becomes the new minimal-invasive baseline.
     setState((current) => ({
       ...current,
@@ -248,6 +251,7 @@ export function useJaxelDocuments(): {
       content: text,
       encoding: target.encoding,
     });
+    logInfo("breadcrumb", `Datei gespeichert: ${newPath}`);
     const unsubscribe = unsubscribersRef.current.get(currentPath);
     if (unsubscribe) {
       unsubscribersRef.current.delete(currentPath);
@@ -406,6 +410,7 @@ export function useJaxelDocuments(): {
         "read_text_file",
         { path: filePath },
       );
+      logInfo("breadcrumb", `Datei neu geladen: ${filePath}`);
       let newRoot: DocNode;
       let xmlDeclaration: string | undefined;
       if (target.format === "xml") {

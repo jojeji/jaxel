@@ -167,6 +167,25 @@ Für Jaxel wurde im Interview entschieden:
 Zurückgestellt (nicht abgewählt, aber ohne Termin): Update-Hinweis im Über-Dialog,
 „Logdatei öffnen"-Button.
 
+## 2026-07-19 — Grilling: Absturz- und Fehler-Logging (AP15)
+
+Auslöser: die seit AP14 erreichbare Logdatei war 0 Bytes, weil nirgends geloggt wurde.
+Im Grilling geklärte Grundsatzentscheidungen (Details in `.scratch/ap15-crash-logging/spec.md`):
+
+1. **Datenschutz-Invariante: nur Pfade, Fehlermeldungen, Version, technische Metadaten.**
+   Niemals Dokumentinhalte, Knotenwerte, Suchbegriffe oder dekodierte Base64-Nutzdaten im Log —
+   gilt für alle künftigen Logging-Erweiterungen, nicht nur AP15.
+2. **Breadcrumbs (Datei geöffnet/gespeichert/neu geladen) leben im Frontend, nicht in Rust.**
+   Rust loggt bei Datei-I/O (`read_text_file`, `write_text_file`, `stat_file`,
+   `open_decoded_file`) bewusst nur Fehlschläge — sonst würde jede Datei-Operation doppelt im
+   Log stehen (einmal Rust-Erfolg, einmal Frontend-Breadcrumb).
+3. **Eine einzige Frontend-Logging-Brücke** (`apps/editor/src/logging.ts` → Tauri-Command
+   `log_frontend`), fire-and-forget und selbst-fehlertolerant — künftige Features sollen sie
+   trivial mitbenutzen können, statt eigene Logging-Pfade zu erfinden.
+4. **`packages/core` bleibt frei von Logging-Code** (Invariante 3: React-frei UND headless
+   testbar) — Logging ist Plattform-Glue, keine Domänenlogik, und lebt daher ausschließlich in
+   `apps/editor`.
+
 ## Ausdrücklich NICHT geplant (damit es nicht versehentlich nachgebaut wird)
 
 - XSD/DTD-Validierung.

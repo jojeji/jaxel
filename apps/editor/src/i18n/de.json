@@ -103,9 +103,12 @@
   "shortcut.duplicate": "Duplizieren",
   "shortcut.copyPaste": "Knoten kopieren / einfügen",
   "shortcut.addChild": "Kind anlegen",
+  "shortcut.addSibling": "Geschwister anlegen",
   "shortcut.delete": "Löschen",
   "shortcut.undo": "Rückgängig / Wiederholen",
   "toolbar.copyPathFull": "Vollständigen Pfad kopieren",
   "menu.copyNode": "Knoten kopieren",
-  "menu.pasteNode": "Einfügen"
+  "menu.pasteNode": "Einfügen",
+  "errorPage.title": "Etwas ist schiefgelaufen",
+  "errorPage.hint": "Öffne die Logdatei über „Über Jaxel“ → „Logdatei öffnen“, um Details zu sehen."
 }

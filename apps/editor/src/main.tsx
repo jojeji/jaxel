@@ -10,10 +10,10 @@ if (!container) throw new Error("#root-Element nicht gefunden.");
 
 ReactDOM.createRoot(container).render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <I18nProvider>
+    <I18nProvider>
+      <ErrorBoundary>
         <App />
-      </I18nProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </I18nProvider>
   </React.StrictMode>,
 );

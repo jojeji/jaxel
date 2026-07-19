@@ -139,6 +139,14 @@ Info-Symbol (ⓘ) oben rechts in der Toolbar: Versionsnummer und die Entwickler 
 Dazu **„Logdatei öffnen"** — nützlich für Fehlerberichte: Die Datei enthält das technische
 Protokoll der laufenden Sitzung.
 
+Jaxel schreibt seit AP15 laufend in diese Logdatei (begrenzt auf 5 MB, eine Vorgängerdatei
+bleibt erhalten): Programmstart mit Version und Plattform, welche Dateien geöffnet/gespeichert/
+neu geladen wurden, jede angezeigte Fehlermeldung sowie Abstürze beider Seiten (Rust-Panics und
+JavaScript-Fehler im Webview) samt Stacktrace. So lässt sich nach einem Absturz nachvollziehen,
+was passiert ist und was zuvor getan wurde. **Niemals** im Log stehen Dokumentinhalte,
+Knotenwerte, Suchbegriffe oder dekodierte Base64-Inhalte — protokolliert werden ausschließlich
+Dateipfade, Fehlermeldungen und technische Metadaten.
+
 ## Tastenkürzel
 
 | Kürzel | Aktion |
@@ -150,9 +158,13 @@ Protokoll der laufenden Sitzung.
 | `↑ ↓ ← →` | Im Baum navigieren |
 | `F2` | Umbenennen |
 | `Enter` | Wert ändern |
-| `Strg` + `+` | Kind anlegen |
+| `Strg` + `+` | Neuen Knoten als Geschwister anlegen (gleiche Ebene) |
+| `Strg+Shift` + `+` | Neuen Knoten als Kind anlegen (eine Ebene tiefer) |
 | `Strg+D` | Duplizieren |
 | `Strg+C` / `Strg+V` | Knoten kopieren / einfügen |
 | `Strg+Shift+C` | Vollständigen Pfad kopieren |
 | `Entf` | Löschen |
 | `Strg+Z` / `Strg+Y` | Rückgängig / Wiederholen |
+
+Ausnahme: Auf der Wurzel des aktuell sichtbaren Baums (Dokumentwurzel bzw. Wurzel einer
+Fokus-Ansicht) gibt es keine Geschwister-Ebene — dort legen beide Kürzel ein Kind an.

@@ -34,7 +34,8 @@ export function WelcomeScreen({ onOpen, onOpenPath, onNew }: WelcomeScreenProps)
     ["Enter", t("shortcut.editValue")],
     [`${ctrl}+D`, t("shortcut.duplicate")],
     [`${ctrl}+C / ${ctrl}+V`, t("shortcut.copyPaste")],
-    [`${ctrl}++`, t("shortcut.addChild")],
+    [`${ctrl}++`, t("shortcut.addSibling")],
+    [`${ctrl}+Shift++`, t("shortcut.addChild")],
     [t("key.delete"), t("shortcut.delete")],
     [`${ctrl}+Z`, t("shortcut.undo")],
   ];
