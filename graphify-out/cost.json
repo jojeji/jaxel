@@ -12,8 +12,14 @@
       "output_tokens": 0,
       "files": 10,
       "note": "Nachtraeglich eingearbeiteter Doku-Subagent (spaet zurueckgekehrt, session-limit)"
+    },
+    {
+      "date": "2026-07-19T10:22:19.526382+00:00",
+      "input_tokens": 120093,
+      "output_tokens": 0,
+      "files": 109
     }
   ],
-  "total_input_tokens": 380960,
+  "total_input_tokens": 501053,
   "total_output_tokens": 0
 }
