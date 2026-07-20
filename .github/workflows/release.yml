@@ -1,0 +1,99 @@
+name: Release
+
+# Baut Jaxel für Linux (AppImage, deb, rpm) und Windows (NSIS) und veröffentlicht
+# bei Tag-Push (v*) ein GitHub-Release. Manueller Start (workflow_dispatch) baut
+# nur und lädt die Installer als Workflow-Artefakte hoch — ohne Release.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Tests & Versionscheck
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Tag muss zur Version passen
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          CONF="$(node -p "require('./apps/editor/src-tauri/tauri.conf.json').version")"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "Tag=$TAG tauri.conf.json=$CONF package.json=$PKG"
+          if [ "$TAG" != "$CONF" ] || [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG passt nicht zur Version (tauri.conf.json=$CONF, package.json=$PKG)"
+            exit 1
+          fi
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-22.04
+          - platform: windows
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux-Systempakete installieren
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/editor/src-tauri
+
+      - run: npm ci
+
+      - name: Build & Release (Tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/editor
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Jaxel ${{ github.ref_name }}'
+          releaseBody: 'Details siehe [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).'
+          releaseDraft: false
+          prerelease: false
+
+      - name: Build ohne Release (manueller Lauf)
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: apps/editor
+
+      - name: Installer als Artefakte hochladen (manueller Lauf)
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: jaxel-${{ matrix.platform }}
+          path: |
+            apps/editor/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/editor/src-tauri/target/release/bundle/deb/*.deb
+            apps/editor/src-tauri/target/release/bundle/rpm/*.rpm
+            apps/editor/src-tauri/target/release/bundle/nsis/*.exe
