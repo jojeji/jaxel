@@ -16,6 +16,39 @@ Suchpanel) nur per jsdom-Interaktionstest bzw. isoliertem Baumzeilen-Mockup abge
 in der echten Tauri-Oberfläche angesehen. Panic-Hook und Start-Log-Eintrag wurden dagegen real
 via `npm run dev` verifiziert (siehe AP15-Abschnitt), das war ohne Maus-Interaktion möglich.
 
+## Nachtrag 2026-07-20 — GitHub-Actions-Release-Workflow
+
+PO-Wunsch: kostenlose GitHub-Builds inkl. Windows, Artefakte auf der Release-Seite. Entscheidungen
+per Grilling-Interview festgezurrt:
+
+- **Ein Workflow** `.github/workflows/release.yml`: Trigger Tag-Push `v*` **plus** `workflow_dispatch`
+  (manueller Lauf baut nur und lädt Installer als Workflow-Artefakte hoch, ohne Release).
+- **Plattformen: nur Linux + Windows** (AppImage/deb/rpm auf `ubuntu-22.04`, NSIS auf
+  `windows-latest`) — deckt die konfigurierten Bundle-Targets ab; macOS bewusst weggelassen
+  (kein dmg-Target konfiguriert, 10×-Minutenfaktor im privaten Repo). Windows zählt 2×,
+  bleibt aber bei releasegetriggerten Builds weit unter den 2.000 Freiminuten/Monat.
+- **Kein separater CI-Workflow** für normale Pushes (PO-Entscheidung) — stattdessen vorgeschalteter
+  Test-Job im Release-Workflow (`npm test` + `npm run typecheck` auf Linux) als Gate, denn das
+  Release wird **direkt veröffentlicht** (kein Draft, PO-Entscheidung).
+- **Versionscheck erzwungen**: Tag `vX.Y.Z` muss zur `version` in `tauri.conf.json` UND im
+  Wurzel-`package.json` passen, sonst bricht der Workflow vor dem Build ab.
+- Rust-Cache via `swatinem/rust-cache` (Workspace `apps/editor/src-tauri`), Node 20, Linux-Deps
+  webkit2gtk-4.1/ayatana-appindicator/librsvg/patchelf.
+- **Bewusste Vereinfachung:** kein Code-Signing — Windows-Installer sind unsigniert (SmartScreen
+  warnt beim ersten Start). Offener Punkt, falls externe Verteilung ansteht.
+- **Portabler Windows-Build:** zusätzlich zum NSIS-Installer wird die rohe `jaxel.exe` aus
+  `target/release` zu `Jaxel_<version>_x64-portable.zip` gepackt und beim Tag-Lauf per
+  `gh release upload` an das Release gehängt (kein separates Bundle-Target in Tauri nötig — die
+  Web-Oberfläche ist im Binary eingebettet, vorausgesetzt wird nur die auf Windows 10/11 praktisch
+  immer vorhandene WebView2-Runtime). PO-Nachforderung nach dem ersten Release.
+- **Real verifiziert:** Tag `v0.1.0` gepusht; erster Lauf scheiterte an der Release-Erstellung
+  („Resource not accessible by integration" — Standard-`GITHUB_TOKEN` ist read-only), behoben durch
+  `permissions: contents: write` im Workflow. Zweiter Lauf komplett grün: Release v0.1.0 mit
+  AppImage, deb, rpm und Windows-`x64-setup.exe`. Dritter Lauf (nach Ergänzung des portablen Builds)
+  ebenfalls grün — Release v0.1.0 enthält jetzt zusätzlich `Jaxel_0.1.0_x64-portable.zip`.
+  Stolperstein am lokalen Push: Das VSCode-OAuth-Token durfte keine Workflow-Dateien pushen; gelöst
+  via `gh auth refresh -s workflow` + Push über das gh-Credential.
+
 ## Nachtrag 2026-07-19 — Fünf neue Themes (Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast)
 
 PO-Wunsch: mindestens vier weitere Themes, autonom entworfen ohne Rückfrage (`/design-taste-frontend`

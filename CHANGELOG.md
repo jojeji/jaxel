@@ -11,6 +11,20 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-20
+
+### Hinzugefügt
+
+- **Fünf neue Themes:** Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast — zusätzlich zum
+  bestehenden hellen Standard-Theme, wählbar in den Einstellungen.
+- **Portabler Windows-Build:** ZIP mit eigenständiger `.exe`, keine Installation nötig
+  (neben dem bisherigen NSIS-Installer).
+
+### Behoben
+
+- **Fenster ließ sich nicht schließen:** Fehlende Tauri-Berechtigung verhinderte das
+  Schließen des Hauptfensters (weder per X-Button noch per Alt+F4) — ohne Fehlermeldung.
+
 ## [0.1.0] - 2026-07-19
 
 ### Hinzugefügt
