@@ -9,6 +9,11 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# Das Standard-GITHUB_TOKEN ist in diesem Repo read-only; zum Anlegen des
+# Releases (tauri-action) sind Schreibrechte auf Contents nötig.
+permissions:
+  contents: write
+
 jobs:
   check:
     name: Tests & Versionscheck
