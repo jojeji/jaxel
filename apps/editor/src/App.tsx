@@ -171,12 +171,12 @@ export function App(): React.ReactElement {
     }
   }, [activeTab, focus, trueRoot, retargetFocusTab, t]);
 
-  // Light is the CSS default (:root); only dark needs the data attribute.
+  // Light is the CSS default (:root); every other theme needs the data attribute.
   useEffect(() => {
-    if (settings.theme === "dark") {
-      document.documentElement.dataset.theme = "dark";
-    } else {
+    if (settings.theme === "light") {
       delete document.documentElement.dataset.theme;
+    } else {
+      document.documentElement.dataset.theme = settings.theme;
     }
   }, [settings.theme]);
 

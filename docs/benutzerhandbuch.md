@@ -128,7 +128,8 @@ Für den ausgewählten Knoten über Toolbar oder Kontextmenü:
 
 ## Einstellungen
 
-Zahnrad-Button oben rechts: **Theme** (Hell ist Standard, Dunkel optional), **Sprache**
+Zahnrad-Button oben rechts: **Theme** (Hell ist Standard, dazu sechs weitere: Dunkel, Nordlicht,
+Tanne, Terrakotta, Kobalt, Kontrast — jeweils EIN Akzentton, kontrastgeprüft), **Sprache**
 (Deutsch/Englisch), Such-Filter-Verhalten, **externe Änderungen** (automatisches Neuladen
 ein-/ausschalten) und der Fenster-Modus („eigene Fenster pro Dokument" ist angekündigt, aber
 noch nicht verfügbar).

@@ -45,6 +45,109 @@
   --shadow: 0 2px 10px rgb(0 0 0 / 0.35);
 }
 
+/* Nordlicht — neutrales Graphit-Dunkel (KEIN Teal-Einschlag wie "Dunkel"), blasses
+   Silber-Eisblau als Akzent. */
+:root[data-theme='nordlicht'] {
+  color-scheme: dark;
+  --bg-0: #16181a;
+  --bg-1: #1c1e21;
+  --bg-2: #24272a;
+  --bg-3: #2f3236;
+  --border: #2e3134;
+  --text-0: #e4e5e6;
+  --text-1: #9b9da0;
+  --text-2: #6a6c6f;
+  --accent: #8fb4d9;
+  --accent-strong: #a8c5e2;
+  --accent-dim: #1f2b36;
+  --warn: #d3a34f;
+  --danger: #e0685a;
+  --danger-dim: #3a2019;
+  --shadow: 0 2px 10px rgb(0 0 0 / 0.4);
+}
+
+/* Tanne — Tannen-Dunkel (grünlich-schwarz), warmer Bernstein-Akzent. */
+:root[data-theme='tanne'] {
+  color-scheme: dark;
+  --bg-0: #0e1712;
+  --bg-1: #131d17;
+  --bg-2: #1a251e;
+  --bg-3: #233128;
+  --border: #24312a;
+  --text-0: #e4e8e1;
+  --text-1: #98a698;
+  --text-2: #647063;
+  --accent: #c98a3a;
+  --accent-strong: #dba055;
+  --accent-dim: #2e2314;
+  --warn: #d6b04a;
+  --danger: #d9695a;
+  --danger-dim: #3a1f19;
+  --shadow: 0 2px 10px rgb(0 0 0 / 0.4);
+}
+
+/* Terrakotta — kühles, helles Schiefergrau statt Warmpapier, Rost/Terrakotta als Akzent
+   (bewusst NICHT die übliche Beige+Messing-Kombination). */
+:root[data-theme='terrakotta'] {
+  color-scheme: light;
+  --bg-0: #eef0f2;
+  --bg-1: #f7f8f9;
+  --bg-2: #e7eaed;
+  --bg-3: #dbdfe3;
+  --border: #dcdfe3;
+  --text-0: #262b30;
+  --text-1: #5c646d;
+  --text-2: #8b929a;
+  --accent: #b04527;
+  --accent-strong: #963a1e;
+  --accent-dim: #f6e3da;
+  --warn: #9c6e17;
+  --danger: #b3392b;
+  --danger-dim: #f7e5e2;
+  --shadow: 0 2px 8px rgb(0 0 0 / 0.06);
+}
+
+/* Kobalt — tiefes Marineblau-Dunkel, gesättigtes Kobaltblau als Akzent. */
+:root[data-theme='kobalt'] {
+  color-scheme: dark;
+  --bg-0: #0d1420;
+  --bg-1: #121a29;
+  --bg-2: #192335;
+  --bg-3: #223046;
+  --border: #212c40;
+  --text-0: #e8ecf5;
+  --text-1: #96a2b8;
+  --text-2: #626f85;
+  --accent: #4a86dd;
+  --accent-strong: #6a98e2;
+  --accent-dim: #16233a;
+  --warn: #d0a24f;
+  --danger: #e0685a;
+  --danger-dim: #3a201c;
+  --shadow: 0 2px 10px rgb(0 0 0 / 0.4);
+}
+
+/* Kontrast — hochkontrastiges Off-Black/Off-White, EIN gesättigter Mint-Akzent
+   (reines Monochrom + ein Farbakzent, für maximale Lesbarkeit). */
+:root[data-theme='kontrast'] {
+  color-scheme: dark;
+  --bg-0: #121212;
+  --bg-1: #181818;
+  --bg-2: #232323;
+  --bg-3: #2e2e2e;
+  --border: #2c2c2c;
+  --text-0: #f2f2f0;
+  --text-1: #b8b8b5;
+  --text-2: #808080;
+  --accent: #4dd4ac;
+  --accent-strong: #6fe0bd;
+  --accent-dim: #16332a;
+  --warn: #e0b23f;
+  --danger: #ff5470;
+  --danger-dim: #3a1620;
+  --shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -855,6 +958,16 @@ kbd {
 
 .settings-dialog__disabled-option {
   color: var(--text-2);
+}
+
+.settings-dialog fieldset.settings-dialog__theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.settings-dialog__theme-grid legend {
+  grid-column: 1 / -1;
 }
 
 .settings-dialog .primary {

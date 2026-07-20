@@ -972,6 +972,25 @@ describe("Einstellungen", () => {
     expect(screen.queryByText("Einstellungen", { selector: "h2" })).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["Nordlicht", "nordlicht"],
+    ["Tanne", "tanne"],
+    ["Terrakotta", "terrakotta"],
+    ["Kobalt", "kobalt"],
+    ["Kontrast", "kontrast"],
+  ])("Theme '%s' setzt data-theme='%s' und persistiert es", async (label, slug) => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("radio", { name: label }));
+    expect(document.documentElement.dataset.theme).toBe(slug);
+    expect(JSON.parse(localStorage.getItem("jaxel.settings")!)).toMatchObject({ theme: slug });
+
+    // Zurück zu "Hell" entfernt das Attribut wieder (Hell ist der CSS-Default ohne Attribut).
+    await user.click(screen.getByRole("radio", { name: "Hell" }));
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+  });
+
   it("die 'eigene Fenster'-Option ist sichtbar, aber deaktiviert", async () => {
     const user = userEvent.setup();
     renderApp();

@@ -5,14 +5,49 @@ Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
 ## 🚦 Hier weitermachen (Stand 2026-07-19)
 
-**AP15 (Absturz-/Fehler-Logging) und die Strg+Plus-Hotkey-Korrektur sind fertig und getestet,
-werden als Version 0.1.0 released.** **Nächster Schritt: PO-Klick-Review am echten Fenster** —
-wie bei AP9/AP13/AP14 stand in dieser Session kein Klick-Automationswerkzeug zur Verfügung
-(kein xdotool/ydotool/wtype/xte), daher sind Fehlerbanner-Logging, die ErrorBoundary-Fehlerseite,
-die Breadcrumbs und die neue Geschwister/Kind-Unterscheidung nur per jsdom-Interaktionstest
-abgesichert (bei letzterer strukturell über die Einrückungstiefe der Baumzeilen, nicht nur
-Sichtbarkeit). Panic-Hook und Start-Log-Eintrag wurden dagegen real via `npm run dev`
-verifiziert (siehe AP15-Abschnitt), das war ohne Maus-Interaktion möglich.
+**Version 0.1.0 ist released, committet und nach `github.com/jojeji/jaxel` (privat) gepusht.**
+Fünf neue Themes (Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast) sind fertig, getestet und per
+Headless-Screenshot der echten `styles.css` visuell geprüft (siehe Nachtrag unten) — noch nicht
+committet. **Nächster Schritt: PO-Klick-Review am echten Fenster** — wie bei AP9/AP13/AP14 stand
+in dieser Session kein Klick-Automationswerkzeug zur Verfügung (kein xdotool/ydotool/wtype/xte),
+daher sind Fehlerbanner-Logging, die ErrorBoundary-Fehlerseite, die Breadcrumbs, die
+Geschwister/Kind-Unterscheidung und die neuen Themes in der VOLLEN App-UI (Panels, Dialoge,
+Suchpanel) nur per jsdom-Interaktionstest bzw. isoliertem Baumzeilen-Mockup abgesichert, nicht
+in der echten Tauri-Oberfläche angesehen. Panic-Hook und Start-Log-Eintrag wurden dagegen real
+via `npm run dev` verifiziert (siehe AP15-Abschnitt), das war ohne Maus-Interaktion möglich.
+
+## Nachtrag 2026-07-19 — Fünf neue Themes (Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast)
+
+PO-Wunsch: mindestens vier weitere Themes, autonom entworfen ohne Rückfrage (`/design-taste-frontend`
+als Geschmacks-Richtschnur, auch wenn das Skill laut eigenem Scope eigentlich auf Landingpages/
+Portfolios zielt und Jaxel als Editor-Werkzeug klassisch außerhalb liegt — die Farb-/Kontrast-
+Prinzipien aus Abschnitt 4.2/8/9 des Skills wurden dennoch sinnvoll übertragen).
+
+- **Fünf neue Paletten** in `apps/editor/src/styles.css`, je EIN Akzentton, keine reinen
+  Schwarz-/Weißwerte, bewusst KEINE der Skill-seitig gebannten Beige+Messing-Paletten:
+  „Nordlicht" (kühles Graphit-Dunkel, Eis-Cyan), „Tanne" (Tannengrün-Dunkel, Bernstein), „Terrakotta"
+  (kühles helles Schiefergrau statt Warmpapier, Rost-Akzent — zweites Hell-Theme neben dem
+  bestehenden warm-neutralen Default), „Kobalt" (Marineblau-Dunkel, gesättigtes Kobaltblau),
+  „Kontrast" (Off-Black/Off-White, EIN Mint-Akzent für maximale Lesbarkeit).
+- **Kontrastwerte rechnerisch geprüft** (WCAG-Formel, `python3`-Skript): `text-0`/`text-1`/
+  `accent` erreichen in allen fünf Themes mindestens AA (4.5:1) gegen beide Flächenfarben;
+  `text-2` liegt auf dem Niveau der bereits bestehenden Hell-/Dunkel-Themes (die dort ebenfalls
+  unter AA-large liegen — bewusste Vereinfachung, keine Regression ggü. dem Ist-Stand).
+- **`Theme`-Typ** (`state/settings-store.ts`) von `"dark" | "light"` auf sieben Werte erweitert;
+  `App.tsx` setzt `data-theme` jetzt generisch (nur „Hell" bleibt ohne Attribut, da CSS-Default);
+  `SettingsDialog.tsx` rendert die Theme-Liste jetzt aus einem Array statt einzeln verdrahteter
+  Radios, zweispaltiges Grid, damit der Dialog bei sieben Optionen nicht zu hoch wird.
+- **Verifikation**: 96/96 Editor-Tests (5 neu, parametrisiert über alle fünf Themes: Radio-Klick
+  → korrektes `data-theme`, Persistenz in `localStorage`, Rücksprung zu „Hell" entfernt das
+  Attribut wieder), `tsc --noEmit` sauber. Zusätzlich real visuell geprüft: die echte
+  `styles.css` in einem Headless-Chrome mit einem kleinen Baumzeilen-Mockup gerendert und als
+  Screenshot begutachtet (kein Klick-Automationswerkzeug nötig, da hier keine Interaktion,
+  nur Darstellung gebraucht wurde). Dabei fiel auf, dass „Nordlicht" in der ersten Fassung dem
+  bestehenden „Dunkel" zum Verwechseln ähnlich sah (beide Teal-Akzent) — Palette daraufhin auf
+  einen neutralen Graphit-Hintergrund mit blassem Silber-Eisblau-Akzent korrigiert, jetzt klar
+  unterscheidbar. **Nicht geprüft**: der Eindruck in der echten Tauri-App-UI selbst (Toolbar-
+  Icons, Attribute-Panel, Suchpanel, Dialoge) — das Mockup deckt nur Toolbar+Baum ab; PO-Klick-
+  Review am echten Fenster steht für die volle UI noch aus.
 
 ## Nachtrag 2026-07-19 — Strg+Plus: Geschwister statt Kind (Hotkey-Korrektur)
 

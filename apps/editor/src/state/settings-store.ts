@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-export type Theme = "dark" | "light";
+export type Theme = "light" | "dark" | "nordlicht" | "tanne" | "terrakotta" | "kobalt" | "kontrast";
 /** "windows" (separate OS windows per document) is tracked but not yet implemented — see
  * docs/entscheidungen.md #5 and docs/status.md. The setting exists so it isn't forgotten and
  * so the UI can show it as a clearly-labeled "coming later" option instead of hiding it. */

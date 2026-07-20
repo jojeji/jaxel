@@ -8,6 +8,8 @@ interface SettingsDialogProps {
   onClose: () => void;
 }
 
+const THEMES: Theme[] = ["light", "dark", "nordlicht", "tanne", "terrakotta", "kobalt", "kontrast"];
+
 export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogProps): React.ReactElement {
   const { locale, setLocale, t } = useI18n();
 
@@ -16,26 +18,19 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
       <div className="settings-dialog" onClick={(event) => event.stopPropagation()}>
         <h2>{t("settings.title")}</h2>
 
-        <fieldset>
+        <fieldset className="settings-dialog__theme-grid">
           <legend>{t("settings.theme")}</legend>
-          <label>
-            <input
-              type="radio"
-              name="theme"
-              checked={settings.theme === "dark"}
-              onChange={() => onChange({ theme: "dark" as Theme })}
-            />
-            {t("settings.theme.dark")}
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="theme"
-              checked={settings.theme === "light"}
-              onChange={() => onChange({ theme: "light" as Theme })}
-            />
-            {t("settings.theme.light")}
-          </label>
+          {THEMES.map((theme) => (
+            <label key={theme}>
+              <input
+                type="radio"
+                name="theme"
+                checked={settings.theme === theme}
+                onChange={() => onChange({ theme })}
+              />
+              {t(`settings.theme.${theme}`)}
+            </label>
+          ))}
         </fieldset>
 
         <fieldset>
