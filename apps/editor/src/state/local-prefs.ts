@@ -63,3 +63,41 @@ export function getStoredSession(): StoredSession {
 export function storeSession(session: StoredSession): void {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
+
+/** Where the search panel docks: bottom bar (default) or as a tab in the right sidebar. */
+export type SearchDockSide = "bottom" | "right";
+
+const SEARCH_DOCK_SIDE_KEY = "jaxel.search.dockSide";
+const SEARCH_PANEL_HEIGHT_KEY = "jaxel.search.panelHeight";
+const SEARCH_SIDEBAR_WIDTH_KEY = "jaxel.search.sidebarWidth";
+
+export const SEARCH_PANEL_HEIGHT_DEFAULT = 260;
+export const SEARCH_SIDEBAR_WIDTH_DEFAULT = 320;
+
+export function getSearchDockSide(): SearchDockSide {
+  return localStorage.getItem(SEARCH_DOCK_SIDE_KEY) === "right" ? "right" : "bottom";
+}
+
+export function setSearchDockSide(side: SearchDockSide): void {
+  localStorage.setItem(SEARCH_DOCK_SIDE_KEY, side);
+}
+
+/** Height (px) of the bottom-docked search panel, user-resizable via drag handle. */
+export function getSearchPanelHeight(): number {
+  const raw = Number(localStorage.getItem(SEARCH_PANEL_HEIGHT_KEY));
+  return Number.isFinite(raw) && raw > 0 ? raw : SEARCH_PANEL_HEIGHT_DEFAULT;
+}
+
+export function setSearchPanelHeight(height: number): void {
+  localStorage.setItem(SEARCH_PANEL_HEIGHT_KEY, String(Math.round(height)));
+}
+
+/** Width (px) of the right-docked search/attributes sidebar, user-resizable via drag handle. */
+export function getSearchSidebarWidth(): number {
+  const raw = Number(localStorage.getItem(SEARCH_SIDEBAR_WIDTH_KEY));
+  return Number.isFinite(raw) && raw > 0 ? raw : SEARCH_SIDEBAR_WIDTH_DEFAULT;
+}
+
+export function setSearchSidebarWidth(width: number): void {
+  localStorage.setItem(SEARCH_SIDEBAR_WIDTH_KEY, String(Math.round(width)));
+}

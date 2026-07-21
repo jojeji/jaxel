@@ -19,6 +19,10 @@ export interface Settings {
   /** Reopen the previous session's tabs on startup (AP12). The session itself is always
    * recorded (cheap, local) — this only gates the restore. */
   restoreSession: boolean;
+  /** Trefferliste im Suchpanel: zeigt Namespace-Praefixe (vor dem ":") in Pfad- und
+   * Namensspalten an. Default aus (Praefixe ausgeblendet) — betrifft nur diese Anzeige,
+   * nicht die Suche selbst, nicht Baum/Attribute-Panel. */
+  searchShowNamespaces: boolean;
 }
 
 const STORAGE_KEY = "jaxel.settings";
@@ -28,6 +32,7 @@ const DEFAULTS: Settings = {
   filterIncludesSubtree: false,
   autoReloadOnExternalChange: false,
   restoreSession: true,
+  searchShowNamespaces: false,
 };
 
 function load(): Settings {

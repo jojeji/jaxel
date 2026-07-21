@@ -55,6 +55,14 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
             />
             {t("settings.filterSubtree")}
           </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.searchShowNamespaces}
+              onChange={(event) => onChange({ searchShowNamespaces: event.target.checked })}
+            />
+            {t("settings.searchShowNamespaces")}
+          </label>
         </fieldset>
 
         <fieldset>

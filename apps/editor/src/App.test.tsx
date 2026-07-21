@@ -78,10 +78,18 @@ const BLOB_XML = `<?xml version="1.0" encoding="UTF-8"?>
   <meta hash="${B64_ATTR}"></meta>
 </vol>`;
 
+const NAMESPACED_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:rsm" xmlns:ram="urn:ram">
+  <ram:ExchangedDocument>
+    <ram:ID>INV-1</ram:ID>
+  </ram:ExchangedDocument>
+</rsm:CrossIndustryInvoice>`;
+
 const FILES: Record<string, string> = {
   "/fake/sample.xml": SAMPLE_XML,
   "/fake/second.xml": SECOND_XML,
   "/fake/blob.xml": BLOB_XML,
+  "/fake/namespaced.xml": NAMESPACED_XML,
 };
 
 const writeText = vi.fn().mockResolvedValue(undefined);
@@ -153,6 +161,14 @@ async function openSampleFile() {
   await user.click(openButtons[0]!);
   await screen.findByText("catalog");
   return user;
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 describe("Datei öffnen und Baumdarstellung", () => {
@@ -486,6 +502,72 @@ describe("Knoten kopieren/einfuegen ueber die System-Zwischenablage", () => {
 });
 
 describe("Suchen und Ersetzen (Panel unten)", () => {
+  it("Strg+F öffnet und fokussiert die Suche auch aus einem normalen Textfeld", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    const attributeValue = screen.getByDisplayValue("P-1");
+    attributeValue.focus();
+
+    fireEvent.keyDown(attributeValue, { key: "f", ctrlKey: true });
+
+    const query = await screen.findByPlaceholderText("Suchbegriff…");
+    await waitFor(() => expect(document.activeElement).toBe(query));
+  });
+
+  it("erneutes Cmd+F erhält Suchzustand und Treffer und markiert den ganzen Suchtext", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    const query = screen.getByPlaceholderText("Suchbegriff…") as HTMLInputElement;
+    await user.type(query, "person");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+    screen.getByPlaceholderText("Ersetzen durch…").focus();
+
+    fireEvent.keyDown(document.activeElement!, { key: "f", metaKey: true });
+
+    await waitFor(() => expect(document.activeElement).toBe(query));
+    expect(query).toHaveValue("person");
+    expect(query.selectionStart).toBe(0);
+    expect(query.selectionEnd).toBe("person".length);
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+  });
+
+  it("Strg+F übergeht keinen modalen Dialog", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    const setting = screen.getByRole("checkbox", { name: /Automatisch neu laden/ });
+    setting.focus();
+
+    const notCanceled = fireEvent.keyDown(setting, { key: "f", ctrlKey: true });
+
+    expect(notCanceled).toBe(false);
+    expect(document.activeElement).toBe(setting);
+    expect(screen.getByText("Einstellungen", { selector: "h2" })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Suchbegriff…")).not.toBeInTheDocument();
+  });
+
+  it("Strg+F bleibt ohne geöffnetes Dokument wirkungslos", () => {
+    renderApp();
+
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+
+    expect(screen.queryByPlaceholderText("Suchbegriff…")).not.toBeInTheDocument();
+  });
+
+  it("Strg+F lässt auch einen modalen Dialog auf dem Startscreen unberührt", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "Neues Dokument" })[0]!);
+    const xmlButton = screen.getByRole("button", { name: "XML" });
+    xmlButton.focus();
+
+    const notCanceled = fireEvent.keyDown(xmlButton, { key: "f", ctrlKey: true });
+
+    expect(notCanceled).toBe(false);
+    expect(document.activeElement).toBe(xmlButton);
+    expect(screen.queryByPlaceholderText("Suchbegriff…")).not.toBeInTheDocument();
+  });
+
   it("findet einen Wert-Treffer, expandiert den Baum automatisch und selektiert ihn", async () => {
     const user = await openSampleFile();
     await user.click(screen.getByRole("button", { name: "Suchen" }));
@@ -606,6 +688,197 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     expect(await screen.findByText("Anna")).toBeInTheDocument();
+  });
+
+  it("'Alle ersetzen' auf mehreren Knoten-Namen gleichzeitig ist ebenfalls mit Strg+Z rueckgaengig machbar", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "person");
+    await user.selectOptions(screen.getByRole("combobox"), "name");
+    await user.type(screen.getByPlaceholderText("Ersetzen durch…"), "human");
+    await user.click(screen.getByRole("button", { name: "Alle ersetzen" }));
+    expect(await screen.findByText(/2 Ersetzung/)).toBeInTheDocument();
+    expect(screen.getAllByText("human", { selector: ".tree-row__name" })).toHaveLength(2);
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(await screen.findAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+
+  it("'Alle ersetzen' mit Regex kombiniert mit 'Nur im ausgewaehlten Unterbaum' ist ebenfalls rueckgaengig machbar", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // P-1 selektieren + aufklappen
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByRole("checkbox", { name: "Nur im ausgewählten Unterbaum" }));
+    await user.click(screen.getByRole("checkbox", { name: "Regex" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "^Ber.*$");
+    await user.type(screen.getByPlaceholderText("Ersetzen durch…"), "Muenchen");
+    await user.click(screen.getByRole("button", { name: "Alle ersetzen" }));
+    expect(await screen.findByText(/1 Ersetzung/)).toBeInTheDocument();
+    expect(await screen.findByText("Muenchen", { selector: ".tree-row__preview" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(await screen.findByText("Berlin", { selector: ".tree-row__preview" })).toBeInTheDocument();
+  });
+
+  it("Pfeil hoch/runter bewegt nur die Markierung in der Trefferliste, Enter springt erst dann zum Treffer", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    const query = screen.getByPlaceholderText("Suchbegriff…");
+    await user.type(query, "person");
+    await user.keyboard("{Enter}"); // erstes Enter: frische Suche, springt sofort zu Treffer 1
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
+
+    await user.keyboard("{ArrowDown}");
+    expect(await screen.findByText("2/2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument(); // Baum bisher unveraendert
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByDisplayValue("P-2")).toBeInTheDocument();
+
+    await user.keyboard("{ArrowUp}"); // wrap zurueck zu Treffer 1
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("P-2")).toBeInTheDocument(); // weiterhin unveraendert
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
+  });
+
+  it("Aendern des Suchbegriffs und erneutes Enter startet eine frische Suche ab Treffer 1", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    const query = screen.getByPlaceholderText("Suchbegriff…");
+    await user.type(query, "person");
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+    await user.keyboard("{ArrowDown}");
+    expect(await screen.findByText("2/2")).toBeInTheDocument();
+
+    await user.clear(query);
+    await user.type(query, "berlin");
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText("1/1")).toBeInTheDocument();
+    expect(await screen.findByText("Berlin", { selector: ".tree-row__preview" })).toBeInTheDocument();
+  });
+
+  it("Ziehen am oberen Rand des Suchpanels aendert dessen Hoehe", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    const handle = screen.getByRole("separator", { name: "Suchpanel-Höhe ändern" });
+    const panel = handle.closest(".search-panel") as HTMLElement;
+    const initialHeight = parseInt(panel.style.height, 10);
+
+    fireEvent.pointerDown(handle, { clientY: 500 });
+    fireEvent.pointerMove(window, { clientY: 400 }); // nach oben gezogen -> Panel wird hoeher
+    fireEvent.pointerUp(window);
+
+    expect(parseInt(panel.style.height, 10)).toBeGreaterThan(initialHeight);
+  });
+
+  it("Dock-Umschalter verschiebt die Suche in eine Sidebar-Tableiste neben Attribute; Tab-Wechsel dort erhaelt den Suchzustand", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByRole("button", { name: "Suche an den rechten Rand andocken" }));
+
+    expect(screen.getByRole("tab", { name: "Attribute" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Suchen" })).toHaveAttribute("aria-selected", "true");
+
+    const query = screen.getByPlaceholderText("Suchbegriff…");
+    await user.type(query, "person");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    // Zur Attribute-Ansicht wechseln (Suchtab bleibt da) und wieder zurueck: Zustand erhalten.
+    await user.click(screen.getByRole("tab", { name: "Attribute" }));
+    expect(screen.getByPlaceholderText("Suchbegriff…")).not.toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Suchen" }));
+    expect(screen.getByPlaceholderText("Suchbegriff…")).toHaveValue("person");
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+  });
+
+  it("Ziehen am linken Rand der rechten Sidebar aendert deren Breite", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByRole("button", { name: "Suche an den rechten Rand andocken" }));
+
+    const handle = screen.getByRole("separator", { name: "Sidebar-Breite ändern" });
+    const sidebar = handle.closest(".right-sidebar") as HTMLElement;
+    const initialWidth = parseInt(sidebar.style.width, 10);
+
+    fireEvent.pointerDown(handle, { clientX: 500 });
+    fireEvent.pointerMove(window, { clientX: 400 }); // nach links gezogen -> Sidebar wird breiter
+    fireEvent.pointerUp(window);
+
+    expect(parseInt(sidebar.style.width, 10)).toBeGreaterThan(initialWidth);
+  });
+
+  it("Esc im Rechts-Dock schliesst nur den Suche-Tab (Sidebar bleibt, Suchzustand bleibt erhalten)", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByRole("button", { name: "Suche an den rechten Rand andocken" }));
+    const query = screen.getByPlaceholderText("Suchbegriff…");
+    await user.type(query, "person");
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByRole("tab", { name: "Attribute" })).toHaveAttribute("aria-selected", "true");
+    const searchTab = screen.getByRole("tab", { name: "Suchen" });
+    expect(searchTab).toBeInTheDocument();
+
+    await user.click(searchTab);
+    expect(screen.getByPlaceholderText("Suchbegriff…")).toHaveValue("person");
+  });
+
+  it("Rechtsklick auf einen Suchtreffer oeffnet ein Kontextmenue mit allen 3 Pfad-Varianten", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "person");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    const secondRow = screen.getByText("person[1]", { selector: ".search-panel__result-path" }).closest("tr")!;
+    fireEvent.contextMenu(secondRow);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("menuitem", { name: "Pfad kopieren" }));
+    expect(writeText).toHaveBeenCalledWith("person[1]");
+
+    fireEvent.contextMenu(secondRow);
+    await user.click(screen.getByRole("menuitem", { name: "Pfad kopieren (statisch)" }));
+    expect(writeText).toHaveBeenCalledWith("person");
+
+    fireEvent.contextMenu(secondRow);
+    await user.click(screen.getByRole("menuitem", { name: /Vollständigen Pfad kopieren/ }));
+    expect(writeText).toHaveBeenCalledWith("catalog.person");
+  });
+
+  it("blendet Namespace-Praefixe in der Trefferliste standardmaessig aus; Einstellung schaltet sie wieder ein", async () => {
+    vi.mocked(open).mockResolvedValueOnce("/fake/namespaced.xml");
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText(/CrossIndustryInvoice/); // Baum zeigt den Namespace-Praefix unveraendert
+
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "ExchangedDocument");
+    await user.click(screen.getByRole("button", { name: "Finden" }));
+    expect(await screen.findByText("1/1")).toBeInTheDocument();
+
+    // Default: Namespace-Praefixe ausgeblendet, sowohl im Pfad als auch im Treffer-Text.
+    expect(screen.getByText("ExchangedDocument", { selector: ".search-panel__result-path" })).toBeInTheDocument();
+    expect(screen.getByText("ExchangedDocument", { selector: ".search-panel__result-text" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: "Namespace-Präfixe in der Trefferliste anzeigen" }));
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+
+    expect(
+      screen.getByText("ram:ExchangedDocument", { selector: ".search-panel__result-path" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("ram:ExchangedDocument", { selector: ".search-panel__result-text" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -956,6 +1229,37 @@ describe("Absturz- und Fehler-Logging (AP15)", () => {
   });
 });
 
+describe("Schwebende Status- und Fehlermeldungen", () => {
+  it("stapelt Fehler und Status neueste zuerst und lässt beide getrennt schließen", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    vi.mocked(open).mockRejectedValueOnce(new Error("Dialog-Fehler"));
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    expect(await screen.findByText("Dialog-Fehler")).toBeInTheDocument();
+
+    await user.click(screen.getAllByText("person")[0]!);
+    await user.click(screen.getByRole("button", { name: "Pfad kopieren" }));
+    expect(await screen.findByText("Pfad kopiert")).toBeInTheDocument();
+
+    const viewport = document.querySelector(".toast-viewport")!;
+    expect(viewport).toBeInTheDocument();
+    expect(Array.from(viewport.querySelectorAll(".toast__message"), (node) => node.textContent)).toEqual([
+      "Pfad kopiert",
+      "Dialog-Fehler",
+    ]);
+    expect(document.querySelector(".app-error")).not.toBeInTheDocument();
+    expect(document.querySelector(".app-status")).not.toBeInTheDocument();
+
+    const toasts = viewport.querySelectorAll<HTMLElement>(".toast");
+    await user.click(within(toasts[0]!).getByRole("button", { name: "Meldung schließen" }));
+    expect(screen.queryByText("Pfad kopiert")).not.toBeInTheDocument();
+    expect(screen.getByText("Dialog-Fehler")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Meldung schließen" }));
+    expect(screen.queryByText("Dialog-Fehler")).not.toBeInTheDocument();
+  });
+});
+
 describe("Einstellungen", () => {
   it("oeffnet den Dialog, wechselt das Theme und persistiert es", async () => {
     const user = userEvent.setup();
@@ -1199,6 +1503,181 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
 
     expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
     expect(screen.getByText(/gibt es hier ungespeicherte Änderungen/)).toBeInTheDocument();
+  });
+
+  it("prüft den Dirty-Stand nach der asynchronen Dateiprüfung erneut", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: /Automatisch neu laden/ }));
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+
+    const pendingStat = deferred<{ mtimeMs: number; size: number }>();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return pendingStat.promise;
+      if (cmd === "read_text_file") return { content: SECOND_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "stat_file")).toBe(true));
+    await user.click(screen.getByText("catalog"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true });
+    await act(async () => pendingStat.resolve({ mtimeMs: 2000, size: 999 }));
+
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+    expect(screen.getByText(/gibt es hier ungespeicherte Änderungen/)).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Meine Version behalten" }));
+    expect(screen.queryByText("inventory")).not.toBeInTheDocument();
+  });
+
+  it("bricht Auto-Reload ab, wenn das Dokument während des Einlesens dirty wird", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: /Automatisch neu laden/ }));
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+
+    const pendingRead = deferred<{ content: string; encoding: string; mtimeMs: number; size: number }>();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") return pendingRead.promise;
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "read_text_file")).toBe(true));
+    await user.click(screen.getByText("catalog"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true });
+    await act(async () =>
+      pendingRead.resolve({ content: SECOND_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 }),
+    );
+
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+    expect(screen.getByText(/gibt es hier ungespeicherte Änderungen/)).toBeInTheDocument();
+    expect(screen.getByText("catalog")).toBeInTheDocument();
+    expect(screen.queryByText("inventory")).not.toBeInTheDocument();
+  });
+
+  it("verwirft Auto-Reload still, wenn während des Einlesens der Tab wechselt", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+    await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: /Automatisch neu laden/ }));
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+
+    const pendingRead = deferred<{ content: string; encoding: string; mtimeMs: number; size: number }>();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") return pendingRead.promise;
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "read_text_file")).toBe(true));
+    await user.click(screen.getByText("second.xml", { selector: ".tab__label" }));
+    await act(async () =>
+      pendingRead.resolve({ content: SECOND_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 }),
+    );
+
+    await waitFor(() => expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument());
+    expect(screen.getByText("inventory")).toBeInTheDocument();
+  });
+
+  it("ignoriert ein Prüfergebnis, wenn inzwischen ein anderes Dokument aktiv ist", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+    await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
+
+    const pendingStat = deferred<{ mtimeMs: number; size: number }>();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return pendingStat.promise;
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "stat_file")).toBe(true));
+    await user.click(screen.getByText("second.xml", { selector: ".tab__label" }));
+    await act(async () => pendingStat.resolve({ mtimeMs: 2000, size: 999 }));
+
+    await waitFor(() => expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument());
+    expect(screen.getByText("inventory")).toBeInTheDocument();
+  });
+
+  it("merkt die externe Änderung vor, solange ein anderer Dialog offen ist", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "stat_file")).toBe(true));
+
+    expect(screen.getByText("Einstellungen", { selector: "h2" })).toBeInTheDocument();
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+  });
+
+  it("quittiert beim Behalten den neuesten Dateistand und meldet erst spätere Änderungen erneut", async () => {
+    const user = await openSampleFile();
+    let diskStat = { mtimeMs: 2000, size: 200 };
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { ...diskStat };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+
+    diskStat = { mtimeMs: 3000, size: 300 };
+    await user.click(screen.getByRole("button", { name: "Meine Version behalten" }));
+    await waitFor(() => expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument());
+
+    fireEvent(window, new Event("focus"));
+    await waitFor(() =>
+      expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "stat_file")).toHaveLength(3),
+    );
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+
+    diskStat = { mtimeMs: 4000, size: 400 };
+    fireEvent(window, new Event("focus"));
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+  });
+
+  it("startet bei wiederholtem Behalten nur eine Quittierungsprüfung", async () => {
+    const user = await openSampleFile();
+    const pendingKeepStat = deferred<{ mtimeMs: number; size: number }>();
+    let statCalls = 0;
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") {
+        statCalls += 1;
+        return statCalls === 1 ? { mtimeMs: 2000, size: 200 } : pendingKeepStat.promise;
+      }
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    fireEvent(window, new Event("focus"));
+    const keepMine = await screen.findByRole("button", { name: "Meine Version behalten" });
+    fireEvent.click(keepMine);
+    fireEvent.click(keepMine);
+
+    expect(statCalls).toBe(2); // Fokusprüfung + genau eine Quittierungsprüfung
+    await act(async () => pendingKeepStat.resolve({ mtimeMs: 3000, size: 300 }));
+    await waitFor(() => expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument());
   });
 });
 

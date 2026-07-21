@@ -11,6 +11,34 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-21
+
+### Hinzugefügt
+
+- **Trefferliste als Tabelle:** Pfad und Treffer stehen jetzt sauber in Spalten untereinander.
+  Zu lange Pfade werden platzsparend gekürzt (die letzten zwei Segmente bleiben immer
+  vollständig sichtbar). Namespace-Präfixe (z. B. `ram:`) sind standardmäßig ausgeblendet,
+  lassen sich in den Einstellungen aber wieder einblenden.
+- **Rechtsklick auf einen Suchtreffer** kopiert dessen Pfad — indiziert, statisch oder
+  vollständig, genau wie im Baum.
+- **Tastaturnavigation in der Trefferliste:** Pfeil hoch/runter bewegt nur die Markierung,
+  Enter springt zum markierten Treffer; ein geänderter Suchbegriff startet mit Enter eine
+  frische Suche.
+- **Suchpanel ziehbar und andockbar:** Höhe per Ziehgriff anpassbar; wahlweise an den rechten
+  Rand andocken, wo es sich mit dem Eigenschaften-Panel eine Sidebar mit Tabs teilt.
+- **Zuverlässiges `Strg+F`:** öffnet die Suche bzw. fokussiert das bereits offene Suchfeld
+  zuverlässig und markiert den vorhandenen Suchbegriff komplett.
+- **Schwebende Status- und Fehlermeldungen:** ersetzen die bisherigen Banner im Layoutfluss —
+  Ein-/Ausblenden verschiebt Baum und Panels nicht mehr.
+
+### Behoben
+
+- **Baum sprang beim Auf-/Zuklappen:** Der gerade ein-/ausgeklappte Knoten blieb nicht an
+  seiner Bildschirmposition, sondern konnte nach unten wegspringen und so den Blickfokus
+  verlieren lassen.
+- **Reload-Dialog bei extern geänderten Dateien:** Ein Klick, der nur das Fenster
+  reaktivierte, konnte versehentlich als „Meine Version behalten" gewertet werden.
+
 ## [0.2.0] - 2026-07-20
 
 ### Hinzugefügt

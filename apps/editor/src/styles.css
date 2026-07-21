@@ -337,22 +337,88 @@ button.primary:hover:not(:disabled) {
   background: transparent;
 }
 
-/* ---------- Banner ---------- */
+/* ---------- Schwebende Meldungen ---------- */
 
-.app-error {
-  padding: 6px 12px;
-  background: var(--danger-dim);
-  color: var(--danger);
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
+.toast-viewport {
+  position: fixed;
+  z-index: 40;
+  top: 82px;
+  left: 50%;
+  width: min(520px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
-.app-status {
-  padding: 6px 12px;
-  background: var(--accent-dim);
+.toast {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  padding: 7px 8px 7px 12px;
+  background: var(--bg-1);
   color: var(--text-0);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
   font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.94;
+  pointer-events: auto;
+  animation: toast-in 140ms ease-out;
+}
+
+.toast:hover,
+.toast:focus-within {
+  opacity: 1;
+}
+
+.toast--status {
+  background: var(--accent-dim);
+}
+
+.toast--error {
+  background: var(--danger-dim);
+  color: var(--text-0);
+  border-left-color: var(--danger);
+}
+
+.toast__message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast__close {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: currentColor;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.toast__close:hover {
+  background: rgb(127 127 127 / 0.14);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
 }
 
 /* ---------- Hauptbereich ---------- */
@@ -786,14 +852,24 @@ kbd {
 .search-panel {
   flex-shrink: 0;
   background: var(--bg-1);
-  border-top: 1px solid var(--border);
   font-size: 12px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+
+.search-panel--bottom {
+  border-top: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
 
+.search-panel--right {
+  flex: 1;
+  height: 100%;
+}
+
 .search-panel__controls {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -852,52 +928,143 @@ kbd {
 }
 
 .search-panel__results {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 190px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   border-top: 1px solid var(--border);
 }
 
-.search-panel__result {
-  display: flex;
-  gap: 12px;
+/* Tabelle statt Flex-Zeile: Pfad- und Werte-Spalte stehen so je fuer sich sauber
+   untereinander (statt pro Zeile unterschiedlich breit zu sein). */
+.search-panel__results-table {
   width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 4px 14px;
+  border-collapse: collapse;
+  table-layout: fixed;
   font: var(--mono);
+}
+
+.search-panel__result-row {
   cursor: pointer;
 }
 
-.search-panel__result:hover:not(:disabled) {
+.search-panel__result-row:hover {
   background: var(--bg-2);
 }
 
-.search-panel__result--current,
-.search-panel__result--current:hover:not(:disabled) {
+.search-panel__result-row--current,
+.search-panel__result-row--current:hover {
   background: var(--accent-dim);
+}
+
+.search-panel__result-row--current > td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.search-panel__result-path {
-  color: var(--accent);
-  white-space: nowrap;
-}
-
+.search-panel__result-path,
 .search-panel__result-text {
-  color: var(--text-1);
+  padding: 4px 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.search-panel__result-path {
+  width: 58%;
+  color: var(--accent);
+}
+
+.search-panel__result-text {
+  width: 42%;
+  color: var(--text-1);
+}
+
 .search-panel__more {
   padding: 4px 14px;
   color: var(--text-2);
+}
+
+/* ---------- Ziehgriffe (Suchpanel-Höhe unten, Sidebar-Breite rechts) ---------- */
+
+.resize-handle {
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.resize-handle--row {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.resize-handle--column {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: var(--accent-dim);
+}
+
+/* ---------- Rechte Sidebar (Attribute/Suche als Tabs) ---------- */
+
+.right-sidebar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  border-left: 1px solid var(--border);
+  background: var(--bg-1);
+}
+
+.right-sidebar__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-sidebar__tabs {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.right-sidebar__tab {
+  flex: 1;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--text-1);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.right-sidebar__tab:hover {
+  background: var(--bg-2);
+}
+
+.right-sidebar__tab--active {
+  color: var(--text-0);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.right-sidebar__panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.right-sidebar__panel[hidden] {
+  display: none;
+}
+
+.right-sidebar .attributes-panel {
+  width: auto;
+  border-left: none;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ---------- Einstellungs-Dialog ---------- */

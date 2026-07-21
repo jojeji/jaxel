@@ -8,6 +8,7 @@ import {
   formatStaticPath,
   getPathSegments,
   resolveNodeBySegments,
+  truncatePathLabels,
 } from "../src/format/path.js";
 import { parseXml } from "../src/format/xml-import.js";
 
@@ -176,5 +177,54 @@ describe("formatFullPath (vollstaendiger Pfad)", () => {
     const { root } = parseXml("<x:wurzel><kind/></x:wurzel>");
     expect(computePaths(root, root).full).toBe("wurzel");
     expect(computePaths(root, root.children[0]!).full).toBe("wurzel.kind");
+  });
+});
+
+describe("truncatePathLabels", () => {
+  it("laesst den Pfad unveraendert, wenn er in die verfuegbare Breite passt", () => {
+    const result = truncatePathLabels(["a", "bb", "ccc"], { availableWidthPx: 8, charWidthPx: 1 });
+    expect(result).toBe("a.bb.ccc");
+  });
+
+  it("kuerzt ein einzelnes fruehes Segment mit '…' statt Punkt-Trenner, die letzten 2 bleiben voll", () => {
+    const labels = ["SupplyChainTradeTransaction", "URIUniversalCommunication", "URIID"];
+    const result = truncatePathLabels(labels, { availableWidthPx: 45, charWidthPx: 1 });
+    expect(result).toBe("SupplyChainTra…URIUniversalCommunication.URIID");
+  });
+
+  it("verteilt das Budget gleichmaessig auf mehrere fruehe Segmente", () => {
+    const labels = ["EarlyOne12345", "EarlyTwo67890", "Parent", "Leaf"];
+    const result = truncatePathLabels(labels, { availableWidthPx: 25, charWidthPx: 1 });
+    expect(result).toBe("EarlyOn…EarlyTw…Parent.Leaf");
+  });
+
+  it("laesst ein fruehes Segment unangetastet (mit '.'), wenn es ohnehin in sein Budget passt", () => {
+    const labels = ["Hi", "VeryLongEarlySegmentNameHere", "Parent", "Leaf"];
+    const result = truncatePathLabels(labels, { availableWidthPx: 20, charWidthPx: 1 });
+    expect(result).toBe("Hi.Very…Parent.Leaf");
+  });
+
+  it("laesst nichts kuerzen, wenn nach Abzug von minFullSegments keine fruehen Segmente uebrig bleiben", () => {
+    const result = truncatePathLabels(["OnlyOne"], { availableWidthPx: 3, charWidthPx: 1 });
+    expect(result).toBe("OnlyOne");
+  });
+
+  it("faellt bei extrem wenig Platz auf einen einzelnen '…'-Platzhalter vor den letzten 2 Segmenten zurueck", () => {
+    const result = truncatePathLabels(["A", "B", "Parent", "Leaf"], { availableWidthPx: 10, charWidthPx: 1 });
+    expect(result).toBe("…Parent.Leaf");
+  });
+
+  it("kuerzt nie, wenn charWidthPx <= 0 ist (Breite noch unbekannt)", () => {
+    const labels = ["VeryLongLabelThatWouldNormallyBeTruncated", "Parent", "Leaf"];
+    const result = truncatePathLabels(labels, { availableWidthPx: 1, charWidthPx: 0 });
+    expect(result).toBe(labels.join("."));
+  });
+
+  it("respektiert ein custom minFullSegments", () => {
+    const labels = ["EarlyOne12345", "EarlyTwo67890", "EarlyThree0123", "Leaf"];
+    const result = truncatePathLabels(labels, { availableWidthPx: 15, charWidthPx: 1, minFullSegments: 1 });
+    // Nur "Leaf" bleibt garantiert voll; die drei fruehen Segmente teilen sich das Restbudget.
+    expect(result.endsWith("Leaf")).toBe(true);
+    expect(result).not.toContain("EarlyThree0123"); // muss gekuerzt worden sein, sonst waere die Breite gesprengt
   });
 });

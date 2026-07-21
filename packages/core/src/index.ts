@@ -26,7 +26,7 @@ export { decodeBase64, looksLikeBase64 } from "./format/base64.js";
 export { parseJson } from "./format/json-import.js";
 export type { JsonExportDoc } from "./format/json-export.js";
 export { serializeJson } from "./format/json-export.js";
-export type { PathSegment } from "./format/path.js";
+export type { PathSegment, TruncatePathOptions } from "./format/path.js";
 export {
   computePaths,
   findAncestorChain,
@@ -36,6 +36,7 @@ export {
   formatStaticPath,
   getPathSegments,
   resolveNodeBySegments,
+  truncatePathLabels,
 } from "./format/path.js";
 
 export type { SearchMatch, SearchOptions, SearchScope } from "./search/search.js";

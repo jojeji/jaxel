@@ -10,11 +10,187 @@ Fünf neue Themes (Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast) sind fertig, 
 Headless-Screenshot der echten `styles.css` visuell geprüft (siehe Nachtrag unten) — noch nicht
 committet. **Nächster Schritt: PO-Klick-Review am echten Fenster** — wie bei AP9/AP13/AP14 stand
 in dieser Session kein Klick-Automationswerkzeug zur Verfügung (kein xdotool/ydotool/wtype/xte),
-daher sind Fehlerbanner-Logging, die ErrorBoundary-Fehlerseite, die Breadcrumbs, die
+  daher sind Fehlermeldungs-Logging, die ErrorBoundary-Fehlerseite, die Breadcrumbs, die
 Geschwister/Kind-Unterscheidung und die neuen Themes in der VOLLEN App-UI (Panels, Dialoge,
 Suchpanel) nur per jsdom-Interaktionstest bzw. isoliertem Baumzeilen-Mockup abgesichert, nicht
 in der echten Tauri-Oberfläche angesehen. Panic-Hook und Start-Log-Eintrag wurden dagegen real
-via `npm run dev` verifiziert (siehe AP15-Abschnitt), das war ohne Maus-Interaktion möglich.
+  via `npm run dev` verifiziert (siehe AP15-Abschnitt), das war ohne Maus-Interaktion möglich.
+
+## Nachtrag 2026-07-21 — Baum: Scroll-Position bleibt beim Auf-/Zuklappen erhalten
+
+- **Ursache** (`tree/TreeView.tsx`): Der virtualisierte Baum positioniert Zeilen absolut über
+  `top: index * ROW_HEIGHT`, die Scrollhöhe folgt aus `rows.length`. Klappt man einen Knoten zu,
+  schrumpft `rows` — lag `scrollTop` über der neuen, kürzeren Scrollhöhe, klemmt der Browser ihn
+  automatisch auf das neue Maximum. Da React davon nichts wusste, driftete die angeklickte Zeile
+  sichtbar von ihrer bisherigen Bildschirmposition weg ("springt runter") statt an Ort und Stelle
+  zu bleiben — verwirrend, weil der Blickfokus verloren geht.
+- **Fix 1 — Scroll-Anker beim Toggle**: Vor jedem Auf-/Zuklappen merkt sich ein Ref den Pixel-
+  Offset der geklickten Zeile innerhalb des sichtbaren Bereichs. Ein `useLayoutEffect` (abhängig
+  von `rows`) berechnet danach den neuen Index derselben Zeile und setzt `scrollTop` so, dass sie
+  exakt an derselben Bildschirmposition stehen bleibt (mit Fallback auf `Math.max(0, …)`, falls der
+  Browser mangels Restinhalt ohnehin nicht mehr scrollen kann — das ist kein Bug, sondern
+  unvermeidbar, wenn nach dem Zuklappen schlicht nicht mehr genug Inhalt für die alte
+  Scrollposition übrig ist).
+- **Fix 2 — stale `revealNodeId` entschärft**: Der bestehende "zu Knoten X scrollen"-Effekt (u. a.
+  für Suche, neue Geschwister/Kind-Knoten, Einfügen) hing an `[revealNodeId, rows, viewportHeight]`
+  — nötig, damit er nach dem Setzen erneut prüft, sobald die Vorfahren des Ziels aufgeklappt sind
+  (`rows` also aktualisiert). Nebenwirkung: er feuerte dadurch bei **jeder** späteren, unabhängigen
+  `rows`-Änderung erneut (z. B. beim Zuklappen eines völlig anderen Astes) und riss die Ansicht dann
+  zu einem längst erledigten, alten `revealNodeId` zurück. Ein Ref merkt sich jetzt, für welche
+  `revealNodeId` das Scrollen bereits erledigt wurde, sodass spätere, unabhängige `rows`-Änderungen
+  sie nicht erneut auslösen — ein echtes neues `revealNodeId` funktioniert unverändert (inkl. Retry,
+  falls die Vorfahren im selben Renderdurchgang noch nicht aufgeklappt sind).
+- **Verifikation**: 134/134 Editor-Tests weiterhin grün (jsdom kann echte Scroll-Pixel-Physik nicht
+  simulieren, siehe `ResizeObserverStub`), daher zusätzlich real per Playwright gegen den laufenden
+  Dev-Server nachgestellt: ~90-Zeilen-Baum mit Füllknoten vor/nach einem 20-Kinder-Knoten "Big",
+  weit heruntergescrollt, Y-Position von "Big" vor/nach dem Zuklappen verglichen — vor dem Fix
+  Sprung um mehrere hundert Pixel (u. a. durch die stale-`revealNodeId`-Interferenz aus vorherigen
+  Baumbearbeitungen), nach beiden Fixes exakte Differenz 0 und Screenshot-Vergleich bestätigt
+  unveränderte Nachbarzeilen.
+
+## Nachtrag 2026-07-21 — Trefferliste als Tabelle: Namespace-Kürzung, adaptive Pfad-Kürzung, Kontextmenü
+
+- **Anlass**: PO arbeitet mit einer ZUGFeRD/Cross-Industry-Invoice-XML (tief verschachtelt, viele
+  `rsm:`/`ram:`-Namespace-Prefixe) — die bisherige Trefferliste (Pfad+Text nebeneinander in einer
+  Flex-Zeile) skaliert dafür schlecht.
+- **Tabellenlayout** (`search/SearchPanel.tsx`, `styles.css`): Die Trefferliste ist jetzt eine echte
+  `<table>` mit zwei fest proportionierten Spalten (Pfad 58% / Treffer-Text 42%, `table-layout: fixed`)
+  statt einer Flex-Zeile pro `<li>` — Pfade und Werte stehen dadurch sauber untereinander.
+- **Namespace-Prefixe ausblenden** (`state/settings-store.ts`, `settings/SettingsDialog.tsx`): Neue
+  globale Einstellung `searchShowNamespaces` (Default **aus**) im bestehenden "Suche"-Fieldset des
+  Settings-Dialogs. Betrifft ausschließlich die Anzeige in der Trefferliste (Pfad-Spalte UND
+  Treffer-Text bei Name-/Attribut-Treffern) — Suche/Matching selbst läuft weiterhin gegen den vollen
+  Namen inkl. Prefix, Baum und Attribute-Panel bleiben unverändert.
+- **Adaptive Pfad-Kürzung** (`packages/core/src/format/path.ts`: neue reine, headless-testbare
+  Funktion `truncatePathLabels`): Die letzten 2 Pfadsegmente (Treffer + direkter Parent) bleiben immer
+  vollständig; frühere Vorfahren-Segmente teilen sich das anhand der tatsächlichen Spaltenbreite
+  berechnete Restbudget zu gleichen Zeichen-Anteilen und werden bei Bedarf mit „…" gekürzt (die
+  Ellipse ersetzt dabei den sonst üblichen „."-Trenner; ein Segment, das ohnehin in sein Budget passt,
+  bleibt unangetastet). Da die Pfad-Spalte eine Monospace-Schrift nutzt, genügt eine grobe
+  Zeichenbreiten-Konstante (`MONO_CHAR_WIDTH_PX`) statt echter Canvas-/DOM-Textmessung — ein
+  `ResizeObserver` auf dem Suchpanel selbst liefert die tatsächliche Breite (Fallback: „unbegrenzt",
+  solange keine Messung vorliegt — u. a. in jsdom-Tests, die dadurch unverändert den vollen,
+  ungekürzten Pfad sehen). **Bug gefangen und gefixt beim manuellen Test**: eine zu knapp bemessene
+  Sicherheitsmarge ließ die CSS-`text-overflow:ellipsis`-Rückfalllogik der Zelle gelegentlich noch
+  zusätzlich ins garantiert volle letzte Segment schneiden — Marge (`PATH_CELL_PADDING_PX`) und
+  Zeichenbreiten-Schätzung wurden konservativer gesetzt, seither hält die Garantie in allen getesteten
+  Breiten bis auf absichtlich pathologisch schmale Spalten (dort greift die CSS-Ellipse als letzter,
+  bekannter Fallback).
+- **Kontextmenü auf Suchtreffern** (`ui/ContextMenu.tsx` wiederverwendet): Rechtsklick auf eine
+  Trefferzeile öffnet dasselbe 3-Varianten-Menü wie im Baum ("Vollständigen Pfad kopieren" /
+  "Pfad kopieren" / "Pfad kopieren (statisch)"), operiert aber auf dem Treffer-Knoten statt der
+  Baum-Auswahl. `App.tsx`s bisheriges `handleCopyPath` (nur für `selectedRow`) wurde dafür in ein
+  knotenparametrisiertes `copyPath(node, kind)` umgezogen, `handleCopyPath` ist jetzt nur noch ein
+  dünner Wrapper für den Baum-Fall. Rechtsklick selektiert den Treffer NICHT zusätzlich im Baum
+  (bewusst: reine Kopier-Aktion, kein Navigations-Nebeneffekt).
+- **Verifikation**: 85/85 Core-Tests (8 neue für `truncatePathLabels`), 132/132 Editor-Tests (2 neue:
+  Kontextmenü-Kopieren auf Suchtreffern, Namespace-Umschalten via Settings), `tsc --noEmit` +
+  `vite build` sauber. Zusätzlich real per Playwright gegen den laufenden Dev-Server geprüft: eine
+  ZUGFeRD-artige 5-Ebenen-Kette (`rsm:SupplyChainTradeTransaction` → … → `ram:URIID`) im Baum
+  aufgebaut, Trefferliste bei voller Breite UND in der schmal gezogenen rechten Sidebar
+  gegengeprüft (dabei den oben genannten Truncation-Bug gefunden und behoben), Namespace-Umschalter
+  und Kontextmenü mit allen 3 Kopier-Varianten bestätigt.
+
+## Nachtrag 2026-07-21 — Tastaturnavigation in der Trefferliste, ziehbares und andockbares Suchpanel
+
+- **Pfeiltasten-Navigation** (`search/SearchPanel.tsx`): Im Suchfeld bewegen Pfeil-hoch/-runter nur
+  die Markierung innerhalb der bestehenden Trefferliste (mit Wraparound), ohne den Baum zu berühren
+  — so kann man durchblättern, während man den Suchbegriff noch ändern könnte. Enter hat jetzt zwei
+  Bedeutungen: hat sich der Suchbegriff seit der letzten Suche geändert (oder gibt es noch keine
+  Treffer), startet Enter eine frische Suche und springt sofort zu Treffer 1 (wie bisher); ist der
+  Suchbegriff unverändert, springt Enter zum aktuell markierten Treffer. Ein `searchedQuery`-State
+  hält fest, für welchen Suchbegriff die aktuelle Trefferliste berechnet wurde, um diese beiden
+  Fälle zu unterscheiden. Die bestehenden Weiter/Zurück-Buttons springen weiterhin sofort bei jedem
+  Klick (unverändert) — nur die neue Tastatur-Interaktion im Suchfeld ist zweistufig.
+- **Ziehbare Panel-Höhe** (`ui/ResizeHandle.tsx`, `search/SearchPanel.tsx`): Ein neuer, wiederverwend-
+  barer `ResizeHandle` (Pointer-Events, `row`/`column`-Achse) sitzt als dünner Griff am oberen Rand
+  des unten angedockten Suchpanels. Die feste `max-height: 190px` der Trefferliste ist einer
+  flexiblen Höhe gewichen (`flex: 1 1 auto`), die Panel-Höhe selbst wird gezogen (140px..
+  `Fensterhöhe − 200px`) und in `localStorage` gemerkt (`state/local-prefs.ts`,
+  `getSearchPanelHeight`/`setSearchPanelHeight`).
+- **Andockbar an den rechten Rand** (`panels/RightSidebar.tsx`, `App.tsx`): Ein neuer Dock-Umschalter
+  am Suchpanel (Icon-Button) wechselt zwischen „unten“ (bisheriges Verhalten) und „rechts“. Rechts
+  angedockt teilen sich Attribute-Panel und Suche eine neue `RightSidebar`-Komponente mit zwei Tabs;
+  die Breite ist über einen zweiten `ResizeHandle` an der linken Kante ziehbar (220px..640px,
+  ebenfalls persistiert). Die Tab-Leiste bleibt dauerhaft sichtbar, solange rechts angedockt ist —
+  Esc/× im Suche-Tab wechselt nur zum Attribute-Tab zurück (Suchbegriff, Trefferliste, Cursor bleiben
+  im Hintergrund erhalten), erst `Strg+F` schaltet aktiv wieder auf den Suche-Tab um. Im unten
+  angedockten Modus ist das Schließverhalten unverändert (voller Unmount inkl. Filter-Reset).
+- **Bewusste Vereinfachung**: Das Umschalten des Dock-*Seite* selbst (unten ↔ rechts) setzt die
+  laufende Suchsitzung zurück (neue Komponentenposition im Render-Baum, kein Zustandstransfer) —
+  nur der *Tab-Wechsel innerhalb* des Rechts-Docks erhält den Zustand. Das war explizit mit dem PO
+  abgestimmt (Grilling-Runde) und nicht Teil des Auftrags, den laufenden Suchlauf über den
+  Dock-Wechsel hinweg zu erhalten.
+- **jsdom-Lücke geschlossen** (`test-setup.ts`): jsdom kennt weder `scrollIntoView` (Trefferliste
+  scrollt bei Pfeiltasten-Navigation ins Sichtfeld) noch `PointerEvent` (Resize-Griffe) — beides per
+  dünnem Polyfill/optionalem Aufruf abgefangen, betrifft nur die Testumgebung.
+- **Verifikation**: 130/130 Editor-Tests (6 neue: Pfeiltasten+Enter, Suchbegriff-Wechsel, Höhen-Resize,
+  Dock-Umschalter mit Tab-Zustandserhalt, Breiten-Resize, Esc im Rechts-Dock), 77/77 Core-Tests,
+  `tsc --noEmit` und `vite build` in `apps/editor` sauber. Zusätzlich real gegen einen laufenden
+  `npm run dev`-Server (Vite auf Port 1420, aus einer vorherigen Sitzung noch aktiv) mit Playwright
+  durchgeklickt und per Screenshot geprüft (Neues Dokument → zwei Kindknoten → Suche → Pfeil-runter
+  bewegt nur die Markierung → Enter springt → Höhe ziehen → rechts andocken → Tab-Wechsel erhält
+  Suchzustand → Breite ziehen → Esc → zurück nach unten andocken) — keine neuen Konsolenfehler,
+  Layout bricht bei keiner Fensterbreite in den Screenshots.
+
+## Nachtrag 2026-07-21 — zuverlässiges Strg+F und schwebende Meldungen
+
+- **Suchfokus** (`App.tsx`, `search/SearchPanel.tsx`): `Strg+F`/`Cmd+F` wird nun vor der generischen
+  Textfeld-Ausnahme behandelt. Bei aktivem Dokument öffnet der Shortcut das Suchpanel und fokussiert
+  immer das Suchfeld; bei bereits offener Suche bleibt der komplette lokale Suchzustand erhalten und
+  der vorhandene Begriff wird vollständig markiert. Modale Dialoge behalten bewusst den Fokus, der
+  Startscreen bleibt ohne Reaktion.
+- **Layoutstabile Toasts** (`ui/Toast.tsx`, `styles.css`): Die bisherigen Fehler-/Statusbanner im
+  Flex-Fluss wurden durch einen festen Stapel oben mittig ersetzt. Ein-/Ausblenden verändert daher
+  weder Baum- noch Panel-Geometrie. Die Karten sind leicht transparent, verwenden ausschließlich
+  vorhandene Theme-Variablen, respektieren `prefers-reduced-motion` und besitzen zugängliche
+  Live-Regionen sowie einen zweisprachig beschrifteten `×`-Button.
+- **Zeitverhalten**: Statusmeldungen schließen nach 4 Sekunden, Fehler nach 8 Sekunden. Hover oder
+  Tastaturfokus pausiert exakt die verbleibende Zeit. Fehler und Status können gleichzeitig sichtbar sein, die
+  neuere Meldung steht oben; identischer neuer Text erhält eine neue Ereignis-ID und startet seinen
+  Timer erneut. Alte Timer können durch ID-Prüfung keine neuere Meldung schließen.
+- **Bewusste Vereinfachungen/offen**: Kein globaler Notification-Service, keine Historie/Queue und
+  keine konfigurierbare Position oder Dauer. Der Root-Dev-Modus wurde gestartet, sein GUI-Logstream
+  war in dieser Sitzung jedoch nicht auswertbar; Transparenz, Hover und Position benötigen deshalb
+  noch einen manuellen PO-Blick im echten Fenster. Der vollständige Vite-Produktionsbuild war sauber.
+- **Verifikation**: 124/124 Editor-Tests (13 neue Suchfokus-/Toast-Tests), 77/77 Core-Tests,
+  `tsc --noEmit` in beiden Workspaces und `npm run build --workspace=@jaxel/editor` sauber.
+
+## Nachtrag 2026-07-21 — Reload-Dialog bei externen Änderungen
+
+- **Ursache behoben** (`ui/ReloadDialog.tsx`): Der Klick, der das Tauri-Fenster reaktiviert,
+  konnte nach der asynchronen `stat_file`-Antwort noch auf dem frisch eingeblendeten Overlay
+  landen und wurde dort als „Meine Version behalten" ausgeführt. Das Reload-Overlay ignoriert
+  Hintergrundklicks jetzt vollständig; andere Dialoge behalten ihr bisheriges Verhalten.
+- **Explizite, sichere Tastaturentscheidung**: `Escape` entspricht „Meine Version behalten".
+  Bei einem sauberen Dokument sind Fokus und Primärstil auf „Neu laden", bei einem dirty
+  Dokument auf „Meine Version behalten". `Tab`/`Shift+Tab` bleiben zwischen den beiden Aktionen;
+  nach dem Schließen wird der vorherige Fokus wiederhergestellt. Der Dialog besitzt nun außerdem
+  native Dialog-Semantik (`role="dialog"`, `aria-modal`).
+- **Asynchrone Fokusprüfung abgesichert** (`App.tsx`): Nach jeder `stat_file`-Antwort werden
+  aktives Dokument und Dirty-Stand nochmals live geprüft; ältere parallele Prüfungen und Antworten
+  für einen inzwischen gewechselten Tab werden verworfen. So kann eine zwischen Fokus und Antwort
+  entstandene lokale Änderung niemals vom Auto-Reload überschrieben werden. Eine zweite Live-
+  Bedingung läuft nach `read_text_file` unmittelbar vor dem Store-Austausch und schließt denselben
+  Datenverlustfall auch für Änderungen während des eigentlichen Einlesens. Wird der Tab während
+  des Einlesens gewechselt, wird der Abbruch dagegen still verworfen statt einen Dialog für das
+  nun inaktive Dokument zu öffnen.
+- **Keine gestapelten Dialoge**: Eine erkannte externe Änderung bleibt als einzelner Pending-Hinweis
+  bestehen, solange Einstellungen, Neu-Dokument-, Schließen-, Über- oder Base64-Dialog offen sind,
+  und wird erst danach angezeigt.
+- **Änderungen gebündelt** (`state/document-store.ts`): „Meine Version behalten" liest beim Klick
+  nochmals mtime+Größe und quittiert nur diese neuesten Beobachtungsmetadaten. Baum, `sourceText`,
+  Dirty-Flag und CommandBus bleiben unverändert. Zwischenstände häufen sich daher nicht als
+  Meldungen; Änderungen nach der Quittierung werden weiterhin erkannt. Wiederholte Klicks oder
+  Escape-Ereignisse während dieser Prüfung werden synchron zusammengefasst.
+- **Bewusste Vereinfachungen/offen**: Kein allgemeines Modal-Framework und keine Änderungen an
+  anderen Dialogen. Lösch-/Verschiebe-Fälle externer Dateien bleiben wie zuvor außerhalb dieses
+  Features. Der Aktivierungsklick selbst konnte mangels Mausautomation nicht automatisiert im
+  echten Fenster ausgeführt werden; sein problematischer Backdrop-Pfad ist durch den neuen
+  Interaktionstest abgedeckt.
+- **Verifikation**: 111/111 Editor-Tests (davon 13 neue Reload-Dialog-/Race-Tests), 77/77 Core-Tests
+  und `tsc --noEmit` in beiden Workspaces sauber. `npm run dev` wurde aus dem Wurzelverzeichnis
+  gestartet; Vite, Rust-Kompilierung und `target/debug/jaxel` liefen erfolgreich an.
 
 ## Nachtrag 2026-07-20 — GitHub-Actions-Release-Workflow
 
@@ -248,7 +424,8 @@ Außerdem noch offen: PO-Klick-Review von AP9–AP15, PO-Test der neuen Linux-Da
   der zu schließende Tab-Key danach aus dem tatsächlichen Speicherpfad neu abgeleitet
   (`tabKey` ist dafür jetzt aus `document-store.ts` exportiert).
 - **Bewusste Vereinfachungen**: Kein Strg+W-Shortcut (gab es vorher auch nicht, Schließen läuft
-  über den Tab-×-Button); keine Escape-Behandlung im Dialog (konsistent mit ReloadDialog).
+  über den Tab-×-Button); keine Escape-Behandlung im Dialog (damals konsistent mit ReloadDialog;
+  dessen Verhalten wurde am 2026-07-21 bewusst geändert).
 - **Verifikation**: 70/70 Editor-Tests (8 neu: Tab dirty → Dialog/Abbrechen, Nicht speichern,
   Speichern+Schließen, sauberer Tab ohne Dialog, Fokus-Tab stumm, Fenster-Schließen abgefangen +
   destroy, Fenster-Schließen sauber ungehindert, „Alle speichern" mit zwei Dokumenten), 65/65

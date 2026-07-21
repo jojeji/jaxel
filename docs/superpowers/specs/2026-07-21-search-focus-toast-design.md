@@ -54,8 +54,9 @@ auf das Suchfeld. Ein Effect reagiert auf Änderungen der Prop, ruft `focus()` u
 
 ### `App`
 
-`App` hält den Fokus-Request als Zähler. Der globale Keydown-Handler prüft bei `Strg+F` zuerst aktives
-Dokument und Modalzustand, verhindert dann die Browser-Suche, öffnet das Panel und erhöht den Zähler.
+`App` hält den Fokus-Request als Zähler. Der globale Keydown-Handler prüft bei `Strg+F` zuerst das
+aktive Dokument und verhindert dann die Browser-Suche. Bei offenem Modal bleibt es dabei;
+andernfalls öffnet er das Panel und erhöht den Zähler.
 Die beiden Meldungskanäle halten kleine Einträge `{ id, message, kind }`; eine monoton steigende ID
 macht auch identische Folgemeldungen zu neuen Ereignissen und bestimmt die kanalübergreifende
 Reihenfolge. Kleine Setter-Helfer ersetzen die bisherigen String-Setter an den bestehenden
@@ -65,7 +66,7 @@ im Dokumentfluss.
 ### `Toast`
 
 Eine neue, UI-lokale Komponente erhält Variante, Text, Dauer und `onClose`. Sie kapselt Timer,
-Restzeitberechnung, Hover-Pause, Close-Button und barrierefreie Live-Region-Semantik. Fehler nutzen
+Restzeitberechnung, Hover-/Fokus-Pause, Close-Button und barrierefreie Live-Region-Semantik. Fehler nutzen
 eine assertive, Statusmeldungen eine höfliche Ankündigung. Die Komponente enthält keine
 Domänenlogik und keinen globalen Store.
 
@@ -75,7 +76,8 @@ Domänenlogik und keinen globalen Store.
   repräsentiert; ein alter Timer darf keine neuere Meldung desselben Kanals löschen.
 - Unmount räumt jeden Timer auf.
 - Wiederholtes `Strg+F` erzeugt keinen zweiten Suchzustand und löscht keine Treffer.
-- Ein modaler Dialog behält Fokusfalle und Escape-Verhalten; der Suchshortcut greift dort nicht ein.
+- Ein modaler Dialog behält Fokusfalle und Escape-Verhalten; der Suchshortcut öffnet dort weder die
+  Jaxel- noch die native Webview-Suche.
 - Toast-Hover beeinflusst nicht den Fokus des darunterliegenden Editors. Die Karte kann Inhalte
   optisch überdecken, verschiebt sie aber nie.
 
@@ -85,7 +87,7 @@ Domänenlogik und keinen globalen Store.
   Texteingabefeld; vollständige Textauswahl; Suchzustand bleibt erhalten; modaler Dialog blockiert;
   Startscreen bleibt unverändert.
 - Toast-Komponententests mit Fake Timers: Status nach 4 s, Fehler nach 8 s, manuelles Schließen,
-  Restzeit bei Hover, Timer-Neustart bei neuer Meldung und Cleanup beim Unmount.
+  Restzeit bei Hover und Tastaturfokus, Timer-Neustart bei neuer Meldung und Cleanup beim Unmount.
 - App-Integrationstest: Fehler und Status gleichzeitig, getrennt schließbar, fester Toast-Container
   statt Banner im Flex-Layout.
 - Abschluss gemäß Projektvorgabe: `npm test`, `npm run typecheck`, `npm run dev` aus dem Root und

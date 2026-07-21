@@ -57,7 +57,7 @@ immer als Annahme kennzeichnen und in `docs/status.md` dokumentieren.
    offene Punkte); bei sichtbaren Feature-Änderungen `docs/benutzerhandbuch.md` nachziehen; neue
    grundsätzliche Entscheidungen in `docs/entscheidungen.md` anhängen (nicht bestehende Einträge
    umschreiben).
-4. Nach größeren Arbeitspaketen: `graphify`- bzw. `understand`-Skill laufen lassen, damit der
-   Wissensgraph aktuell bleibt und Stellen im Code wiederauffindbar sind.
+4. Nach größeren Arbeitspaketen: `graphify`-Skill laufen lassen, damit der
+   Wissensgraph aktuell bleibt und Stellen im Code wiederauffindbar sind. Understand kann erstmal so bleiben. Hier aktualisieren wir manuell
 5. Karpathy-Guidelines gelten: keine Features über den Auftrag hinaus, chirurgische Änderungen,
    Annahmen explizit machen, Erfolgskriterien vor der Umsetzung definieren.

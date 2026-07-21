@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
@@ -48,12 +48,22 @@ import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
 import { tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
-import { getLastDir, rememberLastDir, addRecentFile, getStoredSession, storeSession } from "./state/local-prefs.js";
+import {
+  getLastDir,
+  rememberLastDir,
+  addRecentFile,
+  getStoredSession,
+  storeSession,
+  getSearchDockSide,
+  setSearchDockSide,
+  type SearchDockSide,
+} from "./state/local-prefs.js";
 import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
 import { FocusBreadcrumb } from "./tree/FocusBreadcrumb.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
 import { buildFilterKeepSet, flattenFiltered } from "./tree/filter.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
+import { RightSidebar, type SidebarTab } from "./panels/RightSidebar.js";
 import { SearchPanel } from "./search/SearchPanel.js";
 import { TabBar } from "./tabs/TabBar.js";
 import { SettingsDialog } from "./settings/SettingsDialog.js";
@@ -62,6 +72,7 @@ import { NewDocumentDialog } from "./welcome/NewDocumentDialog.js";
 import { IconButton } from "./ui/IconButton.js";
 import { ContextMenu, type ContextMenuItem } from "./ui/ContextMenu.js";
 import { ReloadDialog } from "./ui/ReloadDialog.js";
+import { Toast } from "./ui/Toast.js";
 import { CloseConfirmDialog } from "./ui/CloseConfirmDialog.js";
 import { Base64PreviewDialog } from "./ui/Base64PreviewDialog.js";
 import { AboutDialog } from "./ui/AboutDialog.js";
@@ -69,6 +80,15 @@ import { AboutDialog } from "./ui/AboutDialog.js";
 function isTextInput(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
+
+interface ToastEntry {
+  id: number;
+  kind: "status" | "error";
+  message: string;
+}
+
+const STATUS_TOAST_DURATION_MS = 4_000;
+const ERROR_TOAST_DURATION_MS = 8_000;
 
 export function App(): React.ReactElement {
   const { t } = useI18n();
@@ -86,14 +106,20 @@ export function App(): React.ReactElement {
     activate,
     openFocusTab,
     retargetFocusTab,
+    acknowledgeExternalChange,
     reloadFile,
   } = useJaxelDocuments();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
+  const nextToastIdRef = useRef(0);
+  const [errorToast, setErrorToast] = useState<ToastEntry | null>(null);
+  const [statusToast, setStatusToast] = useState<ToastEntry | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchFocusRequest, setSearchFocusRequest] = useState(0);
+  const [searchDockSide, setSearchDockSideState] = useState<SearchDockSide>(getSearchDockSide);
+  /** Which tab is active in the right-docked sidebar; irrelevant while docked at the bottom. */
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("attributes");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [revealNodeId, setRevealNodeId] = useState<string | null>(null);
@@ -101,7 +127,7 @@ export function App(): React.ReactElement {
   const [filterMatches, setFilterMatches] = useState<SearchMatch[] | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [reloadPrompt, setReloadPrompt] = useState<{ filePath: string; isDirty: boolean } | null>(null);
+  const [reloadPrompt, setReloadPrompt] = useState<{ filePath: string } | null>(null);
   /** Pending "ungespeicherte Änderungen" question: a single tab close, or the whole window. */
   const [closePrompt, setClosePrompt] = useState<
     { kind: "tab"; key: string; filePath: string; focusNodeId: string | null } | { kind: "window" } | null
@@ -110,6 +136,23 @@ export function App(): React.ReactElement {
   /** Decoded Base64 TEXT waiting in the preview dialog (binary opens externally instead). */
   const [base64Preview, setBase64Preview] = useState<{ text: string; format: "xml" | "json" | null } | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
+  const externalCheckIdRef = useRef(0);
+  const performReloadRef = useRef<(filePath: string, onlyIfClean?: boolean) => Promise<void>>(() => Promise.resolve());
+  const keepMinePendingRef = useRef(false);
+  const otherDialogOpen = settingsOpen || newDocOpen || closePrompt !== null || aboutOpen || base64Preview !== null;
+  const reloadPromptDoc = reloadPrompt ? (docs.find((doc) => doc.filePath === reloadPrompt.filePath) ?? null) : null;
+  const modalDialogOpen = otherDialogOpen || reloadPromptDoc !== null;
+  const visibleToasts = [errorToast, statusToast]
+    .filter((toast): toast is ToastEntry => toast !== null)
+    .sort((a, b) => b.id - a.id);
+
+  function setError(message: string | null): void {
+    setErrorToast(message === null ? null : { id: ++nextToastIdRef.current, kind: "error", message });
+  }
+
+  function setStatus(message: string | null): void {
+    setStatusToast(message === null ? null : { id: ++nextToastIdRef.current, kind: "status", message });
+  }
 
   // App version for the "Über"/About dialog — read from Tauri (mirrors package.json /
   // tauri.conf.json); unavailable outside a real Tauri window (e.g. plain `vite` dev/tests).
@@ -127,11 +170,11 @@ export function App(): React.ReactElement {
   // Globale Absturzspuren (AP15 Story 2, 3): window.onerror/unhandledrejection landen im Log.
   useEffect(() => installGlobalErrorLogging(), []);
 
-  // Jede Fehlermeldung, die als rotes Banner erscheint, wird auch geloggt (AP15 Story 5) —
+  // Jede Fehlermeldung, die als Toast erscheint, wird auch geloggt (AP15 Story 5) —
   // eine einzige Stelle statt aller bestehenden setError-Aufrufe.
   useEffect(() => {
-    if (error) logError("banner", error);
-  }, [error]);
+    if (errorToast) logError("banner", errorToast.message);
+  }, [errorToast]);
 
   const trueRoot = activeDoc?.document.root ?? null;
   const revision = activeDoc?.document.revision ?? 0;
@@ -256,9 +299,13 @@ export function App(): React.ReactElement {
   // 2026-07-18, Desktop-Reife #1). Registered once; the handler reads the live docs via ref.
   // Unavailable outside a real Tauri window (plain `vite` dev / jsdom) — then nothing to hook.
   const docsRef = useRef(docs);
-  useEffect(() => {
+  const activeFilePathRef = useRef<string | null>(activeDoc?.filePath ?? null);
+  const settingsRef = useRef(settings);
+  useLayoutEffect(() => {
     docsRef.current = docs;
-  }, [docs]);
+    activeFilePathRef.current = activeDoc?.filePath ?? null;
+    settingsRef.current = settings;
+  }, [activeDoc?.filePath, docs, settings]);
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | null = null;
@@ -393,7 +440,7 @@ export function App(): React.ReactElement {
    * (not ids — the fresh parse assigns entirely new ids) before reloading, then resolved
    * against the new tree afterwards so the view stays as close as possible to where it was.
    */
-  async function performReload(filePath: string): Promise<void> {
+  async function performReload(filePath: string, onlyIfClean = false): Promise<void> {
     setReloadPrompt(null);
     const isActiveDoc = activeDoc?.filePath === filePath;
     let selectionSegments: PathSegment[] | null = null;
@@ -408,12 +455,47 @@ export function App(): React.ReactElement {
         expandedSegmentsList.push(getPathSegments(node, findAncestorChain(trueRoot, node) ?? []));
       }
     }
-    const { selectedId: newSelectedId, expandedIds } = await reloadFile(filePath, selectionSegments, expandedSegmentsList);
+    const reloadResult = await reloadFile(
+      filePath,
+      selectionSegments,
+      expandedSegmentsList,
+      onlyIfClean
+        ? () => {
+            const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
+            return activeFilePathRef.current === filePath && currentDoc?.isDirty === false;
+          }
+        : undefined,
+    );
+    if (!reloadResult) {
+      const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
+      if (activeFilePathRef.current === filePath && currentDoc?.isDirty) setReloadPrompt({ filePath });
+      return;
+    }
+    const { selectedId: newSelectedId, expandedIds } = reloadResult;
     if (isActiveDoc) {
       setSelectedId(newSelectedId);
       setExpanded(new Set(expandedIds));
     }
     setStatus(t("reload.reloaded").replace("{name}", fileNameOf(filePath)));
+  }
+  useLayoutEffect(() => {
+    performReloadRef.current = performReload;
+  });
+
+  async function handleKeepMine(filePath: string): Promise<void> {
+    if (keepMinePendingRef.current) return;
+    keepMinePendingRef.current = true;
+    try {
+      const stat = await invoke<{ mtimeMs: number; size: number }>("stat_file", { path: filePath });
+      if (docsRef.current.some((doc) => doc.filePath === filePath)) {
+        acknowledgeExternalChange(filePath, stat.mtimeMs, stat.size);
+      }
+    } catch {
+      // Keeping the in-memory version remains valid even if the file vanished meanwhile.
+    } finally {
+      keepMinePendingRef.current = false;
+      setReloadPrompt((current) => (current?.filePath === filePath ? null : current));
+    }
   }
 
   // External-change detection (docs/entscheidungen.md 2026-07-18 #4): checked only when the
@@ -423,14 +505,19 @@ export function App(): React.ReactElement {
   useEffect(() => {
     function handleFocus(): void {
       if (!activeDoc || activeDoc.isUntitled) return;
-      const { filePath, isDirty, lastKnownMtimeMs, lastKnownSize } = activeDoc;
+      const { filePath } = activeDoc;
+      const checkId = ++externalCheckIdRef.current;
       invoke<{ mtimeMs: number; size: number }>("stat_file", { path: filePath })
         .then((stat) => {
-          if (stat.mtimeMs === lastKnownMtimeMs && stat.size === lastKnownSize) return; // unchanged
-          if (!isDirty && settings.autoReloadOnExternalChange) {
-            void performReload(filePath);
+          if (checkId !== externalCheckIdRef.current || activeFilePathRef.current !== filePath) return;
+          const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
+          if (!currentDoc || (stat.mtimeMs === currentDoc.lastKnownMtimeMs && stat.size === currentDoc.lastKnownSize)) {
+            return;
+          }
+          if (!currentDoc.isDirty && settingsRef.current.autoReloadOnExternalChange) {
+            void performReloadRef.current(filePath, true);
           } else {
-            setReloadPrompt({ filePath, isDirty });
+            setReloadPrompt({ filePath });
           }
         })
         .catch(() => {
@@ -738,8 +825,23 @@ export function App(): React.ReactElement {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
-      if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
       const ctrl = event.ctrlKey || event.metaKey;
+      if (ctrl && event.key.toLowerCase() === "f") {
+        if (modalDialogOpen) {
+          event.preventDefault();
+          return;
+        }
+        if (!activeDoc) return;
+        event.preventDefault();
+        if (searchDockSide === "right") {
+          setSidebarTab("search");
+        } else {
+          setSearchOpen(true);
+        }
+        setSearchFocusRequest((request) => request + 1);
+        return;
+      }
+      if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
 
       if (ctrl && event.key.toLowerCase() === "o") {
         event.preventDefault();
@@ -808,9 +910,6 @@ export function App(): React.ReactElement {
         } else {
           handleAddSibling();
         }
-      } else if (ctrl && event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        setSearchOpen(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -830,16 +929,42 @@ export function App(): React.ReactElement {
     selectAndReveal(match.node);
   }
 
-  function getMatchPath(match: SearchMatch): string {
-    if (!root) return "";
-    // Defensive: a match can stem from an older document state (stale render right
-    // around a tab switch or after structural edits) — never let path resolution
-    // crash the whole app over a result-list label.
-    try {
-      return computePaths(root, match.node).indexed;
-    } catch {
-      return "";
+  /** Bottom -> right keeps the search session but moves it into the sidebar tab, active
+   * immediately. Right -> bottom re-opens the bottom bar (the sidebar falls back to Attribute). */
+  function handleToggleSearchDock(): void {
+    const next: SearchDockSide = searchDockSide === "bottom" ? "right" : "bottom";
+    setSearchDockSide(next);
+    setSearchDockSideState(next);
+    if (next === "right") {
+      setSidebarTab("search");
+    } else {
+      setSearchOpen(true);
     }
+  }
+
+  /** Bottom dock: closing really ends the session (unmounts, clears the tree filter).
+   * Right dock: closing just switches the sidebar back to the attributes tab — the search
+   * component stays mounted in the background with its query/matches intact. */
+  function handleSearchClose(): void {
+    if (searchDockSide === "right") {
+      setSidebarTab("attributes");
+      return;
+    }
+    setFilterMatches(null);
+    setSearchOpen(false);
+  }
+
+  /** Renderable path segments (root dropped, like formatIndexedPath) for one search match —
+   * SearchPanel formats these itself (namespace stripping, width-adaptive truncation).
+   * Defensive: a match can stem from an older document state (stale render right around a
+   * tab switch or after structural edits) — never let path resolution crash the whole app
+   * over a result-list label. */
+  function getMatchSegments(match: SearchMatch): PathSegment[] {
+    if (!root) return [];
+    const ancestors = findAncestorChain(root, match.node);
+    if (ancestors === null) return [];
+    const segments = getPathSegments(match.node, ancestors);
+    return segments.length > 1 ? segments.slice(1) : segments;
   }
 
   /**
@@ -913,13 +1038,18 @@ export function App(): React.ReactElement {
     return count;
   }
 
-  function handleCopyPath(kind: "indexed" | "static" | "full"): void {
-    if (!activeDoc || !selectedRow || !root) return;
-    const paths = computePaths(root, selectedRow.node);
+  function copyPath(node: DocNode, kind: "indexed" | "static" | "full"): void {
+    if (!activeDoc || !root) return;
+    const paths = computePaths(root, node);
     void navigator.clipboard.writeText(paths[kind]).then(
       () => setStatus(t("toolbar.pathCopied")),
       (err) => setError(err instanceof Error ? err.message : String(err)),
     );
+  }
+
+  function handleCopyPath(kind: "indexed" | "static" | "full"): void {
+    if (!selectedRow) return;
+    copyPath(selectedRow.node, kind);
   }
 
   function handleCloseTab(key: string): void {
@@ -1067,6 +1197,40 @@ export function App(): React.ReactElement {
     ];
   }
 
+  const attributesPanelEl = (
+    <AttributesPanel
+      node={selectedRow?.node ?? null}
+      onSetAttribute={handleSetAttribute}
+      onRenameAttribute={handleRenameAttribute}
+      onCreateAttribute={handleCreateAttribute}
+      onDecodeBase64={handleDecodeBase64}
+    />
+  );
+
+  const searchPanelEl = (dock: SearchDockSide) =>
+    activeTab && (
+      <SearchPanel
+        // Remount per TAB (not just per document): search state (matches, query, filter)
+        // holds live node references into one view and must never survive a tab switch —
+        // stale matches resolved against a different root crashed computePaths (see test).
+        // Two tabs on the same document (full view + a focus tab) must each get their own
+        // independent search session too, hence keying on the tab, not the file path.
+        key={activeTab.key}
+        onSearch={handleSearch}
+        onNavigate={handleNavigate}
+        onReplaceAll={handleReplaceAllInternal}
+        onFilterChange={setFilterMatches}
+        getMatchSegments={getMatchSegments}
+        onCopyPath={copyPath}
+        showNamespaces={settings.searchShowNamespaces}
+        onClose={handleSearchClose}
+        focusRequest={searchFocusRequest}
+        hasSelection={selectedRow !== null}
+        dockSide={dock}
+        onToggleDock={handleToggleSearchDock}
+      />
+    );
+
   return (
     <div className="app-shell">
       <header className="app-titlebar">
@@ -1150,8 +1314,26 @@ export function App(): React.ReactElement {
         onClose={handleCloseTab}
         onNewDocument={() => setNewDocOpen(true)}
       />
-      {error && <div className="app-error">{error}</div>}
-      {status && <div className="app-status">{status}</div>}
+      {visibleToasts.length > 0 && (
+        <div className="toast-viewport">
+          {visibleToasts.map((toast) => (
+            <Toast
+              key={`${toast.kind}-${toast.id}`}
+              id={toast.id}
+              kind={toast.kind}
+              message={toast.message}
+              durationMs={toast.kind === "error" ? ERROR_TOAST_DURATION_MS : STATUS_TOAST_DURATION_MS}
+              onClose={() => {
+                if (toast.kind === "error") {
+                  setErrorToast((current) => (current?.id === toast.id ? null : current));
+                } else {
+                  setStatusToast((current) => (current?.id === toast.id ? null : current));
+                }
+              }}
+            />
+          ))}
+        </div>
+      )}
       <main className="app-main">
         {activeDoc ? (
           <>
@@ -1185,13 +1367,17 @@ export function App(): React.ReactElement {
                 revealNodeId={revealNodeId}
               />
             </div>
-            <AttributesPanel
-              node={selectedRow?.node ?? null}
-              onSetAttribute={handleSetAttribute}
-              onRenameAttribute={handleRenameAttribute}
-              onCreateAttribute={handleCreateAttribute}
-              onDecodeBase64={handleDecodeBase64}
-            />
+            {searchDockSide === "right" ? (
+              <RightSidebar
+                activeTab={sidebarTab}
+                onTabChange={setSidebarTab}
+                searchAvailable={activeTab !== null}
+                attributes={attributesPanelEl}
+                search={searchPanelEl("right")}
+              />
+            ) : (
+              attributesPanelEl
+            )}
           </>
         ) : (
           <WelcomeScreen
@@ -1210,23 +1396,7 @@ export function App(): React.ReactElement {
           onClose={() => setContextMenu(null)}
         />
       )}
-      {searchOpen && activeDoc && activeTab && (
-        <SearchPanel
-          // Remount per TAB (not just per document): search state (matches, query, filter)
-          // holds live node references into one view and must never survive a tab switch —
-          // stale matches resolved against a different root crashed computePaths (see test).
-          // Two tabs on the same document (full view + a focus tab) must each get their own
-          // independent search session too, hence keying on the tab, not the file path.
-          key={activeTab.key}
-          onSearch={handleSearch}
-          onNavigate={handleNavigate}
-          onReplaceAll={handleReplaceAllInternal}
-          onFilterChange={setFilterMatches}
-          getMatchPath={getMatchPath}
-          onClose={() => setSearchOpen(false)}
-          hasSelection={selectedRow !== null}
-        />
-      )}
+      {searchDockSide === "bottom" && searchOpen && activeDoc && activeTab && searchPanelEl("bottom")}
       {settingsOpen && (
         <SettingsDialog settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
       )}
@@ -1243,12 +1413,12 @@ export function App(): React.ReactElement {
           onClose={() => setAboutOpen(false)}
         />
       )}
-      {reloadPrompt && (
+      {reloadPrompt && reloadPromptDoc && !otherDialogOpen && (
         <ReloadDialog
           fileName={fileNameOf(reloadPrompt.filePath)}
-          isDirty={reloadPrompt.isDirty}
+          isDirty={reloadPromptDoc.isDirty}
           onReload={() => void performReload(reloadPrompt.filePath)}
-          onKeepMine={() => setReloadPrompt(null)}
+          onKeepMine={() => void handleKeepMine(reloadPrompt.filePath)}
         />
       )}
       {base64Preview && (

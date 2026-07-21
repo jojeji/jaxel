@@ -107,6 +107,53 @@ export function formatFullPath(segments: PathSegment[]): string {
     .join(".");
 }
 
+export interface TruncatePathOptions {
+  /** Available width (px) for the whole rendered path string. */
+  availableWidthPx: number;
+  /** Width (px) of one character, assuming a monospace font — no DOM/canvas measurement
+   * needed since every character is the same width. 0/negative disables truncation
+   * (treated as "width unknown yet"), which the caller relies on before its first real
+   * layout measurement lands. */
+  charWidthPx: number;
+  /** How many trailing labels are always shown in full, never shortened. Default 2 (the
+   * match itself and its direct parent) — clamped to `labels.length`. */
+  minFullSegments?: number;
+}
+
+/**
+ * Formats already-resolved path segment labels (e.g. "SellerTradeParty[1]", namespace
+ * stripping and index-suffixing are the caller's job — see `SearchPanel.tsx`) into one
+ * display string, shortening the EARLIEST segments first when the full path would not fit
+ * `availableWidthPx`. The trailing `minFullSegments` labels are never touched.
+ *
+ * Budget is split evenly (by character count) across the segments that need shortening;
+ * a segment that already fits within its share keeps its normal "." separator, one that
+ * had to be cut gets "…" instead — the ellipsis itself takes over the separator's job, so
+ * cut segments are never followed by an extra ".". Example (labels already stripped):
+ * ["SupplyChainTradeTransaction", "ApplicableHeaderTradeAgreement", "SellerTradeParty",
+ *  "URIUniversalCommunication", "URIID"] → "SupplyChai…Applicable…Seller…URIUniversalCommunication.URIID"
+ */
+export function truncatePathLabels(labels: string[], options: TruncatePathOptions): string {
+  const { availableWidthPx, charWidthPx, minFullSegments = 2 } = options;
+  const full = labels.join(".");
+  const availableChars = charWidthPx > 0 ? Math.floor(availableWidthPx / charWidthPx) : Infinity;
+  if (full.length <= availableChars) return full;
+
+  const keepCount = Math.min(minFullSegments, labels.length);
+  const earlyLabels = labels.slice(0, labels.length - keepCount);
+  const tail = labels.slice(labels.length - keepCount).join(".");
+  if (earlyLabels.length === 0) return full; // nothing left to shrink — caller/CSS clips the overflow
+
+  const budgetForEarly = availableChars - tail.length;
+  if (budgetForEarly <= 0) return `…${tail}`;
+
+  const perSegment = Math.max(1, Math.floor(budgetForEarly / earlyLabels.length));
+  const shrunkEarly = earlyLabels.map((label) =>
+    label.length > perSegment ? `${label.slice(0, perSegment)}…` : `${label}.`,
+  );
+  return shrunkEarly.join("") + tail;
+}
+
 /**
  * Depth-first search for `target` under `root`, returning the ancestor chain (root to
  * target's parent, root itself included, target excluded), or `null` if `target` is not

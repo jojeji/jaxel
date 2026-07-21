@@ -102,6 +102,17 @@ export function TreeView({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [dragRowId, setDragRowId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  /** Set right before a toggle changes `rows`' length (expand/collapse adds/removes rows
+   * below the toggled node) — the layout effect below then re-anchors scroll so the toggled
+   * row stays at the same viewport pixel it was at, instead of drifting when the browser
+   * clamps scrollTop to the new (shorter/taller) content height. */
+  const scrollAnchorRef = useRef<{ nodeId: string; offsetInViewport: number } | null>(null);
+  /** Which `revealNodeId` the effect below has already scrolled to (or confirmed already
+   * visible) — without this, the effect's `rows` dependency (needed so it can retry once an
+   * ancestor finishes expanding, see below) would also make it re-fire and yank the scroll
+   * back to a long-stale revealNodeId on ANY later, unrelated tree change (e.g. collapsing a
+   * distant node), not just when a new reveal is actually requested. */
+  const handledRevealNodeIdRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -113,10 +124,23 @@ export function TreeView({
     return () => observer.disconnect();
   }, []);
 
+  useLayoutEffect(() => {
+    const anchor = scrollAnchorRef.current;
+    if (!anchor) return;
+    scrollAnchorRef.current = null;
+    const newIndex = rows.findIndex((row) => row.node.id === anchor.nodeId);
+    if (newIndex === -1) return; // toggled row itself no longer visible (e.g. an ancestor collapsed too)
+    const newScrollTop = Math.max(0, newIndex * ROW_HEIGHT - anchor.offsetInViewport);
+    if (containerRef.current) containerRef.current.scrollTop = newScrollTop;
+    setScrollTop(newScrollTop);
+  }, [rows]);
+
   useEffect(() => {
     if (!revealNodeId) return;
+    if (revealNodeId === handledRevealNodeIdRef.current) return; // already satisfied this reveal request
     const index = rows.findIndex((row) => row.node.id === revealNodeId);
     if (index === -1) return; // ancestors not expanded yet in this pass; the next effect run will catch it
+    handledRevealNodeIdRef.current = revealNodeId; // don't re-center again on later, unrelated rows changes
     const target = index * ROW_HEIGHT;
     setScrollTop((current) => {
       const viewBottom = current + viewportHeight;
@@ -178,37 +202,44 @@ export function TreeView({
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
       <div className="tree-view__spacer" style={{ height: rows.length * ROW_HEIGHT }}>
-        {visibleRows.map((row, i) => (
-          <TreeRowView
-            key={row.node.id}
-            row={row}
-            top={(startIndex + i) * ROW_HEIGHT}
-            expanded={expanded.has(row.node.id)}
-            selected={row.node.id === selectedId}
-            editingField={editingField?.nodeId === row.node.id ? editingField.field : null}
-            dropPosition={dropTarget?.rowId === row.node.id ? dropTarget.position : null}
-            onToggle={() => onToggle(row)}
-            onSelect={() => onSelect(row)}
-            onStartEditName={() => onStartEditName(row)}
-            onStartEditValue={() => onStartEditValue(row)}
-            onCommitEdit={(field, text) => onCommitEdit(row, field, text)}
-            onCancelEdit={onCancelEdit}
-            onContextMenu={(x, y) => onRowContextMenu(row, x, y)}
-            onDecodeBase64={() => onDecodeBase64(row)}
-            onDragStart={(event) => {
-              event.dataTransfer.setData("text/plain", row.node.name);
-              event.dataTransfer.effectAllowed = "move";
-              setDragRowId(row.node.id);
-              setDragGhost(event);
-            }}
-            onDragOver={(event) => handleDragOver(row, event)}
-            onDrop={(event) => handleDrop(row, event)}
-            onDragEnd={() => {
-              setDragRowId(null);
-              setDropTarget(null);
-            }}
-          />
-        ))}
+        {visibleRows.map((row, i) => {
+          const top = (startIndex + i) * ROW_HEIGHT;
+          function handleToggle(): void {
+            scrollAnchorRef.current = { nodeId: row.node.id, offsetInViewport: top - scrollTop };
+            onToggle(row);
+          }
+          return (
+            <TreeRowView
+              key={row.node.id}
+              row={row}
+              top={top}
+              expanded={expanded.has(row.node.id)}
+              selected={row.node.id === selectedId}
+              editingField={editingField?.nodeId === row.node.id ? editingField.field : null}
+              dropPosition={dropTarget?.rowId === row.node.id ? dropTarget.position : null}
+              onToggle={handleToggle}
+              onSelect={() => onSelect(row)}
+              onStartEditName={() => onStartEditName(row)}
+              onStartEditValue={() => onStartEditValue(row)}
+              onCommitEdit={(field, text) => onCommitEdit(row, field, text)}
+              onCancelEdit={onCancelEdit}
+              onContextMenu={(x, y) => onRowContextMenu(row, x, y)}
+              onDecodeBase64={() => onDecodeBase64(row)}
+              onDragStart={(event) => {
+                event.dataTransfer.setData("text/plain", row.node.name);
+                event.dataTransfer.effectAllowed = "move";
+                setDragRowId(row.node.id);
+                setDragGhost(event);
+              }}
+              onDragOver={(event) => handleDragOver(row, event)}
+              onDrop={(event) => handleDrop(row, event)}
+              onDragEnd={() => {
+                setDragRowId(null);
+                setDropTarget(null);
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );

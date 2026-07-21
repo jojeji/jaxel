@@ -49,6 +49,13 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   diesem Zeitpunkt eigene, ungespeicherte Änderungen, erscheint der Dialog **immer** — ein
   „Neu laden" verwirft dann die eigenen Änderungen. In den Einstellungen lässt sich stattdessen
   ein automatisches Neuladen aktivieren (greift ebenfalls nie bei ungespeicherten Änderungen).
+  Der Dialog verlangt eine bewusste Wahl: Ein Klick auf den abgedunkelten Hintergrund wird
+  ignoriert; `Escape` bedeutet „Meine Version behalten". Ohne eigene Änderungen sind „Neu laden"
+  und dessen Tastaturfokus hervorgehoben, mit eigenen Änderungen die sichere Aktion „Meine Version
+  behalten". Andere Dialoge werden nicht überlagert — die Meldung wartet, bis sie geschlossen
+  sind. „Meine Version behalten" quittiert den zu diesem Zeitpunkt neuesten Stand auf der Platte,
+  damit mehrere zwischenzeitliche externe Änderungen nicht nacheinander gemeldet werden; erst eine
+  spätere Änderung löst wieder eine Meldung aus.
 
 ## Baumansicht und Navigation
 
@@ -88,7 +95,11 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 
 ## Suchen, Ersetzen, Filtern
 
-`Strg+F` öffnet das Suchpanel am unteren Rand (Schließen mit `Esc` oder `×`):
+`Strg+F` öffnet das Suchpanel am unteren Rand und setzt den Tastaturfokus direkt in das Suchfeld
+(Schließen mit `Esc` oder `×`). Das funktioniert auch, wenn gerade ein anderes normales Textfeld
+fokussiert ist. Ist die Suche bereits offen, markiert `Strg+F` den vorhandenen Suchbegriff komplett,
+sodass direktes Tippen ihn ersetzt, ohne Optionen oder Treffer zurückzusetzen. Ein geöffneter
+Entscheidungsdialog behält dagegen bewusst den Fokus.
 
 - **Scope**: Alles, nur Namen, nur Werte oder nur Attribute; optional Groß-/Kleinschreibung
   und Regex.
@@ -96,11 +107,44 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   gerade ausgewählten Knoten samt Nachfahren ein — folgt live der aktuellen Auswahl, ohne
   Auswahl deaktiviert. In einer Fokus-Ansicht (siehe oben) bezieht sich „Alles" ohnehin nur auf
   den fokussierten Unterbaum.
-- **Trefferliste**: alle Treffer erscheinen als klickbare Liste mit ihrem indizierten Pfad —
-  ein Klick springt zum Knoten im Baum. `Weiter`/`Zurück` navigieren zyklisch.
+- **Trefferliste**: alle Treffer erscheinen als Tabelle (Pfad-Spalte, Treffer-Spalte) mit ihrem
+  indizierten Pfad — ein Klick springt zum Knoten im Baum, `Weiter`/`Zurück` navigieren zyklisch
+  und springen sofort. Ist der Pfad zu lang für die Spalte, bleiben die letzten beiden Segmente
+  (Treffer + direkter Parent) immer vollständig sichtbar, frühere Vorfahren-Segmente werden mit
+  „…" gekürzt. Ein Rechtsklick auf eine Trefferzeile öffnet dasselbe Kontextmenü wie im Baum
+  (vollständigen/indizierten/statischen Pfad kopieren), ohne die Zeile zusätzlich zu selektieren.
+  In den Einstellungen lässt sich unter „Namespace-Präfixe in der Trefferliste anzeigen"
+  festlegen, ob Namespace-Präfixe (z. B. `ram:`) in Pfad und Treffer-Text angezeigt werden
+  (Standard: ausgeblendet) — betrifft nur diese Anzeige, nicht die Suche selbst und nicht
+  Baum/Eigenschaften-Panel.
+- **Tastaturnavigation im Suchfeld**: `Enter` sucht (falls sich der Suchbegriff geändert hat oder
+  noch keine Treffer vorliegen) und springt sofort zum ersten Treffer. Danach bewegen `↑`/`↓` nur
+  die Markierung in der Trefferliste (mit Wraparound), ohne den Baum zu verändern — man kann also
+  in Ruhe durchblättern oder weitertippen. Erneutes `Enter` springt zum gerade markierten Treffer;
+  ändert man stattdessen den Suchbegriff und drückt `Enter`, beginnt eine komplette neue Suche
+  wieder bei Treffer 1.
 - **Filtern**: reduziert den Baum auf Treffer und ihre Vorfahren. In den Einstellungen lässt
   sich zusätzlich der komplette Unterbaum jedes Treffers einblenden.
 - **Ersetzen**: „Alle ersetzen" ersetzt in allen Treffern — als ein einziger Undo-Schritt.
+- **Größe und Position**: Der obere Rand des Suchpanels lässt sich mit der Maus ziehen, um der
+  Trefferliste mehr Platz zu geben. Ein Dock-Umschalter am Suchpanel verschiebt die Suche wahlweise
+  an den rechten Rand — dort teilt sie sich mit dem Eigenschaften-Panel eine Sidebar mit zwei
+  Tabs („Eigenschaften"/„Suchen"), deren Breite ebenfalls ziehbar ist. `Esc` oder `×` wechseln in
+  diesem Modus nur zum Eigenschaften-Tab zurück (Suchbegriff und Trefferliste bleiben im
+  Hintergrund erhalten); `Strg+F` schaltet wieder aktiv auf den Suchen-Tab. Größe, Breite und die
+  gewählte Seite werden gemerkt. Das Umschalten der Seite selbst startet dagegen eine neue,
+  leere Suche.
+
+## Status- und Fehlermeldungen
+
+Kurze Rückmeldungen wie „Pfad kopiert", „Datei neu geladen" oder Fehler der Zwischenablage
+erscheinen oben mittig als leicht transparente, schwebende Meldungen. Sie verschieben Baum,
+Eigenschaften-Panel und Eingabefelder nicht.
+
+- Statusmeldungen verschwinden nach **4 Sekunden**, Fehlermeldungen nach **8 Sekunden**.
+- Das `×` schließt eine Meldung sofort.
+- Solange der Mauszeiger oder der Tastaturfokus auf einer Meldung liegt, pausiert ihre Restlaufzeit.
+- Fehler und Status können gleichzeitig erscheinen; die neueste Meldung steht oben.
 
 ## Base64-Inhalte anzeigen
 

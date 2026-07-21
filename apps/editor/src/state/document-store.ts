@@ -130,12 +130,17 @@ export function useJaxelDocuments(): {
    * full-view tab for that document already exists, this tab merges into it instead of
    * creating a duplicate. */
   retargetFocusTab: (key: string, nodeId: string | null, label: string | null, ancestorIds: string[]) => void;
+  /** Acknowledges an observed on-disk version without reloading or changing document content. */
+  acknowledgeExternalChange: (filePath: string, mtimeMs: number, size: number) => void;
   /** Re-reads a document from disk after an external change; see the function itself. */
   reloadFile: (
     filePath: string,
     selectionSegments: PathSegment[] | null,
     expandedSegmentsList: PathSegment[][],
-  ) => Promise<{ selectedId: string | null; expandedIds: string[] }>;
+    /** Optional last-moment safety check, run synchronously after parsing and before replacing
+     * the live document. Returning false leaves every store object untouched. */
+    canCommit?: () => boolean,
+  ) => Promise<{ selectedId: string | null; expandedIds: string[] } | null>;
 } {
   const [state, setState] = useState<DocsState>({ docs: [], tabs: [], activeKey: null });
   const [revision, setRevision] = useState(0);
@@ -397,12 +402,22 @@ export function useJaxelDocuments(): {
    * focus tab whose node no longer resolves falls back to the nearest still-resolvable
    * ancestor, exactly like the live-deletion case.
    */
+  const acknowledgeExternalChange = useCallback((filePath: string, mtimeMs: number, size: number): void => {
+    setState((prev) => ({
+      ...prev,
+      docs: prev.docs.map((doc) =>
+        doc.filePath === filePath ? { ...doc, lastKnownMtimeMs: mtimeMs, lastKnownSize: size } : doc,
+      ),
+    }));
+  }, []);
+
   const reloadFile = useCallback(
     async (
       filePath: string,
       selectionSegments: PathSegment[] | null,
       expandedSegmentsList: PathSegment[][],
-    ): Promise<{ selectedId: string | null; expandedIds: string[] }> => {
+      canCommit?: () => boolean,
+    ): Promise<{ selectedId: string | null; expandedIds: string[] } | null> => {
       const target = stateRef.current.docs.find((d) => d.filePath === filePath);
       if (!target) return { selectedId: null, expandedIds: [] };
 
@@ -410,7 +425,6 @@ export function useJaxelDocuments(): {
         "read_text_file",
         { path: filePath },
       );
-      logInfo("breadcrumb", `Datei neu geladen: ${filePath}`);
       let newRoot: DocNode;
       let xmlDeclaration: string | undefined;
       if (target.format === "xml") {
@@ -420,6 +434,10 @@ export function useJaxelDocuments(): {
       } else {
         newRoot = parseJson(result.content).root;
       }
+      // No asynchronous boundary follows before the store replacement. This closes the window
+      // in which an automatic reload could discard a command executed while read_text_file ran.
+      if (canCommit && !canCommit()) return null;
+      logInfo("breadcrumb", `Datei neu geladen: ${filePath}`);
 
       // Nearest-still-resolvable-ancestor fallback: try the full segment chain first, then
       // progressively shorter prefixes. A 1-element chain (the root's own segment) always
@@ -514,6 +532,7 @@ export function useJaxelDocuments(): {
     activate,
     openFocusTab,
     retargetFocusTab,
+    acknowledgeExternalChange,
     reloadFile,
   };
 }

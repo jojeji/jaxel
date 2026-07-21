@@ -191,3 +191,40 @@ Im Grilling geklärte Grundsatzentscheidungen (Details in `.scratch/ap15-crash-l
 - XSD/DTD-Validierung.
 - Bearbeiten von Dateien größer als der verfügbare RAM.
 - Byte-identisches Round-Trip-Invariant mit Test-Suite (wie bei xdp-designer).
+
+## 2026-07-21 — Grilling: sichere Entscheidung bei externen Dateiänderungen
+
+1. **Der Reload-Dialog verlangt eine explizite Entscheidung.** Ein Klick auf den Overlay-Hintergrund
+   wird ignoriert, weil der Klick zum Reaktivieren des Tauri-Fensters sonst bereits als „Meine
+   Version behalten" gewertet werden kann. `Escape` bleibt als bewusste Tastaturabkürzung erhalten
+   und entspricht „Meine Version behalten".
+2. **Fokus und visuelle Primäraktion folgen dem aktuellen Dirty-Stand.** Ohne lokale Änderungen ist
+   „Neu laden" fokussiert und primär; mit lokalen Änderungen „Meine Version behalten". Der Fokus
+   bleibt zwischen beiden Aktionen eingeschlossen und kehrt nach dem Schließen zum zuvor aktiven
+   Element zurück.
+3. **Asynchrone Dateiprüfungen dürfen keine veraltete Entscheidung treffen.** Nach `stat_file` werden
+   aktives Dokument und Dirty-Stand erneut aus dem aktuellen Zustand gelesen. Antworten für einen
+   inzwischen inaktiven Tab werden verworfen; insbesondere darf ein nach Start der Prüfung dirty
+   gewordenes Dokument niemals automatisch neu geladen werden. Dieselbe Bedingung wird nach dem
+   asynchronen Einlesen nochmals unmittelbar vor dem Store-Austausch geprüft, damit auch Änderungen
+   während `read_text_file` nicht verloren gehen.
+4. **Externe Meldungen werden gebündelt und Dialoge nicht gestapelt.** Ist bereits ein anderer Dialog
+   offen, bleibt der Reload-Hinweis vorgemerkt und erscheint erst danach. „Meine Version behalten"
+   liest die Metadaten nochmals und quittiert den dann neuesten Plattenstand, ohne Baum, Quelltext,
+   Dirty-Flag oder CommandBus zu verändern. Erst Änderungen nach dieser Quittierung werden erneut
+   gemeldet.
+
+## 2026-07-21 — Suchfokus und schwebende Meldungen
+
+1. **`Strg+F` ist ein Fokus-Shortcut, kein Toggle.** Bei aktivem Dokument öffnet jeder Aufruf das
+   Suchpanel beziehungsweise fokussiert das bereits vorhandene Suchfeld und markiert dessen Text.
+   Der lokale Suchzustand bleibt erhalten. Normale Textfelder blockieren den Shortcut nicht;
+   modale Dialoge haben Vorrang und werden nicht übergangen.
+2. **Kurzlebige Rückmeldungen liegen außerhalb des Layoutflusses.** Fehler und Status werden als
+   fester, oben mittig positionierter Toast-Stapel dargestellt, damit Ein-/Ausblenden weder Editor-
+   Geometrie noch Mausbezug verändert. Neuere Meldungen stehen oben; beide Kanäle können gleichzeitig
+   sichtbar sein.
+3. **Zeitverhalten ist fest und vorhersehbar.** Statusmeldungen schließen nach 4 Sekunden, Fehler
+   nach 8 Sekunden. Hover oder Tastaturfokus pausiert exakt die Restlaufzeit, `×` schließt sofort. Identische neue
+   Meldungen sind neue Ereignisse und starten den Timer erneut. Dauer und Position sind bewusst
+   keine Einstellungen.
