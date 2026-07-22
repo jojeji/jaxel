@@ -3,6 +3,32 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## 🔥 Kritischer Fix 2026-07-22 — Minimal-invasives Speichern verlor die XML-Deklaration
+
+- **Symptom (PO-Meldung):** Nach dem Speichern war die XML-Datei ungültig / Inhalt fehlte.
+- **Ursache:** `serializeXmlMinimal` (`packages/core/src/format/xml-export.ts`) kannte das Feld
+  `xmlDeclaration` gar nicht — anders als `serializeXml` (voll-Reserialisierung), das die
+  `<?xml version="…" encoding="…"?>`-Prolog-Zeile korrekt voranstellt. Die beiden Aufrufstellen in
+  `apps/editor/src/state/document-store.ts` (`saveFile`, `saveFileAs`) übergaben zudem gar kein
+  `xmlDeclaration` an den Aufruf. Ergebnis: **jedes** Speichern einer XML-Datei über den
+  minimal-invasiven Pfad (also praktisch jedes Speichern nach einer echten Bearbeitung) hat die
+  Deklarationszeile stillschweigend entfernt. Bei explizit deklarierter Nicht-UTF-8-Kodierung
+  (z. B. ISO-8859-1) führte das dazu, dass die gespeicherte Datei ohne Kodierungsangabe dastand,
+  während die Bytes weiterhin in der ursprünglichen Kodierung geschrieben wurden (`write_text_file`
+  bekommt `encoding` separat) — nachfolgende Parser, die mangels Deklaration UTF-8 annehmen,
+  lesen Sonderzeichen dann falsch bzw. brechen ab.
+- **Warum unbemerkt:** Keiner der bestehenden `serializeXmlMinimal`-Tests
+  (`packages/core/tests/xml-roundtrip.test.ts`) verwendete eine Quelle mit `<?xml …?>`-Prolog —
+  die Testabdeckung hatte hier eine Lücke.
+- **Fix:** `serializeXmlMinimal` nimmt jetzt `xmlDeclaration?: string` entgegen und stellt sie
+  wie `serializeXml` voran; beide Aufrufstellen in `document-store.ts` übergeben
+  `target.document.xmlDeclaration`. Zwei neue Regressionstests decken sowohl den editierten als
+  auch den komplett unveränderten Fall ab.
+- **Bewusst nicht angefasst:** Kommentare/PIs/Whitespace zwischen Deklaration und Wurzelelement
+  (XML-„Misc"-Produktion) werden weiterhin nicht reproduziert — das ist die bereits dokumentierte,
+  bewusste Einschränkung des Best-Effort-Modells (`docs/entscheidungen.md` #1), kein Teil dieses
+  Bugs.
+
 ## 🚦 Hier weitermachen (Stand 2026-07-19)
 
 **Version 0.1.0 ist released, committet und nach `github.com/jojeji/jaxel` (privat) gepusht.**

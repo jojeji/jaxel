@@ -80,8 +80,12 @@ function serializeNodeMinimal(
   return `${pad}<${node.name}${attrs}>${escapeText(text)}</${node.name}>`;
 }
 
-export function serializeXmlMinimal(source: string, doc: { root: DocNode; indent: string }): string {
+export function serializeXmlMinimal(
+  source: string,
+  doc: { root: DocNode; xmlDeclaration?: string; indent: string },
+): string {
   const sourceBytes = new TextEncoder().encode(source);
   const decoder = new TextDecoder();
-  return `${serializeNodeMinimal(doc.root, sourceBytes, decoder, doc.indent, 0)}\n`;
+  const body = `${serializeNodeMinimal(doc.root, sourceBytes, decoder, doc.indent, 0)}\n`;
+  return doc.xmlDeclaration ? `${doc.xmlDeclaration}\n${body}` : body;
 }

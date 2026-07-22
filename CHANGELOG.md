@@ -11,6 +11,16 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-22
+
+### Behoben
+
+- **XML-Deklaration ging beim Speichern verloren:** Der minimal-invasive Speicherpfad hat die
+  `<?xml version="…" encoding="…"?>`-Zeile bei jedem Speichern stillschweigend entfernt. Bei
+  Dateien mit expliziter Nicht-UTF-8-Kodierung konnte das dazu führen, dass die Datei danach von
+  anderen Programmen falsch gelesen wurde (fehlende Kodierungsangabe). Betrifft nur künftige
+  Speichervorgänge — bereits gespeicherte Dateien sollten geprüft werden.
+
 ## [0.3.1] - 2026-07-22
 
 ### Behoben

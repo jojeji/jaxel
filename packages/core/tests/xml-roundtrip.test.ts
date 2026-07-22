@@ -134,4 +134,36 @@ describe("serializeXmlMinimal", () => {
     expect(result).toContain("EDITED");
     expect(result).not.toMatch(/<y>b<\/y>/);
   });
+
+  it("preserves the XML declaration on an edited document (regression: declaration was silently dropped)", () => {
+    const source = [
+      '<?xml version="1.0" encoding="ISO-8859-1"?>',
+      "<root><a>1</a><b>2</b></root>",
+    ].join("\n");
+    const { root, xmlDeclaration } = parseXml(source);
+    const [a, b] = root.children as [DocNode, DocNode];
+
+    const editedA = createNode({ name: a.name, attributes: a.attributes, value: "CHANGED", children: [] });
+    const editedRoot = createNode({
+      name: root.name,
+      attributes: root.attributes,
+      value: null,
+      children: [editedA, b],
+    });
+
+    const result = serializeXmlMinimal(source, { root: editedRoot, xmlDeclaration, indent: "  " });
+
+    expect(result).toContain('<?xml version="1.0" encoding="ISO-8859-1"?>');
+    expect(result).toContain("CHANGED");
+  });
+
+  it("preserves the XML declaration even when the document itself is completely unchanged", () => {
+    const source = '<?xml version="1.0" encoding="UTF-8"?>\n<root><a>1</a></root>';
+    const { root, xmlDeclaration } = parseXml(source);
+
+    const result = serializeXmlMinimal(source, { root, xmlDeclaration, indent: "  " });
+
+    expect(result).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(result).toContain("<root><a>1</a></root>");
+  });
 });

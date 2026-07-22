@@ -225,7 +225,11 @@ export function useJaxelDocuments(): {
     if (!target) return;
     const text =
       target.format === "xml"
-        ? serializeXmlMinimal(target.sourceText, { root: target.document.root, indent: target.document.indent })
+        ? serializeXmlMinimal(target.sourceText, {
+            root: target.document.root,
+            xmlDeclaration: target.document.xmlDeclaration,
+            indent: target.document.indent,
+          })
         : serializeJson({ root: target.document.root, indent: target.document.indent });
     const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
       path: target.filePath,
@@ -249,7 +253,11 @@ export function useJaxelDocuments(): {
     if (!target) return;
     const text =
       target.format === "xml"
-        ? serializeXmlMinimal(target.sourceText, { root: target.document.root, indent: target.document.indent })
+        ? serializeXmlMinimal(target.sourceText, {
+            root: target.document.root,
+            xmlDeclaration: target.document.xmlDeclaration,
+            indent: target.document.indent,
+          })
         : serializeJson({ root: target.document.root, indent: target.document.indent });
     const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
       path: newPath,
