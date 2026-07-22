@@ -234,11 +234,11 @@ export function SearchPanel({
 
   function matchLabel(match: SearchMatch): string {
     const displayName = (name: string) => (showNamespaces ? name : stripNamespace(name));
-    if (match.matchedIn === "name") return displayName(match.node.name);
     if (match.matchedIn === "attribute") {
       const attr = match.node.attributes.find((a) => a.name === match.attributeName);
       return `${displayName(match.attributeName ?? "")}="${attr?.value ?? ""}"`;
     }
+    if (match.node.children.length > 0) return `(${match.node.children.length})`;
     return match.node.value ?? "";
   }
 

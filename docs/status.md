@@ -16,6 +16,18 @@ Suchpanel) nur per jsdom-Interaktionstest bzw. isoliertem Baumzeilen-Mockup abge
 in der echten Tauri-Oberfläche angesehen. Panic-Hook und Start-Log-Eintrag wurden dagegen real
   via `npm run dev` verifiziert (siehe AP15-Abschnitt), das war ohne Maus-Interaktion möglich.
 
+## Nachtrag 2026-07-22 — Suchtreffer-Tabelle: Wert-Spalte zeigt Elementinhalt statt Namen
+
+- **Fix** (`apps/editor/src/search/SearchPanel.tsx::matchLabel`): Bei Treffern mit `matchedIn ===
+  "name"` gab die Wert-Spalte bisher den (bereits in der Pfad-Spalte sichtbaren) Elementnamen
+  erneut aus, statt den eigentlichen Elementinhalt zu zeigen. Jetzt zeigt die Wert-Spalte für
+  Name- und Wert-Treffer einheitlich `node.value` (bzw. `(N)` bei Elementen mit Kindern statt
+  Textwert) — dasselbe Muster wie die Baumzeilen-Vorschau in `tree/TreeView.tsx`. Attribut-Treffer
+  bleiben unverändert (`name="wert"`).
+- Bestehender Test in `App.test.tsx` (Namespace-Präfixe in der Trefferliste) prüfte bisher explizit
+  das alte Verhalten (Name doppelt) und wurde auf `(1)` angepasst (`ExchangedDocument` hat ein
+  Kind `ram:ID`, keinen eigenen Textwert).
+
 ## Nachtrag 2026-07-21 — Baum: Scroll-Position bleibt beim Auf-/Zuklappen erhalten
 
 - **Ursache** (`tree/TreeView.tsx`): Der virtualisierte Baum positioniert Zeilen absolut über

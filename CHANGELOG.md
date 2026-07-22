@@ -11,6 +11,14 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-22
+
+### Behoben
+
+- **Suchtreffer-Tabelle:** Die Wert-Spalte zeigte bei Treffern im Elementnamen den Namen ein
+  zweites Mal an, statt den eigentlichen Elementinhalt. Zeigt jetzt einheitlich den Inhalt
+  (bzw. die Kindanzahl, wenn das Element keinen eigenen Textwert hat).
+
 ## [0.3.0] - 2026-07-21
 
 ### Hinzugefügt

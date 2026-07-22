@@ -865,9 +865,10 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     await user.click(screen.getByRole("button", { name: "Finden" }));
     expect(await screen.findByText("1/1")).toBeInTheDocument();
 
-    // Default: Namespace-Praefixe ausgeblendet, sowohl im Pfad als auch im Treffer-Text.
+    // Default: Namespace-Praefixe im Pfad ausgeblendet; Treffer-Text zeigt den Elementinhalt
+    // (hier: Kindanzahl, da ExchangedDocument selbst keinen Textwert hat).
     expect(screen.getByText("ExchangedDocument", { selector: ".search-panel__result-path" })).toBeInTheDocument();
-    expect(screen.getByText("ExchangedDocument", { selector: ".search-panel__result-text" })).toBeInTheDocument();
+    expect(screen.getByText("(1)", { selector: ".search-panel__result-text" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Einstellungen" }));
     await user.click(screen.getByRole("checkbox", { name: "Namespace-Präfixe in der Trefferliste anzeigen" }));
@@ -876,9 +877,7 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     expect(
       screen.getByText("ram:ExchangedDocument", { selector: ".search-panel__result-path" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("ram:ExchangedDocument", { selector: ".search-panel__result-text" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("(1)", { selector: ".search-panel__result-text" })).toBeInTheDocument();
   });
 });
 
