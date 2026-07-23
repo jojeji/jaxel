@@ -30,6 +30,10 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   nummeriert); `Strg+S` öffnet dafür automatisch „Speichern unter".
 - **Speichern**: Toolbar-Button oder `Strg+S`. XML wird minimal-invasiv gespeichert: unveränderte
   Bereiche der Datei bleiben byte-genau erhalten.
+- **Ungespeicherte Änderungen**: Ein Tab mit ungespeicherten Änderungen zeigt einen Punkt statt
+  des Schließen-Kreuzes; beim Darüberfahren mit der Maus erscheint trotzdem das `×` zum
+  Schließen. Der Punkt verschwindet auch, wenn per `Strg+Z` exakt bis zum letzten Speicherstand
+  zurückgegangen wird — ohne dass erneut gespeichert werden muss.
 - **Mehrere Dokumente**: jede Datei bekommt einen Tab; erneutes Öffnen derselben Datei aktiviert
   den vorhandenen Tab.
 - **Sitzung wiederherstellen**: Beim Start öffnet Jaxel automatisch die Tabs der letzten
@@ -78,6 +82,21 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 - Das rechte Seitenpanel zeigt die **Attribute** des ausgewählten Knotens: Namen UND Werte
   direkt ändern, `×` entfernt ein Attribut. Ein neues Attribut entsteht, sobald du im
   Namensfeld der letzten Zeile zu tippen beginnst — es erscheint sofort im Baum.
+
+## Änderungen im Baum markieren (optional)
+
+Standardmäßig ausgeschaltet, in den Einstellungen unter „Baum" aktivierbar:
+
+- **Geänderter Knoten**: gelber Punkt vor dem Namen.
+- **Neuer Knoten** (seit dem letzten Speichern hinzugefügt): grüner Punkt (Theme-Akzentfarbe).
+- **Zugeklappter Vorfahre mit Änderung im Unterbaum**: blasser, grauer Punkt — auch wenn der
+  Unterbaum sowohl geänderte als auch neue Knoten enthält, bleibt der Punkt einfarbig-neutral.
+- **Gelöschter Knoten**: durchgestrichene, ausgegraute Zeile an seiner ursprünglichen Position
+  (bleibt so lange sichtbar, wie das übergeordnete Element aufgeklappt ist). Rein informativ —
+  ein Klick macht nichts; wiederherstellen geht nur über `Strg+Z`.
+- Alle Markierungen beziehen sich auf den Stand beim letzten Laden/Speichern und verschwinden,
+  sobald gespeichert wird. Bei sehr vielen Änderungen in einer Sitzung (mehr als 500) pausiert
+  die Markierung automatisch mit einem Hinweis, um die Baum-Performance nicht zu gefährden.
 
 ## Bearbeiten
 
@@ -174,9 +193,9 @@ Für den ausgewählten Knoten über Toolbar oder Kontextmenü:
 
 Zahnrad-Button oben rechts: **Theme** (Hell ist Standard, dazu sechs weitere: Dunkel, Nordlicht,
 Tanne, Terrakotta, Kobalt, Kontrast — jeweils EIN Akzentton, kontrastgeprüft), **Sprache**
-(Deutsch/Englisch), Such-Filter-Verhalten, **externe Änderungen** (automatisches Neuladen
-ein-/ausschalten) und der Fenster-Modus („eigene Fenster pro Dokument" ist angekündigt, aber
-noch nicht verfügbar).
+(Deutsch/Englisch), Such-Filter-Verhalten, **Baum** (Änderungsmarker im Baum, siehe oben,
+Standard aus), **externe Änderungen** (automatisches Neuladen ein-/ausschalten) und der
+Fenster-Modus („eigene Fenster pro Dokument" ist angekündigt, aber noch nicht verfügbar).
 
 ## Über Jaxel
 

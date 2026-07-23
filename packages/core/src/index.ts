@@ -41,3 +41,6 @@ export {
 
 export type { SearchMatch, SearchOptions, SearchScope } from "./search/search.js";
 export { findAll, replaceAll } from "./search/search.js";
+
+export type { ChangeBaseline, ChangeBaselineNode, ChangeSet, Tombstone } from "./changes/diff.js";
+export { captureChangeBaseline, computeChanges } from "./changes/diff.js";

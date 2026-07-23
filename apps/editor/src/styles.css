@@ -337,6 +337,28 @@ button.primary:hover:not(:disabled) {
   background: transparent;
 }
 
+/* Dirty tab: a dot replaces the close button until hover, which swaps it back in
+   (VS-Code-Stil) — see grill session 2026-07-22 / CONTEXT.md "Dirty". */
+.tab--dirty .tab__close {
+  display: none;
+}
+
+.tab__dirty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.tab--dirty:hover .tab__dirty-dot {
+  display: none;
+}
+
+.tab--dirty:hover .tab__close {
+  display: inline-block;
+}
+
 /* ---------- Schwebende Meldungen ---------- */
 
 .toast-viewport {
@@ -726,6 +748,48 @@ kbd {
   border-radius: 4px;
   padding: 0 4px;
   min-width: 80px;
+}
+
+/* ---------- Änderungsmarker / Tombstones (Settings: "Baum" toggle, default aus) ----------
+   Reuses the theme's existing semantic colors (--accent, --warn) rather than introducing a new
+   hue that would need tuning across all 7 themes — see CONTEXT.md "Änderungsmarker". */
+
+.tree-row__change-marker {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tree-row__change-marker--added {
+  background: var(--accent);
+}
+
+.tree-row__change-marker--modified {
+  background: var(--warn);
+}
+
+.tree-row__change-marker--contains {
+  background: var(--text-2);
+}
+
+.tree-row--tombstone {
+  cursor: default;
+  color: var(--text-2);
+  text-decoration: line-through;
+}
+
+.tree-row--tombstone:hover {
+  background: transparent;
+}
+
+.tree-changes-hint {
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--warn);
+  background: var(--bg-1);
+  border-top: 1px solid var(--border);
 }
 
 /* ---------- Attribute-Panel ---------- */

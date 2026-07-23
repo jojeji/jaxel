@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   cloneSubtree,
+  computeChanges,
   computePaths,
   createCompositeCommand,
   createInsertNodeCommand,
@@ -109,6 +110,10 @@ export function App(): React.ReactElement {
     acknowledgeExternalChange,
     reloadFile,
   } = useJaxelDocuments();
+  const dirtyPaths = useMemo(
+    () => new Set(docs.filter((d) => d.isDirty).map((d) => d.filePath)),
+    [docs],
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
@@ -394,6 +399,16 @@ export function App(): React.ReactElement {
     if (!focus) return base;
     return base.map((row) => ({ ...row, ancestors: [...focus.ancestors, ...row.ancestors] }));
   }, [root, expanded, revision, filterMatches, settings.filterIncludesSubtree, focus]);
+
+  /** Optional tree change markers/tombstones (Settings: "Baum" toggle, default off) — computed
+   * against the TRUE document root (not the possibly-focused `root`), since the baseline was
+   * also captured from there; a focus tab's `rows` only shows a subset anyway, so markers/
+   * tombstones outside that subtree simply never match a rendered row. */
+  const changes = useMemo(() => {
+    if (!settings.showTreeChangeMarkers || !trueRoot || !activeDoc) return null;
+    return computeChanges(trueRoot, activeDoc.changeBaseline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates after mutations
+  }, [settings.showTreeChangeMarkers, trueRoot, activeDoc, revision]);
 
   const selectedRow = useMemo<TreeRow | null>(
     () => rows.find((row) => row.node.id === selectedId) ?? null,
@@ -1310,6 +1325,7 @@ export function App(): React.ReactElement {
       <TabBar
         tabs={tabs}
         activeKey={activeTab?.key ?? null}
+        dirtyPaths={dirtyPaths}
         onActivate={activate}
         onClose={handleCloseTab}
         onNewDocument={() => setNewDocOpen(true)}
@@ -1365,7 +1381,9 @@ export function App(): React.ReactElement {
                   if (row.node.value) handleDecodeBase64(row.node.value);
                 }}
                 revealNodeId={revealNodeId}
+                changes={changes}
               />
+              {changes?.truncated && <div className="tree-changes-hint">{t("tree.changesTruncated")}</div>}
             </div>
             {searchDockSide === "right" ? (
               <RightSidebar

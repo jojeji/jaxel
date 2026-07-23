@@ -78,6 +78,18 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
         </fieldset>
 
         <fieldset>
+          <legend>{t("settings.tree")}</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={settings.showTreeChangeMarkers}
+              onChange={(event) => onChange({ showTreeChangeMarkers: event.target.checked })}
+            />
+            {t("settings.showTreeChangeMarkers")}
+          </label>
+        </fieldset>
+
+        <fieldset>
           <legend>{t("settings.startup")}</legend>
           <label>
             <input

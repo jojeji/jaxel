@@ -23,6 +23,10 @@ export interface Settings {
    * Namensspalten an. Default aus (Praefixe ausgeblendet) — betrifft nur diese Anzeige,
    * nicht die Suche selbst, nicht Baum/Attribute-Panel. */
   searchShowNamespaces: boolean;
+  /** Baum: markiert Knoten, die seit der letzten Speicherung geändert/neu sind, und zeigt
+   * gelöschte Knoten als Tombstone-Zeile (siehe CONTEXT.md "Änderungsmarker"/"Tombstone").
+   * Default aus — reine Zusatzanzeige, ändert nichts am Modell/Speichern. */
+  showTreeChangeMarkers: boolean;
 }
 
 const STORAGE_KEY = "jaxel.settings";
@@ -33,6 +37,7 @@ const DEFAULTS: Settings = {
   autoReloadOnExternalChange: false,
   restoreSession: true,
   searchShowNamespaces: false,
+  showTreeChangeMarkers: false,
 };
 
 function load(): Settings {

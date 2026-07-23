@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { logInfo } from "../logging.js";
 import {
   CommandBus,
+  captureChangeBaseline,
   createDocument,
   findAncestorChain,
   findNodeById,
@@ -12,6 +13,7 @@ import {
   resolveNodeBySegments,
   serializeJson,
   serializeXmlMinimal,
+  type ChangeBaseline,
   type DocFormat,
   type DocNode,
   type JaxelDocument,
@@ -33,6 +35,10 @@ export interface OpenDocumentState {
    * external-change conflict rule (docs/entscheidungen.md 2026-07-18 #4): a reload may only
    * happen automatically while this is false — with unsaved changes, the dialog always asks. */
   isDirty: boolean;
+  /** Snapshot of the tree at the last load/save/reload — the reference point for the optional
+   * tree change markers/tombstones (see @jaxel/core computeChanges, CONTEXT.md "Baseline").
+   * Recaptured at every point that also calls commandBus.markSaved(). */
+  changeBaseline: ChangeBaseline;
   /** File identity at last load/save/reload — mtime + size, for the cheap external-change
    * check (deliberately not a full re-read; files can be several 100 MB). 0/0 for an untitled
    * document, which has no file on disk yet. */
@@ -152,13 +158,15 @@ export function useJaxelDocuments(): {
     stateRef.current = state;
   }, [state]);
 
-  /** Marks the document owning `commandBus` dirty — matched by object reference (not
-   * filePath), since a "save as" can rename the filePath out from under the closure that
-   * created this subscription. */
-  function markDirty(commandBus: CommandBus): void {
+  /** Re-derives `isDirty` for the document owning `commandBus` from its undo-stack baseline
+   * (matched by object reference, not filePath, since a "save as" can rename the filePath out
+   * from under the closure that created this subscription). Called on every do/undo/redo, so
+   * undoing back down to exactly the saved depth clears `isDirty` again — see CONTEXT.md
+   * "Baseline". */
+  function syncDirty(commandBus: CommandBus): void {
     setState((prev) => ({
       ...prev,
-      docs: prev.docs.map((d) => (d.commandBus === commandBus ? { ...d, isDirty: true } : d)),
+      docs: prev.docs.map((d) => (d.commandBus === commandBus ? { ...d, isDirty: commandBus.isDirty() } : d)),
     }));
   }
 
@@ -184,7 +192,7 @@ export function useJaxelDocuments(): {
     const commandBus = new CommandBus(doc);
     const unsubscribe = commandBus.subscribe(() => {
       setRevision((r) => r + 1);
-      markDirty(commandBus);
+      syncDirty(commandBus);
     });
 
     setState((prev) => {
@@ -207,6 +215,7 @@ export function useJaxelDocuments(): {
         sourceText: result.content,
         encoding: result.encoding,
         isDirty: false,
+        changeBaseline: captureChangeBaseline(root),
         lastKnownMtimeMs: result.mtimeMs,
         lastKnownSize: result.size,
       };
@@ -237,12 +246,16 @@ export function useJaxelDocuments(): {
       encoding: target.encoding,
     });
     logInfo("breadcrumb", `Datei gespeichert: ${target.filePath}`);
-    // The file on disk now matches the tree again — that becomes the new minimal-invasive baseline.
+    // The file on disk now matches the tree again — that becomes the new minimal-invasive
+    // baseline AND the new dirty/change-marker baseline (see CommandBus.markSaved,
+    // CONTEXT.md "Baseline").
+    target.commandBus.markSaved();
+    const changeBaseline = captureChangeBaseline(target.document.root);
     setState((current) => ({
       ...current,
       docs: current.docs.map((d) =>
         d.filePath === target.filePath
-          ? { ...d, sourceText: text, isDirty: false, lastKnownMtimeMs: stat.mtimeMs, lastKnownSize: stat.size }
+          ? { ...d, sourceText: text, isDirty: false, changeBaseline, lastKnownMtimeMs: stat.mtimeMs, lastKnownSize: stat.size }
           : d,
       ),
     }));
@@ -265,6 +278,8 @@ export function useJaxelDocuments(): {
       encoding: target.encoding,
     });
     logInfo("breadcrumb", `Datei gespeichert: ${newPath}`);
+    target.commandBus.markSaved();
+    const changeBaseline = captureChangeBaseline(target.document.root);
     const unsubscribe = unsubscribersRef.current.get(currentPath);
     if (unsubscribe) {
       unsubscribersRef.current.delete(currentPath);
@@ -287,6 +302,7 @@ export function useJaxelDocuments(): {
                 isUntitled: false,
                 sourceText: text,
                 isDirty: false,
+                changeBaseline,
                 lastKnownMtimeMs: stat.mtimeMs,
                 lastKnownSize: stat.size,
               }
@@ -314,7 +330,7 @@ export function useJaxelDocuments(): {
     const commandBus = new CommandBus(doc);
     const unsubscribe = commandBus.subscribe(() => {
       setRevision((r) => r + 1);
-      markDirty(commandBus);
+      syncDirty(commandBus);
     });
 
     setState((prev) => {
@@ -329,6 +345,7 @@ export function useJaxelDocuments(): {
         encoding: "UTF-8",
         isUntitled: true,
         isDirty: false,
+        changeBaseline: captureChangeBaseline(root),
         lastKnownMtimeMs: 0,
         lastKnownSize: 0,
       };
@@ -481,7 +498,7 @@ export function useJaxelDocuments(): {
       const commandBus = new CommandBus(doc);
       const unsubscribe = commandBus.subscribe(() => {
         setRevision((r) => r + 1);
-        markDirty(commandBus);
+        syncDirty(commandBus);
       });
       unsubscribersRef.current.get(filePath)?.(); // drop the pre-reload subscription
       unsubscribersRef.current.set(filePath, unsubscribe);
@@ -496,6 +513,7 @@ export function useJaxelDocuments(): {
                 sourceText: result.content,
                 encoding: result.encoding,
                 isDirty: false,
+                changeBaseline: captureChangeBaseline(newRoot),
                 lastKnownMtimeMs: result.mtimeMs,
                 lastKnownSize: result.size,
               }

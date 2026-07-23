@@ -228,3 +228,49 @@ Im Grilling geklärte Grundsatzentscheidungen (Details in `.scratch/ap15-crash-l
    nach 8 Sekunden. Hover oder Tastaturfokus pausiert exakt die Restlaufzeit, `×` schließt sofort. Identische neue
    Meldungen sind neue Ereignisse und starten den Timer erneut. Dauer und Position sind bewusst
    keine Einstellungen.
+
+## 2026-07-22 — Grilling: sichtbare Kennzeichnung ungespeicherter Änderungen
+
+Auslöser: PO-Wunsch, ungespeicherte Änderungen sichtbar zu machen — primär am Tab, sekundär
+(optional) am einzelnen Baumknoten. Im Grilling geklärte Grundsatzentscheidungen (Glossar siehe
+`CONTEXT.md`):
+
+1. **Tab-Kennzeichnung: Punkt statt Schließen-Icon (VS-Code-Stil), kein Sternchen/Rahmen.**
+   Solange dirty, ersetzt ein kleiner Punkt das `×`; Hover zeigt trotzden `×` zum Schließen.
+   Kompakt, kein zusätzlicher Platzbedarf, etabliertes Muster.
+2. **`isDirty` bekommt eine echte Speicher-Baseline statt eines reinen „wurde je geändert"-Flags.**
+   `CommandBus` merkt sich die Undo-Stack-Tiefe beim letzten Speichern (`markSaved()`); dirty =
+   aktuelle Tiefe weicht von dieser Baseline ab. Undo bis exakt zum Speicherpunkt macht ein
+   Dokument wieder sauber, auch ohne erneutes Speichern. Bewusste Einschränkung: das ist ein
+   Tiefenvergleich, kein Content-Diff — nach Speichern und anschließendem Verzweigen der Historie
+   (neuer Command löscht den Redo-Stack) könnte die Tiefe rein zufällig wieder mit der Baseline
+   übereinstimmen, obwohl der Inhalt abweicht. Denselben Kompromiss akzeptieren die meisten Editor
+   mit undo-basiertem Dirty-Tracking (u. a. VS Code); ein echter Content-Hash wäre teurer und für
+   den Anwendungsfall nicht gerechtfertigt.
+3. **Baum-Änderungsmarker sind ein optionales, standardmäßig AUSGESCHALTETES Setting** ("Baum" in
+   den Einstellungen), rein additive Anzeige ohne Einfluss auf Modell/Speichern/Undo.
+4. **Marker-Umfang: exakter Knoten UND zugeklappte Vorfahren, aber optisch unterschieden.** Der
+   geänderte/neue Knoten selbst bekommt den vollen Punkt (Gelb=geändert, Grün… hier: `--accent`
+   für neu, `--warn` für geändert, siehe Punkt 8); ein zugeklappter Vorfahre mit geändertem
+   Nachfahren bekommt einen neutralen, blassen Punkt (`--text-2`), unabhängig davon, welche Art
+   Änderung er enthält (keine Farbmischung bei mehreren Änderungsarten im selben Teilbaum).
+5. **Gelöschte Knoten: Tombstone-Zeile an ursprünglicher Position, rein informativ.** Kein
+   Klick-Verhalten (kein Teil-Undo-Mechanismus außerhalb des linearen CommandBus-Stacks) —
+   Wiederherstellen nur über das normale Strg+Z. Ein gelöschter Teilbaum bekommt genau EINE
+   Tombstone-Zeile für seine Wurzel, keine einzelnen Einträge für Nachfahren.
+6. **Tombstone-Position ist an das Anker-Geschwister gebunden, nicht an einen festen Index.** Eine
+   Tombstone-Zeile steht direkt hinter dem Geschwister, das vor dem gelöschten Knoten stand (bzw.
+   an erster Stelle, falls kein solches Geschwister mehr existiert) — bleibt stabil, auch wenn
+   andere Geschwister später verschoben werden.
+7. **Skalierungs-Limit: ab 500 Änderungen in der Sitzung pausiert die Markierung** mit einem
+   dezenten Hinweis, statt bei sehr großen Bearbeitungssitzungen die Baum-Performance zu
+   gefährden.
+8. **Marker-Farben nutzen die bestehenden Theme-Variablen (`--accent`, `--warn`, `--text-2`)
+   statt einer neuen Farbe.** Das Projekt hat bewusst „einen einzigen Akzent" pro Theme (7
+   Themes); eine neue Erfolgs-/Grün-Farbe hätte in jedem Theme einzeln abgestimmt werden müssen.
+9. **Bekannte v1-Einschränkung, bewusst in Kauf genommen:** Wird das letzte reale Kind eines
+   zugeklappten Knotens gelöscht, verschwindet dessen Twisty (reale Kinderzahl ist jetzt 0) und
+   es gibt keine Möglichkeit mehr, ihn aufzuklappen, um die Tombstones zu sehen — außer er war
+   zum Löschzeitpunkt bereits aufgeklappt. Behoben werden könnte das nur durch Anfassen der
+   allgemeinen (nicht auf dieses Feature bezogenen) Auf-/Zuklapp-Logik in `App.tsx`, was für ein
+   default-aus-Zusatzfeature nicht gerechtfertigt ist.

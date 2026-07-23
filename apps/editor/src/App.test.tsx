@@ -1313,6 +1313,76 @@ describe("Einstellungen", () => {
   });
 });
 
+describe("Baum-Änderungsmarker (Settings: default aus)", () => {
+  async function enableChangeMarkers(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    await user.click(screen.getByRole("checkbox", { name: /Geänderte, neue und gelöschte Knoten/ }));
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+  }
+
+  it("zeigt standardmäßig keine Marker an, auch nach einer Bearbeitung", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    const cityValue = await screen.findByText("Berlin");
+    await user.dblClick(cityValue);
+    const input = screen.getByDisplayValue("Berlin");
+    await user.clear(input);
+    await user.type(input, "München");
+    await user.keyboard("{Enter}");
+    await screen.findByText("München");
+
+    expect(document.querySelector(".tree-row__change-marker")).not.toBeInTheDocument();
+  });
+
+  it("markiert einen geänderten Knoten und lässt es nach dem Speichern wieder verschwinden", async () => {
+    const user = await openSampleFile();
+    await enableChangeMarkers(user);
+
+    await user.click(screen.getAllByText("person")[0]!);
+    const cityValue = await screen.findByText("Berlin");
+    await user.dblClick(cityValue);
+    const input = screen.getByDisplayValue("Berlin");
+    await user.clear(input);
+    await user.type(input, "München");
+    await user.keyboard("{Enter}");
+    await screen.findByText("München");
+
+    const cityRow = screen.getByText("city", { selector: ".tree-row__name" }).closest(".tree-row")!;
+    expect(cityRow.querySelector(".tree-row__change-marker--modified")).toBeInTheDocument();
+
+    await user.keyboard("{Control>}s{/Control}");
+    await waitFor(() => expect(cityRow.querySelector(".tree-row__change-marker")).not.toBeInTheDocument());
+  });
+
+  it("markiert einen neu eingefügten Knoten als 'neu'", async () => {
+    const user = await openSampleFile();
+    await enableChangeMarkers(user);
+
+    await user.click(screen.getByText("catalog"));
+    await user.click(screen.getByRole("button", { name: "Kind hinzufügen" }));
+    const input = screen.getByDisplayValue("node");
+    await user.clear(input);
+    await user.type(input, "extra");
+    await user.keyboard("{Enter}");
+    const created = await screen.findByText("extra", { selector: ".tree-row__name" });
+
+    expect(created.closest(".tree-row")!.querySelector(".tree-row__change-marker--added")).toBeInTheDocument();
+  });
+
+  it("zeigt einen gelöschten Knoten als durchgestrichene Tombstone-Zeile", async () => {
+    const user = await openSampleFile();
+    await enableChangeMarkers(user);
+
+    await user.click(screen.getAllByText("person")[0]!);
+    const cityValue = await screen.findByText("Berlin");
+    await user.click(cityValue.closest(".tree-row")!);
+    await user.click(screen.getByRole("button", { name: "Löschen" }));
+
+    const tombstone = await screen.findByText("city", { selector: ".tree-row--tombstone .tree-row__name" });
+    expect(tombstone.closest(".tree-row--tombstone")).toBeInTheDocument();
+  });
+});
+
 describe("Neues Dokument anlegen", () => {
   it("legt ein neues XML-Dokument mit leerem <root> an und nennt den Tab 'Unbenannt-1'", async () => {
     const user = userEvent.setup();
@@ -1383,6 +1453,59 @@ describe("Neues Dokument anlegen", () => {
     await user.keyboard("{Control>}s{/Control}");
 
     expect(screen.getByText("Unbenannt-1", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+});
+
+describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
+  function sampleTab(): HTMLElement {
+    return screen.getByText("sample.xml", { selector: ".tab__label" }).closest(".tab")!;
+  }
+
+  it("markiert den Tab nach einer Bearbeitung als dirty und wieder als sauber nach dem Speichern", async () => {
+    const user = await openSampleFile();
+    expect(sampleTab()).not.toHaveClass("tab--dirty");
+
+    await user.click(screen.getAllByText("person")[0]!);
+    const cityValue = await screen.findByText("Berlin");
+    await user.dblClick(cityValue);
+    const input = screen.getByDisplayValue("Berlin");
+    await user.clear(input);
+    await user.type(input, "München");
+    await user.keyboard("{Enter}");
+    await screen.findByText("München");
+
+    expect(sampleTab()).toHaveClass("tab--dirty");
+
+    await user.keyboard("{Control>}s{/Control}");
+    await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
+  });
+
+  it("wird nach dem Speichern wieder sauber, sobald Strg+Z exakt zur Speicher-Baseline zurückgeht", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    const cityValue = await screen.findByText("Berlin");
+    await user.dblClick(cityValue);
+    const input = screen.getByDisplayValue("Berlin");
+    await user.clear(input);
+    await user.type(input, "München");
+    await user.keyboard("{Enter}");
+    await screen.findByText("München");
+
+    await user.keyboard("{Control>}s{/Control}");
+    await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
+
+    const munich = await screen.findByText("München");
+    await user.dblClick(munich);
+    const input2 = screen.getByDisplayValue("München");
+    await user.clear(input2);
+    await user.type(input2, "Köln");
+    await user.keyboard("{Enter}");
+    await screen.findByText("Köln");
+    expect(sampleTab()).toHaveClass("tab--dirty");
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    await screen.findByText("München");
+    expect(sampleTab()).not.toHaveClass("tab--dirty");
   });
 });
 

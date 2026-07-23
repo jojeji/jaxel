@@ -78,6 +78,50 @@ describe("CommandBus", () => {
     expect(child.value).toBe("x");
   });
 
+  it("is not dirty initially, becomes dirty on execute, and clean again after markSaved", () => {
+    const root = createNode({ name: "root", value: "a" });
+    const doc = createDocument({ format: "xml", root });
+    const bus = new CommandBus(doc);
+
+    expect(bus.isDirty()).toBe(false);
+    bus.execute(setValueCommand(root, "b"));
+    expect(bus.isDirty()).toBe(true);
+
+    bus.markSaved();
+    expect(bus.isDirty()).toBe(false);
+  });
+
+  it("becomes clean again when undo returns exactly to the saved baseline", () => {
+    const root = createNode({ name: "root", value: "a" });
+    const doc = createDocument({ format: "xml", root });
+    const bus = new CommandBus(doc);
+
+    bus.execute(setValueCommand(root, "b"));
+    bus.markSaved();
+    bus.execute(setValueCommand(root, "c"));
+    expect(bus.isDirty()).toBe(true);
+
+    bus.undo();
+    expect(bus.isDirty()).toBe(false);
+
+    bus.redo();
+    expect(bus.isDirty()).toBe(true);
+  });
+
+  it("stays dirty if undo passes the saved baseline entirely", () => {
+    const root = createNode({ name: "root", value: "a" });
+    const doc = createDocument({ format: "xml", root });
+    const bus = new CommandBus(doc);
+
+    bus.execute(setValueCommand(root, "b"));
+    bus.execute(setValueCommand(root, "c"));
+    bus.markSaved(); // baseline at depth 2
+    bus.undo(); // depth 1
+    bus.undo(); // depth 0
+
+    expect(bus.isDirty()).toBe(true);
+  });
+
   it("notifies subscribers on execute/undo/redo", () => {
     const root = createNode({ name: "root", value: "a" });
     const doc = createDocument({ format: "xml", root });

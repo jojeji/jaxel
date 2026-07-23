@@ -9,6 +9,9 @@ export class CommandBus {
   private readonly undoStack: Command[] = [];
   private readonly redoStack: Command[] = [];
   private readonly listeners = new Set<() => void>();
+  /** Undo-stack depth at the last save — the dirty baseline (see `isDirty`). Starts at 0, so
+   * a freshly loaded/created document (empty stack) is clean until its first command. */
+  private savedDepth = 0;
 
   constructor(private readonly doc: JaxelDocument) {}
 
@@ -66,6 +69,23 @@ export class CommandBus {
     this.doc.revision++;
     this.undoStack.push(command);
     this.notify();
+  }
+
+  /** Call once the document's current state has been written to disk: the undo-stack depth
+   * right now becomes the new "clean" baseline. */
+  markSaved(): void {
+    this.savedDepth = this.undoStack.length;
+  }
+
+  /** True iff the undo-stack depth has moved away from the saved baseline — i.e. there are
+   * changes not reflected on disk. Undoing back down to exactly the saved depth (even without
+   * saving again) makes this false again; see CONTEXT.md "Baseline". Note: this is a stack-
+   * depth comparison, not a content diff — after saving and then undoing/redoing through a
+   * DIFFERENT branch of edits (redo history is cleared by any new command, see `execute`), the
+   * depth could coincidentally match the baseline again despite different content. Same
+   * trade-off most editors with undo-based dirty tracking accept. */
+  isDirty(): boolean {
+    return this.undoStack.length !== this.savedDepth;
   }
 
   /** For React (or any UI) to re-render after a mutation. Returns an unsubscribe function. */

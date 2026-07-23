@@ -1,7 +1,7 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { looksLikeBase64, type DocNode } from "@jaxel/core";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { looksLikeBase64, type ChangeSet, type DocNode, type Tombstone } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
-import type { TreeRow } from "./flatten.js";
+import { withTombstones, type DisplayRow, type TreeRow } from "./flatten.js";
 
 const ROW_HEIGHT = 22;
 const OVERSCAN = 8;
@@ -75,6 +75,10 @@ interface TreeViewProps {
    * row into view. Expanding its ancestors is App's job (it owns the expanded set).
    */
   revealNodeId?: string | null;
+  /** Optional change markers/tombstones (Settings: "Baum" toggle, default off) — see
+   * @jaxel/core computeChanges, CONTEXT.md "Änderungsmarker"/"Tombstone". `null` renders the
+   * plain tree with no markers at all (the common case). */
+  changes?: ChangeSet | null;
 }
 
 /**
@@ -96,7 +100,9 @@ export function TreeView({
   onMoveNode,
   onDecodeBase64,
   revealNodeId,
+  changes = null,
 }: TreeViewProps): React.ReactElement {
+  const displayRows = useMemo(() => withTombstones(rows, changes), [rows, changes]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -128,17 +134,17 @@ export function TreeView({
     const anchor = scrollAnchorRef.current;
     if (!anchor) return;
     scrollAnchorRef.current = null;
-    const newIndex = rows.findIndex((row) => row.node.id === anchor.nodeId);
+    const newIndex = displayRows.findIndex((item) => item.kind === "node" && item.row.node.id === anchor.nodeId);
     if (newIndex === -1) return; // toggled row itself no longer visible (e.g. an ancestor collapsed too)
     const newScrollTop = Math.max(0, newIndex * ROW_HEIGHT - anchor.offsetInViewport);
     if (containerRef.current) containerRef.current.scrollTop = newScrollTop;
     setScrollTop(newScrollTop);
-  }, [rows]);
+  }, [displayRows]);
 
   useEffect(() => {
     if (!revealNodeId) return;
     if (revealNodeId === handledRevealNodeIdRef.current) return; // already satisfied this reveal request
-    const index = rows.findIndex((row) => row.node.id === revealNodeId);
+    const index = displayRows.findIndex((item) => item.kind === "node" && item.row.node.id === revealNodeId);
     if (index === -1) return; // ancestors not expanded yet in this pass; the next effect run will catch it
     handledRevealNodeIdRef.current = revealNodeId; // don't re-center again on later, unrelated rows changes
     const target = index * ROW_HEIGHT;
@@ -149,12 +155,12 @@ export function TreeView({
       if (containerRef.current) containerRef.current.scrollTop = next;
       return next;
     });
-  }, [revealNodeId, rows, viewportHeight]);
+  }, [revealNodeId, displayRows, viewportHeight]);
 
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
-  const endIndex = Math.min(rows.length, startIndex + visibleCount);
-  const visibleRows = rows.slice(startIndex, endIndex);
+  const endIndex = Math.min(displayRows.length, startIndex + visibleCount);
+  const visibleRows = displayRows.slice(startIndex, endIndex);
 
   const dragRow = dragRowId ? (rows.find((row) => row.node.id === dragRowId) ?? null) : null;
 
@@ -201,9 +207,20 @@ export function TreeView({
       className="tree-view"
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
-      <div className="tree-view__spacer" style={{ height: rows.length * ROW_HEIGHT }}>
-        {visibleRows.map((row, i) => {
+      <div className="tree-view__spacer" style={{ height: displayRows.length * ROW_HEIGHT }}>
+        {visibleRows.map((item, i) => {
           const top = (startIndex + i) * ROW_HEIGHT;
+          if (item.kind === "tombstone") {
+            return (
+              <TombstoneRowView
+                key={`tombstone-${item.tombstone.id}`}
+                tombstone={item.tombstone}
+                depth={item.depth}
+                top={top}
+              />
+            );
+          }
+          const row = item.row;
           function handleToggle(): void {
             scrollAnchorRef.current = { nodeId: row.node.id, offsetInViewport: top - scrollTop };
             onToggle(row);
@@ -217,6 +234,15 @@ export function TreeView({
               selected={row.node.id === selectedId}
               editingField={editingField?.nodeId === row.node.id ? editingField.field : null}
               dropPosition={dropTarget?.rowId === row.node.id ? dropTarget.position : null}
+              changeMarker={
+                changes?.added.has(row.node.id)
+                  ? "added"
+                  : changes?.modified.has(row.node.id)
+                    ? "modified"
+                    : changes?.containsChange.has(row.node.id)
+                      ? "contains"
+                      : null
+              }
               onToggle={handleToggle}
               onSelect={() => onSelect(row)}
               onStartEditName={() => onStartEditName(row)}
@@ -245,6 +271,10 @@ export function TreeView({
   );
 }
 
+/** Which change-marker dot (if any) a row should show — see CONTEXT.md "Änderungsmarker".
+ * `null` when change markers are off (`changes` prop not passed) or this row is unchanged. */
+type ChangeMarker = "added" | "modified" | "contains" | null;
+
 interface TreeRowViewProps {
   row: TreeRow;
   top: number;
@@ -252,6 +282,7 @@ interface TreeRowViewProps {
   selected: boolean;
   editingField: "name" | "value" | null;
   dropPosition: DropPosition | null;
+  changeMarker: ChangeMarker;
   onToggle: () => void;
   onSelect: () => void;
   onStartEditName: () => void;
@@ -273,6 +304,7 @@ function TreeRowView({
   selected,
   editingField,
   dropPosition,
+  changeMarker,
   onToggle,
   onSelect,
   onStartEditName,
@@ -331,6 +363,14 @@ function TreeRowView({
       >
         {hasChildren ? (expanded ? "▾" : "▸") : ""}
       </span>
+
+      {changeMarker && (
+        <span
+          className={`tree-row__change-marker tree-row__change-marker--${changeMarker}`}
+          title={t(`tree.changeMarker.${changeMarker}`)}
+          aria-hidden="true"
+        />
+      )}
 
       {editingField === "name" ? (
         <InlineEditor
@@ -392,6 +432,25 @@ function TreeRowView({
           base64
         </button>
       )}
+    </div>
+  );
+}
+
+/** A deleted-since-baseline node's placeholder row — purely informational, no click behavior
+ * (grill session 2026-07-22 decision: "rein informativ, keine Aktion"; restoring only via the
+ * normal undo). See CONTEXT.md "Tombstone". */
+function TombstoneRowView({ tombstone, depth, top }: { tombstone: Tombstone; depth: number; top: number }): React.ReactElement {
+  const { t } = useI18n();
+  const preview = tombstone.childCount > 0 ? `(${tombstone.childCount})` : "";
+  return (
+    <div
+      className="tree-row tree-row--tombstone"
+      style={{ top, height: ROW_HEIGHT, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
+      title={t("tree.tombstone.title")}
+    >
+      <span className="tree-row__twisty" />
+      <span className="tree-row__name">{tombstone.name}</span>
+      {preview !== "" && <span className="tree-row__preview">{preview}</span>}
     </div>
   );
 }

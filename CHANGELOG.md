@@ -11,6 +11,19 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-22
+
+### Hinzugefügt
+
+- **Ungespeicherte Änderungen sichtbar am Tab:** Ein Tab mit ungespeicherten Änderungen zeigt
+  einen Punkt statt des Schließen-Kreuzes (Hover zeigt trotzdem `×`). Verschwindet auch, wenn per
+  Rückgängig exakt bis zum letzten Speicherstand zurückgegangen wird, ohne dass erneut gespeichert
+  werden muss.
+- **Optionale Baum-Änderungsmarker** (Einstellungen → „Baum", standardmäßig aus): geänderte und
+  neue Knoten seit dem letzten Speichern werden mit einem farbigen Punkt markiert, zugeklappte
+  Vorfahren mit Änderungen im Unterbaum blass. Gelöschte Knoten bleiben als durchgestrichene,
+  rein informative Tombstone-Zeile an ihrer ursprünglichen Position sichtbar, bis gespeichert wird.
+
 ## [0.3.2] - 2026-07-22
 
 ### Behoben

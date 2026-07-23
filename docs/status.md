@@ -3,6 +3,61 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## AP16 — Ungespeicherte Änderungen sichtbar machen (abgeschlossen 2026-07-22; Grilling:
+`docs/entscheidungen.md` 2026-07-22)
+
+Vorgeschichte: der PO wollte primär eine Tab-Kennzeichnung bei ungespeicherten Änderungen,
+sekundär (optional, default aus) eine Baum-Kennzeichnung geänderter/neuer/gelöschter Knoten.
+Vor der Umsetzung lief eine ausführliche Grilling-Session (Entscheidungen siehe
+`docs/entscheidungen.md`); während der Session kam der kritische XML-Deklaration-Fix (Eintrag
+direkt darunter) dazwischen und wurde vorgezogen, danach ging die Grilling-Session normal weiter.
+
+**Primär — Tab-Punkt:**
+- `CommandBus` (`packages/core/src/commands/command-bus.ts`) bekam eine echte Speicher-Baseline:
+  `markSaved()` merkt sich die Undo-Stack-Tiefe, `isDirty()` vergleicht die aktuelle Tiefe damit.
+  Ersetzt das bisherige reine „wurde je editiert"-Flag — Undo bis exakt zum Speicherpunkt macht
+  ein Dokument jetzt wieder sauber.
+- `document-store.ts`: `markDirty` → `syncDirty`, leitet `isDirty` bei jedem Command aus
+  `commandBus.isDirty()` ab statt es hart auf `true` zu setzen; `saveFile`/`saveFileAs` rufen
+  `commandBus.markSaved()`.
+- `TabBar.tsx` bekommt eine neue Pflicht-Prop `dirtyPaths: ReadonlySet<string>` (von `App.tsx`
+  aus `docs` abgeleitet); ein dirty Tab zeigt einen Punkt statt `×`, Hover zeigt trotzdem `×`.
+
+**Sekundär — Baum-Änderungsmarker (Settings „Baum", default aus):**
+- Neues Modul `packages/core/src/changes/diff.ts`: `captureChangeBaseline(root)` snapshottet
+  Name/Wert/Attribute/jsonType + Eltern-/Kind-Ids jedes Knotens; `computeChanges(root, baseline)`
+  liefert `modified`/`added`/`containsChange`-Id-Sets sowie `tombstones` (ein Eintrag pro
+  gelöschtem Teilbaum, verankert am vorherigen noch existierenden Geschwister — „Anker-
+  Geschwister", siehe `CONTEXT.md`). Ab 500 Änderungen liefert es `truncated: true` mit leeren
+  Sets statt teurer Buchhaltung.
+- `document-store.ts` erfasst `changeBaseline` bei `openFile`/`newDocument`/`reloadFile` und
+  erneuert sie bei `saveFile`/`saveFileAs` (gleiche Stellen wie `commandBus.markSaved()`).
+- `apps/editor/src/tree/flatten.ts`: neue `DisplayRow`/`withTombstones()` — interleaved
+  Tombstone-Zeilen in eine bereits geflattete `TreeRow[]`-Liste rein additiv fürs Rendering,
+  OHNE die bestehende Auswahl-/Tastatur-/Drag&Drop-Logik in `App.tsx` anzufassen (die bleibt
+  komplett auf `TreeRow[]`). Bewusste Architekturentscheidung wegen des Risikos, `App.tsx`s
+  größte, am dichtesten getestete Datenstruktur für ein optionales Zusatzfeature umzubauen.
+- `TreeView.tsx` bekommt eine optionale `changes`-Prop; Marker-Punkte (`.tree-row__change-marker`)
+  und Tombstone-Zeilen (`.tree-row--tombstone`) sind rein additiv, nutzen bestehende
+  Theme-Variablen (`--accent`, `--warn`, `--text-2` statt einer neuen Farbe je der 7 Themes).
+- **Bekannte v1-Einschränkung** (siehe `docs/entscheidungen.md` Punkt 9): wird das letzte reale
+  Kind eines zugeklappten Knotens gelöscht, verschwindet dessen Twisty und die Tombstones darunter
+  sind nicht mehr erreichbar, außer der Knoten war beim Löschen bereits aufgeklappt.
+- Neue Tests: `packages/core/tests/command-bus.test.ts` (Baseline/isDirty),
+  `packages/core/tests/diff.test.ts` (12 Fälle: modified/added/tombstone-Anker/Teilbaum-
+  Kollaps/Performance-Cap), `apps/editor/src/tree/flatten.test.ts` (`withTombstones`),
+  `App.test.tsx` (Tab-Dirty-Punkt + Undo-Baseline, Baum-Änderungsmarker End-to-End). Insgesamt
+  102 Core- und 146 Editor-Tests grün, `tsc --noEmit` sauber in beiden Paketen.
+- **Live-Verifikation nicht möglich in dieser Sitzung**: `npm run dev` kompiliert und startet
+  sauber (Rust-Build + Vite ok), aber das einzige sichtbare Jaxel-Fenster gehörte zu einer
+  bereits laufenden, separaten Installation (`/usr/bin/jaxel`) mit einer echten, unfertigen
+  Bearbeitung des Nutzers — ohne Klick-Automationswerkzeug (weiterhin kein xdotool/ydotool in
+  dieser Umgebung, siehe frühere AP-Einträge) wurde bewusst nicht in dieses Fenster eingegriffen,
+  um die laufende Arbeit nicht zu gefährden. Verifikation stützt sich auf die oben genannte
+  Testabdeckung.
+- Neu angelegt: `CONTEXT.md` (Domain-Glossar: Dirty, Baseline, Änderungsmarker, Tombstone,
+  Anker-Geschwister) — erste Nutzung der `domain-modeling`-Disziplin in diesem Projekt.
+
 ## 🔥 Kritischer Fix 2026-07-22 — Minimal-invasives Speichern verlor die XML-Deklaration
 
 - **Symptom (PO-Meldung):** Nach dem Speichern war die XML-Datei ungültig / Inhalt fehlte.
