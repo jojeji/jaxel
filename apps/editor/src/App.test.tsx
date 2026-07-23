@@ -1109,6 +1109,20 @@ describe("Tabs (mehrere Dokumente)", () => {
     expect(screen.queryByText("inventory")).not.toBeInTheDocument();
   });
 
+  it("behaelt den Auf-/Zuklapp-Zustand eines Tabs beim Wechseln und Zurueckkehren bei", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // klappt die erste person auf
+    await screen.findByText("Berlin");
+
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+
+    await user.click(screen.getByText("sample.xml"));
+    await screen.findByText("catalog");
+    expect(screen.getByText("Berlin")).toBeInTheDocument(); // immer noch aufgeklappt, nicht kollabiert
+  });
+
   it("Tab schliessen entfernt das Dokument und aktiviert den Nachbar-Tab", async () => {
     const user = await openSampleFile();
     vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");

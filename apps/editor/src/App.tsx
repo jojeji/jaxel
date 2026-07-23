@@ -117,6 +117,12 @@ export function App(): React.ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
+  /** Per-tab memory of the `expanded` set, keyed by tab key — so returning to a tab shows it
+   * exactly as it was left, instead of collapsing back to just the root every time. */
+  const tabViewStateRef = useRef<Map<string, Set<string>>>(new Map());
+  /** Which tab key the CURRENT `expanded` state belongs to — set at the end of the tab-switch
+   * effect below, read at its start (before the switch) to know where to save it. */
+  const activeTabKeyRef = useRef<string | null>(null);
   const nextToastIdRef = useRef(0);
   const [errorToast, setErrorToast] = useState<ToastEntry | null>(null);
   const [statusToast, setStatusToast] = useState<ToastEntry | null>(null);
@@ -366,14 +372,29 @@ export function App(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- openPath only wraps the stable openFile
   }, []);
 
-  // Reset per-tab view state whenever the active TAB changes (not just the document — switching
-  // between the full view and a focus tab of the same document is also a fresh view context).
+  // Restore the per-tab EXPANDED set whenever the active TAB changes (not just the document —
+  // switching between the full view and a focus tab of the same document is also a distinct
+  // view context). A tab seen before comes back exactly as it was left (expanded nodes); a tab
+  // seen for the first time starts fresh (just its root expanded). Selection is deliberately
+  // NOT restored — always resets, same as before this fix — since the previously selected node
+  // may no longer even be visible/relevant in a differently-expanded tree.
   useEffect(() => {
+    const previousKey = activeTabKeyRef.current;
+    if (previousKey) {
+      tabViewStateRef.current.set(previousKey, expanded);
+    }
     setSelectedId(null);
     setEditingField(null);
     setFilterMatches(null);
-    const visibleRootId = focus ? focus.node.id : activeDoc?.document.root.id;
-    setExpanded(visibleRootId ? new Set([visibleRootId]) : new Set());
+    const newKey = activeTab?.key ?? null;
+    const saved = newKey ? tabViewStateRef.current.get(newKey) : undefined;
+    if (saved) {
+      setExpanded(saved);
+    } else {
+      const visibleRootId = focus ? focus.node.id : activeDoc?.document.root.id;
+      setExpanded(visibleRootId ? new Set([visibleRootId]) : new Set());
+    }
+    activeTabKeyRef.current = newKey;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on the tab only
   }, [activeTab?.key]);
 
@@ -1067,6 +1088,13 @@ export function App(): React.ReactElement {
     copyPath(selectedRow.node, kind);
   }
 
+  /** Closes a tab and forgets its remembered expand/selection state (see tabViewStateRef above) —
+   * otherwise the map would grow forever across a long session of opening/closing tabs. */
+  function closeTabAndForgetView(key: string): void {
+    tabViewStateRef.current.delete(key);
+    closeTab(key);
+  }
+
   function handleCloseTab(key: string): void {
     // Warn only when this close would UNLOAD a dirty document — i.e. no other tab (full
     // view or focus) still references it. Closing a focus tab beside an open full view
@@ -1079,7 +1107,7 @@ export function App(): React.ReactElement {
         return;
       }
     }
-    closeTab(key);
+    closeTabAndForgetView(key);
   }
 
   async function destroyWindow(): Promise<void> {
@@ -1106,7 +1134,7 @@ export function App(): React.ReactElement {
         setClosePrompt(null);
         // A save-as may have renamed the document (and with it every tab key) — re-derive
         // the closing tab's key from the path the save actually ended up under.
-        closeTab(tabKey(savedPath, prompt.focusNodeId));
+        closeTabAndForgetView(tabKey(savedPath, prompt.focusNodeId));
       } else {
         for (const doc of docs.filter((d) => d.isDirty)) {
           if ((await saveDoc(doc)) === null) return; // cancelled — abort the window close
@@ -1123,7 +1151,7 @@ export function App(): React.ReactElement {
     const prompt = closePrompt;
     if (!prompt) return;
     setClosePrompt(null);
-    if (prompt.kind === "tab") closeTab(prompt.key);
+    if (prompt.kind === "tab") closeTabAndForgetView(prompt.key);
     else void destroyWindow();
   }
 

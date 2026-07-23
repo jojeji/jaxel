@@ -3,6 +3,29 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-22 — Baum kollabierte beim Tab-Wechsel (PO-Meldung nach AP16-Release)
+
+- **Symptom:** Beim Wechsel auf einen anderen Tab und zurück war der Baum wieder komplett
+  zugeklappt, statt genau so offen zu bleiben wie vor dem Wechsel.
+- **Ursache** (`apps/editor/src/App.tsx`): Ein einziger globaler `expanded`-State wurde von
+  einem `useEffect` bei JEDEM Wechsel der aktiven Tab-`key` bedingungslos auf „nur die Wurzel"
+  zurückgesetzt — unabhängig davon, ob der Tab zum ersten Mal besucht wurde oder ob man nur
+  zurückkehrte.
+- **Fix:** `expanded` wird jetzt pro Tab gemerkt (`tabViewStateRef`, `Map<tabKey, Set<string>>`).
+  Beim Verlassen eines Tabs wird sein aktueller `expanded`-Stand gesichert (via `activeTabKeyRef`,
+  der sich merkt, zu welchem Tab der gerade aktive State gehört); beim Betreten wird der
+  gesicherte Stand wiederhergestellt, falls vorhanden, sonst frisch mit nur der Wurzel
+  aufgeklappt. Aufräumen beim Schließen eines Tabs (`closeTabAndForgetView`), damit die Map nicht
+  unbegrenzt wächst.
+- **Bewusst NICHT mitgezogen:** `selectedId` bleibt weiterhin bei jedem Tab-Wechsel zurückgesetzt
+  (wie vorher) — ein erster Versuch, auch die Auswahl pro Tab zu merken, ließ einen bestehenden
+  Test fehlschlagen (Attribute-Panel zeigt den Namen des wiederhergestellten selektierten Knotens
+  zusätzlich zum Baum, was eine lose `getAllByText(...)`-Zählung in einem Fokus-Ansicht-Test
+  verfälschte) und war ohnehin nicht Teil der PO-Meldung — bewusst rausgelassen, um chirurgisch
+  am gemeldeten Problem zu bleiben.
+- Neuer Regressionstest in `App.test.tsx`: Tab wechseln und zurückkehren behält den
+  Auf-/Zuklapp-Zustand bei.
+
 ## AP16 — Ungespeicherte Änderungen sichtbar machen (abgeschlossen 2026-07-22; Grilling:
 `docs/entscheidungen.md` 2026-07-22)
 

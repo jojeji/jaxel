@@ -11,6 +11,14 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-22
+
+### Behoben
+
+- **Baum kollabierte beim Tab-Wechsel:** Wechselte man den Tab und kehrte zurück, war der Baum
+  wieder komplett zugeklappt statt genau so offen zu bleiben wie vorher. Der Auf-/Zuklapp-Zustand
+  wird jetzt pro Tab gemerkt.
+
 ## [0.4.0] - 2026-07-22
 
 ### Hinzugefügt
