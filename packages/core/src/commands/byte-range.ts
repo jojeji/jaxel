@@ -23,3 +23,24 @@ export function restoreByteRanges(chain: DocNode[], saved: DocNode["byteRange"][
     node.byteRange = saved[i];
   });
 }
+
+/**
+ * After `serializeXmlMinimal` writes a document to disk, that file becomes the byte
+ * source for the *next* minimal-invasive save. If the caller only swaps in the new
+ * source text without also refreshing every node's `byteRange` to match it, any node
+ * whose `byteRange` still points at the OLD source silently reads the wrong bytes from
+ * the new one the moment an earlier edit shifted its offset — corrupting the second
+ * save (see docs/entscheidungen.md, "Byte-Offsets nach dem Speichern auffrischen").
+ *
+ * `fresh` must be `existing`'s just-written output re-parsed — since it's a
+ * re-serialization of `existing` itself, the two trees are guaranteed structurally
+ * identical (same nodes, same order), so byteRanges can be copied over by tree
+ * position. `existing`'s node objects (and therefore ids and undo/redo history) are
+ * left untouched — only the `byteRange` field is refreshed.
+ */
+export function syncByteRangesAfterSave(existing: DocNode, fresh: DocNode): void {
+  existing.byteRange = fresh.byteRange;
+  for (let i = 0; i < existing.children.length; i++) {
+    syncByteRangesAfterSave(existing.children[i]!, fresh.children[i]!);
+  }
+}

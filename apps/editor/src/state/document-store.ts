@@ -13,6 +13,7 @@ import {
   resolveNodeBySegments,
   serializeJson,
   serializeXmlMinimal,
+  syncByteRangesAfterSave,
   type ChangeBaseline,
   type DocFormat,
   type DocNode,
@@ -248,7 +249,13 @@ export function useJaxelDocuments(): {
     logInfo("breadcrumb", `Datei gespeichert: ${target.filePath}`);
     // The file on disk now matches the tree again — that becomes the new minimal-invasive
     // baseline AND the new dirty/change-marker baseline (see CommandBus.markSaved,
-    // CONTEXT.md "Baseline").
+    // CONTEXT.md "Baseline"). The tree's byteRanges must be refreshed to match this new
+    // baseline text (not just the sourceText string swapped below) — otherwise the NEXT
+    // save silently corrupts (docs/entscheidungen.md, "Byte-Offsets nach dem Speichern
+    // auffrischen").
+    if (target.format === "xml") {
+      syncByteRangesAfterSave(target.document.root, parseXml(text).root);
+    }
     target.commandBus.markSaved();
     const changeBaseline = captureChangeBaseline(target.document.root);
     setState((current) => ({
@@ -278,6 +285,9 @@ export function useJaxelDocuments(): {
       encoding: target.encoding,
     });
     logInfo("breadcrumb", `Datei gespeichert: ${newPath}`);
+    if (target.format === "xml") {
+      syncByteRangesAfterSave(target.document.root, parseXml(text).root);
+    }
     target.commandBus.markSaved();
     const changeBaseline = captureChangeBaseline(target.document.root);
     const unsubscribe = unsubscribersRef.current.get(currentPath);

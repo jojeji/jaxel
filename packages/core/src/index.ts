@@ -9,7 +9,12 @@ export { createDocument } from "./model/document.js";
 export type { Command } from "./commands/command.js";
 export { CommandBus } from "./commands/command-bus.js";
 export { createCompositeCommand } from "./commands/composite.js";
-export { captureByteRanges, clearByteRanges, restoreByteRanges } from "./commands/byte-range.js";
+export {
+  captureByteRanges,
+  clearByteRanges,
+  restoreByteRanges,
+  syncByteRangesAfterSave,
+} from "./commands/byte-range.js";
 export { createRenameCommand } from "./commands/rename.js";
 export { createSetValueCommand } from "./commands/set-value.js";
 export { createSetAttributeCommand } from "./commands/set-attribute.js";

@@ -274,3 +274,29 @@ Auslöser: PO-Wunsch, ungespeicherte Änderungen sichtbar zu machen — primär 
    zum Löschzeitpunkt bereits aufgeklappt. Behoben werden könnte das nur durch Anfassen der
    allgemeinen (nicht auf dieses Feature bezogenen) Auf-/Zuklapp-Logik in `App.tsx`, was für ein
    default-aus-Zusatzfeature nicht gerechtfertigt ist.
+
+## 2026-07-24 — Byte-Offsets nach dem Speichern auffrischen
+
+Auslöser: PO-Meldung über einen Kollegen — ein Feld ändern und speichern ging gut, ein zweites,
+anderes Feld ändern und erneut speichern zerstörte die XML. Root Cause und Fix siehe
+`docs/status.md` Nachtrag 2026-07-24. Die Grundsatzentscheidung dahinter:
+
+1. **Nach jedem Speichern werden alle `byteRange`-Werte gegen den neu geschriebenen Text
+   aufgefrischt, statt sie unangetastet zu lassen oder komplett zu verwerfen.** Minimal-invasives
+   Speichern (Invariante #4) trägt einen bislang unausgesprochenen Vertrag: die `byteRange`-Werte
+   im Baum müssen IMMER zu der `sourceText`, die gerade als Referenz dient, passen. Bis jetzt
+   wurde nach dem Speichern nur `sourceText` ausgetauscht, ohne die Offsets nachzuziehen — der
+   eigentliche Fehler.
+2. **Alternative "alle `byteRange` nach jedem Speichern verwerfen" wurde verworfen.** Einfacher zu
+   implementieren, aber jedes zweite Speichern in einer Sitzung hätte dann wie ein Full-Rebuild
+   gewirkt — Kommentare/PIs in bis dahin unberührten Bereichen wären ab dem zweiten Speichern
+   verloren gegangen, obwohl "best effort" laut Entscheidung #1 weiterhin so viel wie praktikabel
+   erhalten soll.
+3. **Alternative "kompletten Baum nach jedem Speichern neu parsen und Wurzel ersetzen" wurde
+   verworfen.** Hätte Knotenidentität (`id`) und damit die Undo/Redo-Historie über den
+   Speicherpunkt hinweg zerstört — im Widerspruch zur bestehenden Baseline-Semantik (`CONTEXT.md`
+   "Baseline": Undo funktioniert über Speichervorgänge hinweg).
+4. **Gewählt: reparse + positionsweise `byteRange`-Übertragung auf dieselben Knotenobjekte**
+   (`syncByteRangesAfterSave`). Da der neu geparste Baum eine Serialisierung des bestehenden Baums
+   ist, sind beide Bäume strukturell garantiert deckungsgleich — die Übertragung nach Position ist
+   damit sicher, ohne Knotenidentität, `id`s oder Undo-Historie anzufassen.

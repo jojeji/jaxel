@@ -3,6 +3,34 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-24 — Zweites Speichern konnte die XML zerstören (kritischer Fix)
+
+- **Symptom (PO-Meldung, Kollege):** Feld A ändern und speichern — Datei noch in Ordnung. Danach
+  Element B (woanders im Dokument) ändern und erneut speichern — XML kaputt.
+- **Ursache** (`apps/editor/src/state/document-store.ts`, `saveFile`/`saveFileAs`): Nach jedem
+  Speichern wurde `sourceText` (die Referenz-Bytes für `serializeXmlMinimal`) auf den frisch
+  geschriebenen Text gesetzt — aber die `byteRange`-Offsets unveränderter Knoten wurden dabei
+  NICHT aktualisiert; sie zeigten weiterhin auf Positionen in der ursprünglich geladenen Datei.
+  Verschob die erste Änderung die Bytelänge irgendwo davor (praktisch immer der Fall), zeigten
+  diese Offsets beim nächsten Speichern auf falsche Bytes im neuen `sourceText` → kaputte Ausgabe.
+  Ein erneutes `parseXml()` passierte bisher nur beim Öffnen einer Datei, nie nach dem Speichern.
+- **Fix:** Neue Funktion `syncByteRangesAfterSave` (`packages/core/src/commands/byte-range.ts`,
+  exportiert über `index.ts`) parst den frisch geschriebenen Text erneut und überträgt dessen
+  `byteRange`-Werte positionsweise auf den BESTEHENDEN Baum (gleiche Knotenobjekte, gleiche `id`s
+  — nur das `byteRange`-Feld wird aufgefrischt). Das ist sicher, weil der neu geparste Baum
+  strukturell zwingend identisch zum bestehenden ist (er ist ja dessen eigene Serialisierung).
+  Undo/Redo-Historie bleibt dadurch über Speichervorgänge hinweg gültig (Knotenidentität bleibt
+  erhalten). `document-store.ts` ruft das nach jedem erfolgreichen Speichern auf (nur bei XML —
+  JSON hat kein minimal-invasives Speichern).
+- **Nur XML betroffen:** `serializeJson` baut immer komplett aus dem Modell neu, kennt kein
+  `byteRange` — der Bug existierte für JSON-Dokumente nicht.
+- Neue Tests: `packages/core/tests/byte-range-sync.test.ts` (Kernmechanismus, inkl. eines Tests,
+  der den Bug ohne den Fix bewusst reproduziert) und ein Ende-zu-Ende-Regressionstest in
+  `App.test.tsx` (zwei echte Speichervorgänge über verschiedene Felder hinweg, prüft, dass die
+  zweite geschriebene Datei weiterhin gültiges XML ist). Beide Tests schlagen fehl, wenn der Fix
+  entfernt wird (manuell verifiziert).
+- Entscheidungslog: `docs/entscheidungen.md` 2026-07-24.
+
 ## Nachtrag 2026-07-22 — Baum kollabierte beim Tab-Wechsel (PO-Meldung nach AP16-Release)
 
 - **Symptom:** Beim Wechsel auf einen anderen Tab und zurück war der Baum wieder komplett

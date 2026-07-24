@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { parseXml } from "@jaxel/core";
 import { App } from "./App.js";
 import { ErrorBoundary } from "./ErrorBoundary.js";
 import { I18nProvider } from "./i18n/index.js";
@@ -1520,6 +1521,45 @@ describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     await screen.findByText("München");
     expect(sampleTab()).not.toHaveClass("tab--dirty");
+  });
+
+  it("zweites Speichern nach Bearbeitung eines ANDEREN Elements erzeugt kein kaputtes XML (Regression: Byte-Offsets nach dem Speichern)", async () => {
+    const user = await openSampleFile();
+
+    // Erste Bearbeitung: Annas Stadt aendern, speichern.
+    await user.click(screen.getAllByText("person")[0]!);
+    const cityValue = await screen.findByText("Berlin");
+    await user.dblClick(cityValue);
+    const cityInput = screen.getByDisplayValue("Berlin");
+    await user.clear(cityInput);
+    await user.type(cityInput, "München");
+    await user.keyboard("{Enter}");
+    await screen.findByText("München");
+    await user.keyboard("{Control>}s{/Control}");
+    await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
+
+    // Zweite Bearbeitung: ein ANDERES, bislang unberuehrtes Element (Berts Name), erneut speichern.
+    await user.click(screen.getAllByText("person")[1]!);
+    const bertValue = await screen.findByText("Bert");
+    await user.dblClick(bertValue);
+    const nameInput = screen.getByDisplayValue("Bert");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Bertram");
+    await user.keyboard("{Enter}");
+    await screen.findByText("Bertram");
+    await user.keyboard("{Control>}s{/Control}");
+    await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
+
+    const writes = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "write_text_file");
+    expect(writes).toHaveLength(2);
+    const secondContent = (writes[1]![1] as { content: string }).content;
+
+    // Beide Bearbeitungen enthalten, der unberuehrte Nachbar ("Hamburg") unversehrt erhalten,
+    // und die Datei bleibt gueltiges XML (statt kaputt durch veraltete Byte-Offsets).
+    expect(secondContent).toContain("München");
+    expect(secondContent).toContain("Bertram");
+    expect(secondContent).toContain("Hamburg");
+    expect(() => parseXml(secondContent)).not.toThrow();
   });
 });
 

@@ -11,6 +11,12 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+### Behoben
+
+- **Kritisch: zweites Speichern konnte die XML zerstören.** Ein Feld ändern und speichern, dann
+  ein anderes Element ändern und erneut speichern, konnte zu einer beschädigten Datei führen.
+  Betraf nur XML (nicht JSON).
+
 ## [0.4.1] - 2026-07-22
 
 ### Behoben
