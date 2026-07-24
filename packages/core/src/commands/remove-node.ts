@@ -1,6 +1,5 @@
 import type { DocNode } from "../model/node.js";
 import type { Command } from "./command.js";
-import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-range.js";
 
 /**
  * `parentAncestors`: chain from root to `parent`'s own parent (root first, `parent`
@@ -9,19 +8,16 @@ import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-ra
  */
 export function createRemoveNodeCommand(parent: DocNode, index: number, parentAncestors: DocNode[]): Command {
   let removedNode: DocNode | undefined;
-  const chain = [...parentAncestors, parent];
-  const previousByteRanges = captureByteRanges(chain);
 
   return {
     label: "remove-node",
+    byteRangeChain: [...parentAncestors, parent],
     do() {
       removedNode = parent.children.splice(index, 1)[0];
-      clearByteRanges(chain);
     },
     undo() {
       if (!removedNode) return;
       parent.children.splice(index, 0, removedNode);
-      restoreByteRanges(chain, previousByteRanges);
     },
   };
 }

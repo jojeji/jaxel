@@ -9,12 +9,11 @@ export { createDocument } from "./model/document.js";
 export type { Command } from "./commands/command.js";
 export { CommandBus } from "./commands/command-bus.js";
 export { createCompositeCommand } from "./commands/composite.js";
-export {
-  captureByteRanges,
-  clearByteRanges,
-  restoreByteRanges,
-  syncByteRangesAfterSave,
-} from "./commands/byte-range.js";
+// captureByteRanges/clearByteRanges/restoreByteRanges are CommandBus-internal (it owns all
+// byteRange invalidation/restoration via Command.byteRangeChain, see command-bus.ts) and
+// intentionally not part of the public API. syncByteRangesAfterSave is the one byteRange
+// helper callers (document-store.ts) still need directly, after a save completes.
+export { syncByteRangesAfterSave } from "./commands/byte-range.js";
 export { createRenameCommand } from "./commands/rename.js";
 export { createSetValueCommand } from "./commands/set-value.js";
 export { createSetAttributeCommand } from "./commands/set-attribute.js";
@@ -22,6 +21,8 @@ export { createRenameAttributeCommand } from "./commands/rename-attribute.js";
 export { createInsertNodeCommand } from "./commands/insert-node.js";
 export { createRemoveNodeCommand } from "./commands/remove-node.js";
 export { createMoveNodeCommand } from "./commands/move-node.js";
+export type { ReplaceAllResult } from "./commands/replace-all.js";
+export { createReplaceAllCommand } from "./commands/replace-all.js";
 
 export type { ParseXmlResult } from "./format/xml-import.js";
 export { parseXml } from "./format/xml-import.js";
@@ -44,8 +45,8 @@ export {
   truncatePathLabels,
 } from "./format/path.js";
 
-export type { SearchMatch, SearchOptions, SearchScope } from "./search/search.js";
-export { findAll, replaceAll } from "./search/search.js";
+export type { PlannedReplacement, SearchMatch, SearchOptions, SearchScope } from "./search/search.js";
+export { findAll, planReplacements } from "./search/search.js";
 
 export type { ChangeBaseline, ChangeBaselineNode, ChangeSet, Tombstone } from "./changes/diff.js";
 export { captureChangeBaseline, computeChanges } from "./changes/diff.js";

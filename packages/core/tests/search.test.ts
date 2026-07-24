@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createNode } from "../src/model/node.js";
-import { findAll, replaceAll, type SearchOptions } from "../src/search/search.js";
+import { findAll, planReplacements, type SearchOptions } from "../src/search/search.js";
 
 function buildCatalog() {
   const personOne = createNode({
@@ -117,26 +117,28 @@ describe("findAll", () => {
   });
 });
 
-describe("replaceAll", () => {
-  it("replaces only the case-sensitive match, returns count 1", () => {
+describe("planReplacements", () => {
+  it("plans only the case-sensitive match, without mutating the tree", () => {
     const { root, personOne, personTwo } = buildCatalog();
 
-    const count = replaceAll(
+    const plans = planReplacements(
       root,
       options({ query: "Anna", scope: "value", caseSensitive: true }),
       "Anne",
     );
 
-    expect(count).toBe(1);
-    expect(personOne.children[0]?.value).toBe("Anne Müller");
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({ before: "Anna Müller", after: "Anne Müller", count: 1 });
+    // Nothing mutated — planning is read-only.
+    expect(personOne.children[0]?.value).toBe("Anna Müller");
     expect(personTwo.children[0]?.value).toBe("anna schmidt");
   });
 
-  it("supports regex backreferences in the replacement", () => {
+  it("supports regex backreferences in the planned replacement", () => {
     const { root, personOne } = buildCatalog();
     const emailNode = personOne.children[1]!;
 
-    const count = replaceAll(
+    const plans = planReplacements(
       root,
       options({
         query: "(\\w+)@example\\.com",
@@ -147,42 +149,34 @@ describe("replaceAll", () => {
       "$1@new-domain.com",
     );
 
-    expect(count).toBe(1);
-    expect(emailNode.value).toBe("contact@new-domain.com");
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.node).toBe(emailNode);
+    expect(plans[0]?.after).toBe("contact@new-domain.com");
+    expect(emailNode.value).toBe("contact@example.com"); // unmutated
   });
 
-  it("replaces all occurrences within the same field", () => {
+  it("counts all occurrences within the same field as one planned entry", () => {
     const node = createNode({ name: "note", value: "foo foo" });
     const root = createNode({ name: "root", children: [node] });
 
-    const count = replaceAll(root, options({ query: "foo", scope: "value" }), "bar");
+    const plans = planReplacements(root, options({ query: "foo", scope: "value" }), "bar");
 
-    expect(count).toBe(2);
-    expect(node.value).toBe("bar bar");
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({ node, kind: "value", after: "bar bar", count: 2 });
   });
 
   it("does not crash on value:null nodes and skips them", () => {
     const { root, personOne, personTwo } = buildCatalog();
 
-    const count = replaceAll(
+    const plans = planReplacements(
       root,
       options({ query: "person", scope: "all", caseSensitive: false }),
       "customer",
     );
 
-    expect(personOne.name).toBe("customer");
-    expect(personTwo.name).toBe("customer");
-    expect(count).toBeGreaterThanOrEqual(2);
-  });
-
-  it("clears byteRange on every node it actually mutates, so minimal-invasive save re-serializes it", () => {
-    const node = createNode({ name: "note", value: "foo", byteRange: [0, 10] });
-    const untouched = createNode({ name: "other", value: "bar", byteRange: [10, 20] });
-    const root = createNode({ name: "root", children: [node, untouched], byteRange: [0, 20] });
-
-    replaceAll(root, options({ query: "foo", scope: "value" }), "baz");
-
-    expect(node.byteRange).toBeUndefined();
-    expect(untouched.byteRange).toEqual([10, 20]);
+    const nodes = plans.map((p) => p.node);
+    expect(nodes).toContain(personOne);
+    expect(nodes).toContain(personTwo);
+    expect(plans.every((p) => p.after === "customer")).toBe(true);
   });
 });

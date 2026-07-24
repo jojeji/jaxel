@@ -300,3 +300,46 @@ anderes Feld ändern und erneut speichern zerstörte die XML. Root Cause und Fix
    (`syncByteRangesAfterSave`). Da der neu geparste Baum eine Serialisierung des bestehenden Baums
    ist, sind beide Bäume strukturell garantiert deckungsgleich — die Übertragung nach Position ist
    damit sicher, ohne Knotenidentität, `id`s oder Undo-Historie anzufassen.
+
+## 2026-07-24 — Save-Epoche: byteRange-Invalidierung im CommandBus zentralisiert
+
+Auslöser: PO-Meldung unmittelbar nach obigem Fix — Speichern → Strg+Z → erneut Speichern schrieb
+weiterhin den geänderten statt des ursprünglichen Werts. Ursache: die 7 Mutations-Commands
+(rename, set-value, set-attribute, insert-node, remove-node, move-node, rename-attribute)
+erfassten/löschten/stellten `byteRange` jeweils selbst wieder her (`captureByteRanges`/
+`clearByteRanges`/`restoreByteRanges`), ohne zu wissen, ob zwischen Erfassung und Undo gespeichert
+wurde — eine vor einem Speichern erfasste `byteRange` ist danach ungültig (siehe Eintrag oben).
+Gefunden und entworfen via `/improve-codebase-architecture` + `/grilling` (Glossar/Vokabular:
+`/codebase-design` — Modul, Tiefe, Seam). Grundsatzentscheidungen:
+
+1. **`Command` bekommt ein Pflichtfeld `byteRangeChain: DocNode[]`** (nicht optional): jeder
+   Command-Typ muss explizit angeben, welche Kette betroffen ist — auch wenn die Antwort `[]`
+   ist. Ein optionales Feld hätte genau die "vergisst man leicht"-Fragilität reproduziert, die
+   dieser Umbau beheben soll.
+2. **Erfassen/Löschen/Wiederherstellen wandert komplett aus den 7 Fabriken in den `CommandBus`**
+   (statt die Fabriken um einen `doc`/Epoche-Parameter zu erweitern und an allen ~23
+   Aufrufstellen in `App.tsx` durchzureichen). Die Fabriken deklarieren nur noch `byteRangeChain`;
+   ihre `do()`/`undo()` enthalten nur noch die eigentliche Mutation. Locality: der Fix (und jeder
+   künftige) sitzt an einer Stelle statt potenziell verstreut über jeden Aufrufer.
+3. **Der Erfassungs-Schnappschuss (`{epoch, ranges}`) lebt in einer privaten
+   `WeakMap<Command, Snapshot>` im `CommandBus`**, nicht als mutierbares Feld am Command-Objekt
+   selbst — der Command bleibt eine schlanke, deklarative Beschreibung.
+4. **`saveEpoch` ist ein privates Feld im `CommandBus`** (erhöht in `markSaved()`, neben
+   `savedDepth`), nicht auf `JaxelDocument`: der `CommandBus` ist der einzige Konsument, analog zu
+   `savedDepth`.
+5. **Beim Undo wird die Kette IMMER zuerst gelöscht, erst danach ggf. wiederhergestellt** — nicht
+   nur "restore überspringen bei Epochen-Mismatch". Grund: die vor dem Undo gültige `byteRange`
+   gehörte zum ALTEN (jetzt durch Undo überschriebenen) Wert; sie ist so oder so falsch für den
+   wiederhergestellten Wert, außer die Erfassung ist nachweislich noch gültig (Epoche passt).
+6. **Coalescing (Live-Tippen, gleicher `coalesceKey`) übernimmt beim Verschmelzen den bereits
+   vorhandenen Schnappschuss von der vorherigen Kette**, statt neu zu erfassen — die Erfassung
+   gehört zur ganzen Tippkette (Zustand vor dem ERSTEN Tastendruck), nicht zum einzelnen Zeichen.
+7. **`createCompositeCommand` bildet sein `byteRangeChain` automatisch als Vereinigung aller
+   Sub-Commands** — sonst hätte ein Composite (z. B. "Alle ersetzen") nach diesem Umbau gar keine
+   `byteRange`-Invalidierung mehr bekommen (echte Regression).
+
+Im selben Arbeitspaket, als zweiter (kleinerer) Kandidat aus derselben Architektur-Review: die
+Undo-Choreographie von "Alle ersetzen" saß in `App.tsx` (Invariante #3 verletzt, in
+`packages/core` nicht testbar). Neue reine `planReplacements` (`search.ts`, berechnet
+Vorher/Nachher ohne zu mutieren) + `createReplaceAllCommand` (`commands/replace-all.ts`, baut
+daraus die Sub-Commands). Die alte mutierende `replaceAll()` entfällt ersatzlos.

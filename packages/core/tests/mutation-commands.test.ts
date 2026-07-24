@@ -7,62 +7,57 @@ import { createInsertNodeCommand } from "../src/commands/insert-node.js";
 import { createRemoveNodeCommand } from "../src/commands/remove-node.js";
 import { createMoveNodeCommand } from "../src/commands/move-node.js";
 
+// byteRange invalidation/restoration is CommandBus's job now (see command-bus.test.ts,
+// "byteRange-Lebenszyklus") — these tests only cover each command's own raw mutation via
+// direct do()/undo() calls, which is all a command factory is still responsible for.
+
 describe("createRenameCommand", () => {
-  it("renames and clears byteRange on the node AND every ancestor, undo restores both", () => {
-    const grandparent = createNode({ name: "gp", byteRange: [0, 100] });
-    const parent = createNode({ name: "p", byteRange: [10, 90] });
-    const node = createNode({ name: "old", byteRange: [20, 30] });
-    const command = createRenameCommand(node, "new", [grandparent, parent]);
+  it("renames, undo restores the previous name", () => {
+    const node = createNode({ name: "old" });
+    const command = createRenameCommand(node, "new", []);
 
     command.do(undefined as never);
     expect(node.name).toBe("new");
-    expect(node.byteRange).toBeUndefined();
-    expect(parent.byteRange).toBeUndefined();
-    expect(grandparent.byteRange).toBeUndefined();
 
     command.undo(undefined as never);
     expect(node.name).toBe("old");
-    expect(node.byteRange).toEqual([20, 30]);
-    expect(parent.byteRange).toEqual([10, 90]);
-    expect(grandparent.byteRange).toEqual([0, 100]);
+  });
+
+  it("declares the ancestor chain (with node appended) as byteRangeChain", () => {
+    const grandparent = createNode({ name: "gp" });
+    const parent = createNode({ name: "p" });
+    const node = createNode({ name: "old" });
+    const command = createRenameCommand(node, "new", [grandparent, parent]);
+
+    expect(command.byteRangeChain).toEqual([grandparent, parent, node]);
   });
 });
 
 describe("createSetValueCommand", () => {
-  it("sets value+jsonType and clears byteRange on the node and its ancestors, undo restores all", () => {
-    const parent = createNode({ name: "p", byteRange: [0, 50] });
-    const node = createNode({ name: "n", value: "1", jsonType: "number", byteRange: [0, 5] });
-    const command = createSetValueCommand(node, "hello", "string", [parent]);
+  it("sets value+jsonType, undo restores both", () => {
+    const node = createNode({ name: "n", value: "1", jsonType: "number" });
+    const command = createSetValueCommand(node, "hello", "string", []);
 
     command.do(undefined as never);
     expect(node.value).toBe("hello");
     expect(node.jsonType).toBe("string");
-    expect(node.byteRange).toBeUndefined();
-    expect(parent.byteRange).toBeUndefined();
 
     command.undo(undefined as never);
     expect(node.value).toBe("1");
     expect(node.jsonType).toBe("number");
-    expect(node.byteRange).toEqual([0, 5]);
-    expect(parent.byteRange).toEqual([0, 50]);
   });
 });
 
 describe("createSetAttributeCommand", () => {
-  it("adds a new attribute, clears byteRange up the ancestor chain, undo restores it", () => {
-    const parent = createNode({ name: "p", byteRange: [0, 50] });
-    const node = createNode({ name: "n", byteRange: [0, 5] });
-    const command = createSetAttributeCommand(node, "id", "P-1", [parent]);
+  it("adds a new attribute, undo removes it", () => {
+    const node = createNode({ name: "n" });
+    const command = createSetAttributeCommand(node, "id", "P-1", []);
 
     command.do(undefined as never);
     expect(node.attributes).toEqual([{ name: "id", value: "P-1" }]);
-    expect(node.byteRange).toBeUndefined();
-    expect(parent.byteRange).toBeUndefined();
 
     command.undo(undefined as never);
     expect(node.attributes).toEqual([]);
-    expect(node.byteRange).toEqual([0, 5]);
-    expect(parent.byteRange).toEqual([0, 50]);
   });
 
   it("changes an existing attribute value and undoes to the previous value", () => {
@@ -89,66 +84,68 @@ describe("createSetAttributeCommand", () => {
 });
 
 describe("createInsertNodeCommand / createRemoveNodeCommand", () => {
-  it("inserts a child at an index, invalidating byteRange up the ancestor chain, and undo removes it again", () => {
-    const grandparent = createNode({ name: "gp", byteRange: [0, 200] });
-    const parent = createNode({ name: "parent", byteRange: [0, 20] });
+  it("inserts a child at an index, undo removes it again", () => {
+    const parent = createNode({ name: "parent" });
     const child = createNode({ name: "child" });
-    const command = createInsertNodeCommand(parent, 0, child, [grandparent]);
+    const command = createInsertNodeCommand(parent, 0, child, []);
 
     command.do(undefined as never);
     expect(parent.children).toEqual([child]);
-    expect(parent.byteRange).toBeUndefined();
-    expect(grandparent.byteRange).toBeUndefined();
 
     command.undo(undefined as never);
     expect(parent.children).toEqual([]);
-    expect(parent.byteRange).toEqual([0, 20]);
-    expect(grandparent.byteRange).toEqual([0, 200]);
   });
 
   it("removes a child at an index and undo re-inserts the same node instance", () => {
     const child = createNode({ name: "child" });
-    const parent = createNode({ name: "parent", children: [child], byteRange: [0, 20] });
+    const parent = createNode({ name: "parent", children: [child] });
     const command = createRemoveNodeCommand(parent, 0, []);
 
     command.do(undefined as never);
     expect(parent.children).toEqual([]);
-    expect(parent.byteRange).toBeUndefined();
 
     command.undo(undefined as never);
     expect(parent.children).toEqual([child]);
-    expect(parent.byteRange).toEqual([0, 20]);
   });
 });
 
 describe("createMoveNodeCommand", () => {
-  it("reorders within the same parent, invalidates that parent's ancestor chain, and undo restores original order", () => {
-    const grandparent = createNode({ name: "gp", byteRange: [0, 200] });
+  it("reorders within the same parent, undo restores original order", () => {
     const a = createNode({ name: "a" });
     const b = createNode({ name: "b" });
     const c = createNode({ name: "c" });
-    const parent = createNode({ name: "parent", children: [a, b, c], byteRange: [0, 30] });
+    const parent = createNode({ name: "parent", children: [a, b, c] });
 
     // Move "a" (index 0) to after "b": target index is 1 in the post-removal array [b, c].
-    const command = createMoveNodeCommand(parent, 0, [grandparent], parent, 1, [grandparent]);
+    const command = createMoveNodeCommand(parent, 0, [], parent, 1, []);
 
     command.do(undefined as never);
     expect(parent.children).toEqual([b, a, c]);
-    expect(parent.byteRange).toBeUndefined();
-    expect(grandparent.byteRange).toBeUndefined();
 
     command.undo(undefined as never);
     expect(parent.children).toEqual([a, b, c]);
-    expect(parent.byteRange).toEqual([0, 30]);
-    expect(grandparent.byteRange).toEqual([0, 200]);
   });
 
-  it("moves a node across two different parents (each with its own ancestor chain) and undo moves it back", () => {
-    const sourceGrandparent = createNode({ name: "sgp", byteRange: [0, 100] });
-    const targetGrandparent = createNode({ name: "tgp", byteRange: [100, 200] });
+  it("moves a node across two different parents and undo moves it back", () => {
     const child = createNode({ name: "child" });
-    const sourceParent = createNode({ name: "source", children: [child], byteRange: [0, 10] });
-    const targetParent = createNode({ name: "target", children: [], byteRange: [10, 20] });
+    const sourceParent = createNode({ name: "source", children: [child] });
+    const targetParent = createNode({ name: "target", children: [] });
+    const command = createMoveNodeCommand(sourceParent, 0, [], targetParent, 0, []);
+
+    command.do(undefined as never);
+    expect(sourceParent.children).toEqual([]);
+    expect(targetParent.children).toEqual([child]);
+
+    command.undo(undefined as never);
+    expect(sourceParent.children).toEqual([child]);
+    expect(targetParent.children).toEqual([]);
+  });
+
+  it("declares the union of source and target ancestor chains as byteRangeChain", () => {
+    const sourceGrandparent = createNode({ name: "sgp" });
+    const targetGrandparent = createNode({ name: "tgp" });
+    const sourceParent = createNode({ name: "source" });
+    const targetParent = createNode({ name: "target" });
     const command = createMoveNodeCommand(
       sourceParent,
       0,
@@ -158,20 +155,6 @@ describe("createMoveNodeCommand", () => {
       [targetGrandparent],
     );
 
-    command.do(undefined as never);
-    expect(sourceParent.children).toEqual([]);
-    expect(targetParent.children).toEqual([child]);
-    expect(sourceParent.byteRange).toBeUndefined();
-    expect(targetParent.byteRange).toBeUndefined();
-    expect(sourceGrandparent.byteRange).toBeUndefined();
-    expect(targetGrandparent.byteRange).toBeUndefined();
-
-    command.undo(undefined as never);
-    expect(sourceParent.children).toEqual([child]);
-    expect(targetParent.children).toEqual([]);
-    expect(sourceParent.byteRange).toEqual([0, 10]);
-    expect(targetParent.byteRange).toEqual([10, 20]);
-    expect(sourceGrandparent.byteRange).toEqual([0, 100]);
-    expect(targetGrandparent.byteRange).toEqual([100, 200]);
+    expect(command.byteRangeChain).toEqual([sourceGrandparent, sourceParent, targetGrandparent, targetParent]);
   });
 });

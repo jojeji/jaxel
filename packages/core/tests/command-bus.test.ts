@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createDocument } from "../src/model/document.js";
 import { createNode } from "../src/model/node.js";
+import type { DocNode } from "../src/model/node.js";
 import { CommandBus } from "../src/commands/command-bus.js";
 import type { Command } from "../src/commands/command.js";
 import { createCompositeCommand } from "../src/commands/composite.js";
 
-function setValueCommand(node: { value: string | null }, next: string): Command {
+function setValueCommand(node: DocNode, next: string, byteRangeChain: DocNode[] = [], coalesceKey?: string): Command {
   let previous: string | null = null;
   return {
     label: "set-value",
+    byteRangeChain,
+    coalesceKey,
     do() {
       previous = node.value;
       node.value = next;
@@ -134,5 +137,92 @@ describe("CommandBus", () => {
     bus.redo();
 
     expect(notifications).toBe(3);
+  });
+
+  describe("byteRange-Lebenszyklus (Command.byteRangeChain)", () => {
+    it("löscht die Kette bei execute() und stellt sie beim Undo wieder her", () => {
+      const parent = createNode({ name: "p", byteRange: [0, 50] });
+      const node = createNode({ name: "n", value: "a", byteRange: [10, 20] });
+      const doc = createDocument({ format: "xml", root: parent });
+      const bus = new CommandBus(doc);
+
+      bus.execute(setValueCommand(node, "b", [parent, node]));
+      expect(node.byteRange).toBeUndefined();
+      expect(parent.byteRange).toBeUndefined();
+
+      bus.undo();
+      expect(node.byteRange).toEqual([10, 20]);
+      expect(parent.byteRange).toEqual([0, 50]);
+    });
+
+    it("stellt eine erfasste byteRange NICHT wieder her, wenn dazwischen gespeichert wurde (Save-Epoche)", () => {
+      const node = createNode({ name: "n", value: "a", byteRange: [10, 20] });
+      const doc = createDocument({ format: "xml", root: node });
+      const bus = new CommandBus(doc);
+
+      bus.execute(setValueCommand(node, "b", [node]));
+      expect(node.byteRange).toBeUndefined();
+
+      bus.markSaved(); // sourceText auf Platte hat sich geändert — Epoche erhöht sich
+
+      bus.undo();
+      expect(node.value).toBe("a"); // Modell korrekt zurückgedreht
+      expect(node.byteRange).toBeUndefined(); // aber KEINE veraltete byteRange wiederhergestellt
+    });
+
+    it("redo löscht die Kette erneut, ohne dass eine neue Erfassung nötig ist", () => {
+      const node = createNode({ name: "n", value: "a", byteRange: [10, 20] });
+      const doc = createDocument({ format: "xml", root: node });
+      const bus = new CommandBus(doc);
+
+      bus.execute(setValueCommand(node, "b", [node]));
+      bus.undo();
+      expect(node.byteRange).toEqual([10, 20]);
+
+      bus.redo();
+      expect(node.value).toBe("b");
+      expect(node.byteRange).toBeUndefined();
+
+      bus.undo();
+      expect(node.byteRange).toEqual([10, 20]); // Wiederherstellung funktioniert auch nach redo
+    });
+
+    it("Composite aggregiert byteRangeChain aus allen Sub-Commands", () => {
+      const a = createNode({ name: "a", value: "1", byteRange: [0, 5] });
+      const b = createNode({ name: "b", value: "2", byteRange: [5, 10] });
+      const doc = createDocument({ format: "xml", root: a });
+      const bus = new CommandBus(doc);
+
+      const composite = createCompositeCommand("multi", [
+        setValueCommand(a, "X", [a]),
+        setValueCommand(b, "Y", [b]),
+      ]);
+      expect(composite.byteRangeChain).toEqual([a, b]);
+
+      bus.execute(composite);
+      expect(a.byteRange).toBeUndefined();
+      expect(b.byteRange).toBeUndefined();
+
+      bus.undo();
+      expect(a.byteRange).toEqual([0, 5]);
+      expect(b.byteRange).toEqual([5, 10]);
+    });
+
+    it("Coalescing übernimmt die ursprünglich (vor dem ersten Tastendruck) erfasste byteRange", () => {
+      const node = createNode({ name: "n", value: "", byteRange: [10, 20] });
+      const doc = createDocument({ format: "xml", root: node });
+      const bus = new CommandBus(doc);
+      const key = "typing";
+
+      bus.execute(setValueCommand(node, "a", [node], key));
+      bus.execute(setValueCommand(node, "ab", [node], key));
+      bus.execute(setValueCommand(node, "abc", [node], key));
+      expect(node.byteRange).toBeUndefined();
+      expect(bus.canUndo()).toBe(true);
+
+      bus.undo(); // EIN Schritt für die ganze Tippkette
+      expect(node.value).toBe("");
+      expect(node.byteRange).toEqual([10, 20]); // aus der Erfassung VOR dem ersten Tastendruck
+    });
   });
 });

@@ -1,13 +1,8 @@
 /**
- * Search and replace over a DocNode tree.
- *
- * This module is intentionally command-bus-agnostic: `replaceAll` mutates matched nodes
- * directly. Wrapping that mutation in an undoable Command is left to the caller (see
- * docs/architektur.md — every user-visible mutation eventually needs to go through the
- * CommandBus, but that wiring happens elsewhere). It does, however, clear a mutated node's
- * `byteRange` (same convention as the commands in ../commands): minimal-invasive save
- * copies unchanged nodes verbatim from source bytes, so a stale byteRange on a
- * replaced node would silently discard the replacement on save.
+ * Search and (planned) replace over a DocNode tree. `planReplacements` never mutates the
+ * tree — it only computes what WOULD change; turning that plan into a real undoable
+ * Command is `createReplaceAllCommand` (see ../commands/replace-all.ts), which is also
+ * where byteRange invalidation happens (via CommandBus, same as every other mutation).
  */
 
 import type { DocNode } from "../model/node.js";
@@ -146,38 +141,48 @@ export function findAll(root: DocNode, options: SearchOptions): SearchMatch[] {
   return matches;
 }
 
-export function replaceAll(root: DocNode, options: SearchOptions, replacement: string): number {
+export interface PlannedReplacement {
+  node: DocNode;
+  kind: "name" | "value" | "attribute";
+  /** Set only when `kind` is "attribute": the name of the matched attribute. */
+  attributeName?: string;
+  before: string;
+  after: string;
+  /** Number of individual substring replacements within this one field. */
+  count: number;
+}
+
+/**
+ * Computes what a bulk find/replace over `root` WOULD change, without mutating anything.
+ * `createReplaceAllCommand` (../commands/replace-all.ts) turns each entry into a real,
+ * undoable Command.
+ */
+export function planReplacements(root: DocNode, options: SearchOptions, replacement: string): PlannedReplacement[] {
   const matcher = compileMatcher(options);
-  let totalReplacements = 0;
+  const plans: PlannedReplacement[] = [];
 
   walk(root, (node) => {
     if (includesName(options.scope)) {
       const { result, count } = matcher.replace(node.name, replacement);
       if (count > 0) {
-        node.name = result;
-        node.byteRange = undefined;
-        totalReplacements += count;
+        plans.push({ node, kind: "name", before: node.name, after: result, count });
       }
     }
     if (includesValue(options.scope) && node.value !== null) {
       const { result, count } = matcher.replace(node.value, replacement);
       if (count > 0) {
-        node.value = result;
-        node.byteRange = undefined;
-        totalReplacements += count;
+        plans.push({ node, kind: "value", before: node.value, after: result, count });
       }
     }
     if (includesAttribute(options.scope)) {
       for (const attr of node.attributes) {
         const { result, count } = matcher.replace(attr.value, replacement);
         if (count > 0) {
-          attr.value = result;
-          node.byteRange = undefined;
-          totalReplacements += count;
+          plans.push({ node, kind: "attribute", attributeName: attr.name, before: attr.value, after: result, count });
         }
       }
     }
   });
 
-  return totalReplacements;
+  return plans;
 }

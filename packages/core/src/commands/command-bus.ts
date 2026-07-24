@@ -1,9 +1,26 @@
 import type { JaxelDocument } from "../model/document.js";
+import type { DocNode } from "../model/node.js";
 import type { Command } from "./command.js";
+import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-range.js";
+
+interface ByteRangeSnapshot {
+  /** `saveEpoch` at capture time — see `markSaved`. */
+  epoch: number;
+  ranges: DocNode["byteRange"][];
+}
 
 /**
  * Owns a JaxelDocument's undo/redo history. `doc.revision` is bumped on every executed,
  * undone, or redone command so React can re-derive its view without a parallel data model.
+ *
+ * Also owns ALL byteRange invalidation/restoration for `Command.byteRangeChain` (commands
+ * themselves only perform their raw mutation — see docs/entscheidungen.md "Save-Epoche"):
+ * before a command's first do(), its chain's CURRENT byteRanges are captured (stamped with
+ * the current `saveEpoch`); after do()/redo(), the chain is cleared; on undo(), the captured
+ * ranges are restored ONLY if no save happened since capture (`epoch` still matches) — a
+ * byteRange captured before a save is invalid the moment minimal-invasive save's reference
+ * text changes, so restoring it verbatim would corrupt the NEXT save instead of just leaving
+ * the node to be freshly rebuilt from the model (safe).
  */
 export class CommandBus {
   private readonly undoStack: Command[] = [];
@@ -12,6 +29,9 @@ export class CommandBus {
   /** Undo-stack depth at the last save — the dirty baseline (see `isDirty`). Starts at 0, so
    * a freshly loaded/created document (empty stack) is clean until its first command. */
   private savedDepth = 0;
+  /** Bumped by every `markSaved()`. See the class doc comment ("Save-Epoche"). */
+  private saveEpoch = 0;
+  private readonly byteRangeSnapshots = new WeakMap<Command, ByteRangeSnapshot>();
 
   constructor(private readonly doc: JaxelDocument) {}
 
@@ -20,15 +40,17 @@ export class CommandBus {
   }
 
   execute(command: Command): void {
-    command.do(this.doc);
-    this.doc.revision++;
     const previous = this.undoStack[this.undoStack.length - 1];
-    if (command.coalesceKey !== undefined && previous?.coalesceKey === command.coalesceKey) {
+    const isCoalesce = command.coalesceKey !== undefined && previous?.coalesceKey === command.coalesceKey;
+
+    let stackEntry: Command;
+    if (isCoalesce) {
       // Merge with the previous entry (which already ran — only bookkeeping changes):
       // one undo step for a whole per-keystroke editing chain. See Command.coalesceKey.
-      this.undoStack[this.undoStack.length - 1] = {
+      const merged: Command = {
         label: command.label,
         coalesceKey: command.coalesceKey,
+        byteRangeChain: command.byteRangeChain,
         do: (doc) => {
           previous.do(doc);
           command.do(doc);
@@ -38,8 +60,28 @@ export class CommandBus {
           previous.undo(doc);
         },
       };
+      // The snapshot belongs to the WHOLE chain (captured before its first keystroke), not
+      // to this individual increment — inherit it instead of capturing the ALREADY-cleared
+      // current byteRange as if it were the "before" state.
+      const inherited = this.byteRangeSnapshots.get(previous);
+      if (inherited) this.byteRangeSnapshots.set(merged, inherited);
+      stackEntry = merged;
     } else {
-      this.undoStack.push(command);
+      this.byteRangeSnapshots.set(command, {
+        epoch: this.saveEpoch,
+        ranges: captureByteRanges(command.byteRangeChain),
+      });
+      stackEntry = command;
+    }
+
+    command.do(this.doc);
+    clearByteRanges(command.byteRangeChain);
+    this.doc.revision++;
+
+    if (isCoalesce) {
+      this.undoStack[this.undoStack.length - 1] = stackEntry;
+    } else {
+      this.undoStack.push(stackEntry);
     }
     this.redoStack.length = 0;
     this.notify();
@@ -58,6 +100,15 @@ export class CommandBus {
     if (!command) return;
     command.undo(this.doc);
     this.doc.revision++;
+    // Always clear first: whatever byteRange the chain carried belonged to the PRE-undo
+    // value, which undo() above just changed — that byteRange is wrong now regardless of
+    // epoch. Only reinstate the captured "before" byteRange if it's provably still valid
+    // for the CURRENT source text (no save happened since it was captured).
+    clearByteRanges(command.byteRangeChain);
+    const snapshot = this.byteRangeSnapshots.get(command);
+    if (snapshot && snapshot.epoch === this.saveEpoch) {
+      restoreByteRanges(command.byteRangeChain, snapshot.ranges);
+    }
     this.redoStack.push(command);
     this.notify();
   }
@@ -66,15 +117,18 @@ export class CommandBus {
     const command = this.redoStack.pop();
     if (!command) return;
     command.do(this.doc);
+    clearByteRanges(command.byteRangeChain);
     this.doc.revision++;
     this.undoStack.push(command);
     this.notify();
   }
 
   /** Call once the document's current state has been written to disk: the undo-stack depth
-   * right now becomes the new "clean" baseline. */
+   * right now becomes the new "clean" baseline, and any byteRange snapshot captured before
+   * this point becomes unsafe to restore (see the class doc comment). */
   markSaved(): void {
     this.savedDepth = this.undoStack.length;
+    this.saveEpoch++;
   }
 
   /** True iff the undo-stack depth has moved away from the saved baseline — i.e. there are

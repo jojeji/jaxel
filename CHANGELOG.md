@@ -16,6 +16,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 - **Kritisch: zweites Speichern konnte die XML zerstören.** Ein Feld ändern und speichern, dann
   ein anderes Element ändern und erneut speichern, konnte zu einer beschädigten Datei führen.
   Betraf nur XML (nicht JSON).
+- **Kritisch: Speichern → Rückgängig → erneut Speichern schrieb den geänderten statt den
+  ursprünglichen Wert** (teils ebenfalls beschädigte XML). Betraf nur XML.
 
 ## [0.4.1] - 2026-07-22
 

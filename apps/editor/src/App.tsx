@@ -5,13 +5,13 @@ import {
   cloneSubtree,
   computeChanges,
   computePaths,
-  createCompositeCommand,
   createInsertNodeCommand,
   createMoveNodeCommand,
   createNode,
   createRemoveNodeCommand,
   createRenameAttributeCommand,
   createRenameCommand,
+  createReplaceAllCommand,
   createSetAttributeCommand,
   createSetValueCommand,
   decodeBase64,
@@ -21,10 +21,8 @@ import {
   getPathSegments,
   parseJson,
   parseXml,
-  replaceAll,
   serializeJson,
   serializeXml,
-  type Command,
   type DocFormat,
   type DocNode,
   type PathSegment,
@@ -1004,74 +1002,19 @@ export function App(): React.ReactElement {
   }
 
   /**
-   * Runs replaceAll (which mutates the tree directly, see search.ts), then reverses each
-   * touched field back to its pre-replace text and re-applies it through the matching
-   * mutation Command (createRenameCommand/createSetValueCommand/createSetAttributeCommand),
-   * wrapped in one CompositeCommand — so "Alle ersetzen" is a single, real undo step instead
-   * of an untracked direct mutation.
+   * Ancestor chains (for byteRange invalidation) always trace from the real trueRoot — only
+   * the search/replace scope itself narrows to the selected subtree (or the tab's own
+   * visible root, e.g. the focused subtree — see docs/entscheidungen.md 2026-07-18 #1).
+   * The undoable-command choreography lives in packages/core (createReplaceAllCommand).
    */
   function handleReplaceAllInternal(options: SearchOptions, replacement: string, subtreeOnly: boolean): number {
     if (!activeDoc || !trueRoot || !root) return 0;
-    // Ancestor chains below are always traced from the real trueRoot (needed for byteRange
-    // invalidation up to the true document root, see commands/byte-range.ts) — only the
-    // search/replace scope itself narrows to the selected subtree (or the tab's own visible
-    // root, e.g. the focused subtree — see docs/entscheidungen.md 2026-07-18 #1).
     const searchRoot = subtreeOnly && selectedRow ? selectedRow.node : root;
-    const matches = findAll(searchRoot, options);
-    if (matches.length === 0) return 0;
-
-    interface Touched {
-      node: DocNode;
-      ancestors: DocNode[];
-      kind: "name" | "value" | "attribute";
-      attributeName?: string;
-      before: string;
+    const { command, replacementCount } = createReplaceAllCommand(trueRoot, searchRoot, options, replacement);
+    if (command) {
+      activeDoc.commandBus.execute(command);
     }
-    const touched = new Map<string, Touched>();
-    for (const match of matches) {
-      const key = `${match.node.id}|${match.matchedIn}|${match.attributeName ?? ""}`;
-      if (touched.has(key)) continue;
-      const ancestors = findAncestorChain(trueRoot, match.node) ?? [];
-      if (match.matchedIn === "name") {
-        touched.set(key, { node: match.node, ancestors, kind: "name", before: match.node.name });
-      } else if (match.matchedIn === "value") {
-        touched.set(key, { node: match.node, ancestors, kind: "value", before: match.node.value ?? "" });
-      } else if (match.matchedIn === "attribute" && match.attributeName) {
-        const attr = match.node.attributes.find((a) => a.name === match.attributeName);
-        touched.set(key, {
-          node: match.node,
-          ancestors,
-          kind: "attribute",
-          attributeName: match.attributeName,
-          before: attr?.value ?? "",
-        });
-      }
-    }
-
-    const count = replaceAll(searchRoot, options, replacement); // mutates directly, see search.ts
-
-    const commands: Command[] = [];
-    for (const entry of touched.values()) {
-      if (entry.kind === "name") {
-        const after = entry.node.name;
-        entry.node.name = entry.before; // revert so the Command's own do() re-applies cleanly
-        commands.push(createRenameCommand(entry.node, after, entry.ancestors));
-      } else if (entry.kind === "value") {
-        const after = entry.node.value ?? "";
-        entry.node.value = entry.before;
-        commands.push(createSetValueCommand(entry.node, after, entry.node.jsonType, entry.ancestors));
-      } else if (entry.kind === "attribute" && entry.attributeName) {
-        const attr = entry.node.attributes.find((a) => a.name === entry.attributeName);
-        if (!attr) continue;
-        const after = attr.value;
-        attr.value = entry.before;
-        commands.push(createSetAttributeCommand(entry.node, entry.attributeName, after, entry.ancestors));
-      }
-    }
-    if (commands.length > 0) {
-      activeDoc.commandBus.execute(createCompositeCommand(t("search.replaceAll"), commands));
-    }
-    return count;
+    return replacementCount;
   }
 
   function copyPath(node: DocNode, kind: "indexed" | "static" | "full"): void {

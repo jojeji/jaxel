@@ -1561,6 +1561,34 @@ describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
     expect(secondContent).toContain("Hamburg");
     expect(() => parseXml(secondContent)).not.toThrow();
   });
+
+  it("Bearbeiten, speichern, Strg+Z, erneut speichern schreibt wieder den URSPRUNGSWERT (Regression: Save-Epoche)", async () => {
+    const user = await openSampleFile();
+
+    await user.click(screen.getAllByText("person")[0]!);
+    const cityValue = await screen.findByText("Berlin");
+    await user.dblClick(cityValue);
+    const cityInput = screen.getByDisplayValue("Berlin");
+    await user.clear(cityInput);
+    await user.type(cityInput, "München");
+    await user.keyboard("{Enter}");
+    await screen.findByText("München");
+    await user.keyboard("{Control>}s{/Control}");
+    await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true }); // Strg+Z
+    await screen.findByText("Berlin");
+    await user.keyboard("{Control>}s{/Control}");
+    await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
+
+    const writes = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "write_text_file");
+    expect(writes).toHaveLength(2);
+    const secondContent = (writes[1]![1] as { content: string }).content;
+
+    expect(secondContent).toContain("Berlin");
+    expect(secondContent).not.toContain("München");
+    expect(() => parseXml(secondContent)).not.toThrow();
+  });
 });
 
 describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {

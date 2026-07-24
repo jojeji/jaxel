@@ -1,6 +1,5 @@
 import type { DocNode } from "../model/node.js";
 import type { Command } from "./command.js";
-import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-range.js";
 
 /**
  * `value: null` removes the attribute. Works uniformly for add/change/remove.
@@ -16,8 +15,6 @@ export function createSetAttributeCommand(
 ): Command {
   const previousIndex = node.attributes.findIndex((attribute) => attribute.name === name);
   const previousValue = previousIndex >= 0 ? node.attributes[previousIndex]!.value : null;
-  const chain = [...ancestors, node];
-  const previousByteRanges = captureByteRanges(chain);
 
   function apply(nextValue: string | null): void {
     const index = node.attributes.findIndex((attribute) => attribute.name === name);
@@ -28,18 +25,17 @@ export function createSetAttributeCommand(
     } else {
       node.attributes.push({ name, value: nextValue });
     }
-    clearByteRanges(chain);
   }
 
   return {
     label: "set-attribute",
     coalesceKey,
+    byteRangeChain: [...ancestors, node],
     do() {
       apply(value);
     },
     undo() {
       apply(previousValue);
-      restoreByteRanges(chain, previousByteRanges);
     },
   };
 }

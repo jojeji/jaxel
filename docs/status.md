@@ -3,6 +3,43 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-24 — byteRange-Invalidierung zentralisiert (Save-Epoche), "Alle ersetzen" nach Core verschoben
+
+- **Symptom (PO-Meldung, unmittelbar nach dem vorigen Byte-Offset-Fix):** Feld ändern,
+  speichern, Strg+Z (Undo), erneut speichern → Ergebnis war weiterhin der geänderte statt des
+  ursprünglichen Werts (teils sogar ungültige XML). Betraf nur XML.
+- **Ursache:** Jede der 7 Mutations-Commands (rename, set-value, set-attribute, insert-node,
+  remove-node, move-node, rename-attribute) erfasste die alte `byteRange` beim Erstellen und
+  stellte sie beim Undo blind wieder her — ohne zu wissen, ob zwischenzeitlich gespeichert
+  wurde. Nach einem Speichern ändert sich `sourceText` (siehe letzter Fix); eine vor dem
+  Speichern erfasste `byteRange` ist danach nicht mehr gültig. Reproduziert mit einem
+  Wegwerf-Testfall vor dem Fix (siehe Architektur-Review, Kandidat 1).
+- **Fix — Grilling-Ergebnis, siehe `docs/entscheidungen.md` 2026-07-24 "Save-Epoche":**
+  `Command` bekommt ein Pflichtfeld `byteRangeChain: DocNode[]`; die 7 Fabriken deklarieren
+  nur noch, welche Kette betroffen ist, und rufen `captureByteRanges`/`clearByteRanges`/
+  `restoreByteRanges` nicht mehr selbst auf. `CommandBus` übernimmt das zentral: eine private
+  `saveEpoch` (erhöht in `markSaved()`, neben `savedDepth`) plus eine `WeakMap<Command,
+  {epoch, ranges}>` für den Erfassungs-Schnappschuss. Beim Undo wird die Kette IMMER zuerst
+  gelöscht (die vor dem Undo gültige `byteRange` gehörte zum alten Wert, nicht zum
+  wiederhergestellten) und nur dann neu gesetzt, wenn die Epoche seit der Erfassung
+  unverändert ist. Coalescing (Live-Tippen) übernimmt beim Verschmelzen den bereits
+  vorhandenen Schnappschuss statt neu zu erfassen. `createCompositeCommand` bildet sein
+  `byteRangeChain` automatisch als Vereinigung aller Sub-Commands.
+- **Zweiter Umbau im selben Arbeitspaket:** die Undo-Choreographie von "Alle ersetzen" saß
+  bisher in `App.tsx` (Invariante #3 "React-frei/headless testbar" verletzt, in der
+  `packages/core`-Testsuite nicht erreichbar). Neue reine Funktion `planReplacements`
+  (`search.ts`) berechnet Vorher/Nachher-Paare ohne zu mutieren; `createReplaceAllCommand`
+  (`commands/replace-all.ts`) baut daraus die Sub-Commands und bündelt sie. Die alte
+  mutierende `replaceAll()` entfällt. `App.tsx` schrumpft auf den reinen Aufruf.
+- Gefunden und durchgeführt via `/improve-codebase-architecture` + `/grilling` (siehe
+  `docs/entscheidungen.md`); vor der Umsetzung mit einem Wegwerf-Repro-Test bestätigt.
+- Neue Tests: `command-bus.test.ts` ("byteRange-Lebenszyklus", inkl. Save-Epoche und
+  Coalescing-Vererbung), `replace-all.test.ts`, `mutation-commands.test.ts` migriert (testet
+  nur noch die reine Mutation, byteRange-Zusicherungen sind zum `CommandBus` gewandert),
+  `byte-range-sync.test.ts` um den End-zu-Ende-Fall "edit → save → undo → save" ergänzt, sowie
+  ein entsprechender Ende-zu-Ende-Test in `App.test.tsx` über echte Speichervorgänge.
+  264 Tests insgesamt grün, Typecheck (beide Pakete) und `cargo check` sauber.
+
 ## Nachtrag 2026-07-24 — Zweites Speichern konnte die XML zerstören (kritischer Fix)
 
 - **Symptom (PO-Meldung, Kollege):** Feld A ändern und speichern — Datei noch in Ordnung. Danach

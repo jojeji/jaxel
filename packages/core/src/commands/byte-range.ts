@@ -8,6 +8,12 @@ import type { DocNode } from "../model/node.js";
  * or the edit would be silently dropped on minimal-invasive save.
  *
  * `chain` is expected as [...ancestors, node] (root first, the changed node last).
+ *
+ * These three are pure primitives, deliberately not commands-specific: CommandBus is the
+ * ONLY caller (see command-bus.ts) — it owns capturing/clearing/restoring for every
+ * command's `byteRangeChain`, including the save-epoch check that decides whether a
+ * restore is still safe. Individual commands (rename.ts, set-value.ts, ...) only declare
+ * their chain; they no longer call these themselves.
  */
 
 export function captureByteRanges(chain: DocNode[]): DocNode["byteRange"][] {

@@ -1,6 +1,5 @@
 import type { DocNode } from "../model/node.js";
 import type { Command } from "./command.js";
-import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-range.js";
 
 /**
  * Renames the attribute at `index` (position and value stay untouched). Addressed by
@@ -17,23 +16,20 @@ export function createRenameAttributeCommand(
   coalesceKey?: string,
 ): Command {
   const previousName = node.attributes[index]?.name ?? "";
-  const chain = [...ancestors, node];
-  const previousByteRanges = captureByteRanges(chain);
 
   return {
     label: "rename-attribute",
     coalesceKey,
+    byteRangeChain: [...ancestors, node],
     do() {
       const attribute = node.attributes[index];
       if (!attribute) return;
       attribute.name = newName;
-      clearByteRanges(chain);
     },
     undo() {
       const attribute = node.attributes[index];
       if (!attribute) return;
       attribute.name = previousName;
-      restoreByteRanges(chain, previousByteRanges);
     },
   };
 }

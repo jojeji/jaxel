@@ -1,6 +1,5 @@
 import type { DocNode } from "../model/node.js";
 import type { Command } from "./command.js";
-import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-range.js";
 
 /**
  * Inserting invalidates byteRange on `parent` AND every ancestor up to the root (the
@@ -16,18 +15,14 @@ export function createInsertNodeCommand(
   node: DocNode,
   parentAncestors: DocNode[],
 ): Command {
-  const chain = [...parentAncestors, parent];
-  const previousByteRanges = captureByteRanges(chain);
-
   return {
     label: "insert-node",
+    byteRangeChain: [...parentAncestors, parent],
     do() {
       parent.children.splice(index, 0, node);
-      clearByteRanges(chain);
     },
     undo() {
       parent.children.splice(index, 1);
-      restoreByteRanges(chain, previousByteRanges);
     },
   };
 }

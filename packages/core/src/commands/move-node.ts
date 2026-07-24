@@ -1,6 +1,5 @@
 import type { DocNode } from "../model/node.js";
 import type { Command } from "./command.js";
-import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-range.js";
 
 /**
  * Moves a child from `sourceParent[sourceIndex]` to `targetParent[targetIndex]` (covers
@@ -26,24 +25,19 @@ export function createMoveNodeCommand(
 ): Command {
   const sourceChain = [...sourceAncestors, sourceParent];
   const targetChain = [...targetAncestors, targetParent];
-  const previousSourceByteRanges = captureByteRanges(sourceChain);
-  const previousTargetByteRanges = captureByteRanges(targetChain);
 
   return {
     label: "move-node",
+    byteRangeChain: [...sourceChain, ...targetChain],
     do() {
       const [node] = sourceParent.children.splice(sourceIndex, 1);
       if (!node) return;
       targetParent.children.splice(targetIndex, 0, node);
-      clearByteRanges(sourceChain);
-      clearByteRanges(targetChain);
     },
     undo() {
       const [node] = targetParent.children.splice(targetIndex, 1);
       if (!node) return;
       sourceParent.children.splice(sourceIndex, 0, node);
-      restoreByteRanges(sourceChain, previousSourceByteRanges);
-      restoreByteRanges(targetChain, previousTargetByteRanges);
     },
   };
 }
