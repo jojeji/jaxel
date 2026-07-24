@@ -79,6 +79,20 @@
       "problemMatcher": []
     },
     {
+      // Setzt den Tag "vX.Y.Z" (Version aus package.json/tauri.conf.json) und
+      // pusht Commit + Tag — das triggert .github/workflows/release.yml, das
+      // Linux/Windows baut und das GitHub-Release anlegt. Voraussetzung:
+      // Version + CHANGELOG.md sind bereits im Release-Commit vorbereitet
+      // (siehe scripts/release.mjs). Interaktive Bestätigung vor dem Push.
+      "label": "GitHub-Release: Tag setzen & pushen",
+      "type": "shell",
+      "command": "node scripts/release.mjs",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "none",
+      "presentation": { "reveal": "always", "panel": "dedicated", "focus": true },
+      "problemMatcher": []
+    },
+    {
       // Baut den portablen .exe/.msi-Installer (nsis). Funktioniert NUR, wenn VS
       // Code tatsächlich auf einem Windows-Host läuft (oder per Remote in eine
       // Windows-Umgebung) — auf dieser Linux-Entwicklungsmaschine fehlt die
