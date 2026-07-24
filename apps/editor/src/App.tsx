@@ -18,12 +18,11 @@ import {
   findAll,
   findAncestorChain,
   findNodeById,
+  findSiblingSlot,
   getPathSegments,
-  parseJson,
-  parseXml,
+  parseDocument,
   planMove,
-  serializeJson,
-  serializeXml,
+  serializeDocument,
   type DocFormat,
   type DocNode,
   type PathSegment,
@@ -701,37 +700,31 @@ export function App(): React.ReactElement {
       handleAddChild();
       return;
     }
-    const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
-    const parentAncestors = selectedRow.ancestors.slice(0, -1);
-    const index = parent.children.indexOf(selectedRow.node);
-    if (index === -1) return;
+    const slot = findSiblingSlot(selectedRow);
+    if (!slot) return;
     const sibling = createNode({ name: "node" });
-    activeDoc.commandBus.execute(createInsertNodeCommand(parent, index + 1, sibling, parentAncestors));
+    activeDoc.commandBus.execute(createInsertNodeCommand(slot.parent, slot.index + 1, sibling, slot.parentAncestors));
     setSelectedId(sibling.id);
     setRevealNodeId(sibling.id);
     setEditingField({ nodeId: sibling.id, field: "name" });
   }
 
   function handleDelete(): void {
-    if (!activeDoc || !selectedRow || selectedRow.ancestors.length === 0) return; // can't delete the root
-    const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
-    const parentAncestors = selectedRow.ancestors.slice(0, -1);
-    const index = parent.children.indexOf(selectedRow.node);
-    if (index === -1) return;
-    activeDoc.commandBus.execute(createRemoveNodeCommand(parent, index, parentAncestors));
+    if (!activeDoc || !selectedRow) return;
+    const slot = findSiblingSlot(selectedRow);
+    if (!slot) return; // can't delete the root
+    activeDoc.commandBus.execute(createRemoveNodeCommand(slot.parent, slot.index, slot.parentAncestors));
     setSelectedId(null);
     setEditingField(null);
   }
 
   /** Strg+D: deep-copy the selected node and insert it as its next sibling. */
   function handleDuplicate(): void {
-    if (!activeDoc || !selectedRow || selectedRow.ancestors.length === 0) return; // root can't be duplicated
-    const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
-    const parentAncestors = selectedRow.ancestors.slice(0, -1);
-    const index = parent.children.indexOf(selectedRow.node);
-    if (index === -1) return;
+    if (!activeDoc || !selectedRow) return;
+    const slot = findSiblingSlot(selectedRow);
+    if (!slot) return; // root can't be duplicated
     const copy = cloneSubtree(selectedRow.node);
-    activeDoc.commandBus.execute(createInsertNodeCommand(parent, index + 1, copy, parentAncestors));
+    activeDoc.commandBus.execute(createInsertNodeCommand(slot.parent, slot.index + 1, copy, slot.parentAncestors));
     setSelectedId(copy.id);
     setRevealNodeId(copy.id);
   }
@@ -739,11 +732,11 @@ export function App(): React.ReactElement {
   /** Strg+C: serialize the selected subtree (XML fragment / single-key JSON) to the system clipboard. */
   function handleCopyNode(): void {
     if (!activeDoc || !selectedRow) return;
-    const indent = activeDoc.document.indent;
-    const text =
-      activeDoc.format === "xml"
-        ? serializeXml({ root: selectedRow.node, indent }).trimEnd()
-        : serializeJson({ root: selectedRow.node, indent });
+    const text = serializeDocument({
+      format: activeDoc.format,
+      root: selectedRow.node,
+      indent: activeDoc.document.indent,
+    }).trimEnd();
     void navigator.clipboard.writeText(text).then(
       () => setStatus(t("clipboard.nodeCopied")),
       (err) => setError(err instanceof Error ? err.message : String(err)),
@@ -767,7 +760,7 @@ export function App(): React.ReactElement {
     }
     let fragmentRoot: DocNode;
     try {
-      fragmentRoot = activeDoc.format === "xml" ? parseXml(text).root : parseJson(text).root;
+      fragmentRoot = parseDocument(activeDoc.format, text).root;
     } catch {
       setError(t("clipboard.invalidFragment"));
       return;
@@ -778,17 +771,15 @@ export function App(): React.ReactElement {
       return;
     }
     const pasted = cloneSubtree(fragmentRoot);
-    if (selectedRow.ancestors.length === 0) {
+    const slot = findSiblingSlot(selectedRow);
+    if (!slot) {
+      // Root selected — no sibling level, append as its last child instead.
       activeDoc.commandBus.execute(
         createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, pasted, selectedRow.ancestors),
       );
       setExpanded((prev) => new Set(prev).add(selectedRow.node.id));
     } else {
-      const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1]!;
-      const parentAncestors = selectedRow.ancestors.slice(0, -1);
-      const index = parent.children.indexOf(selectedRow.node);
-      if (index === -1) return;
-      activeDoc.commandBus.execute(createInsertNodeCommand(parent, index + 1, pasted, parentAncestors));
+      activeDoc.commandBus.execute(createInsertNodeCommand(slot.parent, slot.index + 1, pasted, slot.parentAncestors));
     }
     setSelectedId(pasted.id);
     setRevealNodeId(pasted.id);

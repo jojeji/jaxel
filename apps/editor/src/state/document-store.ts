@@ -8,7 +8,7 @@ import {
   findAncestorChain,
   findNodeById,
   getPathSegments,
-  parseJson,
+  parseDocument,
   parseXml,
   resolveNodeBySegments,
   serializeJson,
@@ -231,16 +231,7 @@ export function useJaxelDocuments(): {
     );
     logInfo("breadcrumb", `Datei geöffnet: ${path}`);
     const format = detectFormat(path, result.content);
-
-    let root: DocNode;
-    let xmlDeclaration: string | undefined;
-    if (format === "xml") {
-      const parsed = parseXml(result.content);
-      root = parsed.root;
-      xmlDeclaration = parsed.xmlDeclaration;
-    } else {
-      root = parseJson(result.content).root;
-    }
+    const { root, xmlDeclaration } = parseDocument(format, result.content);
 
     const doc = createDocument({ format, root, encoding: result.encoding, xmlDeclaration });
     const { commandBus, unsubscribe } = attachDocument(doc);
@@ -333,15 +324,7 @@ export function useJaxelDocuments(): {
 
   const newDocument = useCallback((format: DocFormat, content?: string) => {
     const skeletonText = content ?? NEW_DOCUMENT_SKELETON[format];
-    let root: DocNode;
-    let xmlDeclaration: string | undefined;
-    if (format === "xml") {
-      const parsed = parseXml(skeletonText);
-      root = parsed.root;
-      xmlDeclaration = parsed.xmlDeclaration;
-    } else {
-      root = parseJson(skeletonText).root;
-    }
+    const { root, xmlDeclaration } = parseDocument(format, skeletonText);
 
     const doc = createDocument({ format, root, encoding: "UTF-8", xmlDeclaration });
     const { commandBus, unsubscribe } = attachDocument(doc);
@@ -463,15 +446,7 @@ export function useJaxelDocuments(): {
         "read_text_file",
         { path: filePath },
       );
-      let newRoot: DocNode;
-      let xmlDeclaration: string | undefined;
-      if (target.format === "xml") {
-        const parsed = parseXml(result.content);
-        newRoot = parsed.root;
-        xmlDeclaration = parsed.xmlDeclaration;
-      } else {
-        newRoot = parseJson(result.content).root;
-      }
+      const { root: newRoot, xmlDeclaration } = parseDocument(target.format, result.content);
       // No asynchronous boundary follows before the store replacement. This closes the window
       // in which an automatic reload could discard a command executed while read_text_file ran.
       if (canCommit && !canCommit()) return null;

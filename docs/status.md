@@ -3,6 +3,29 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-24 — Architektur-Review Runde 3: zwei weitere Deepening-Kandidaten umgesetzt
+
+Dritter Durchlauf von `/improve-codebase-architecture`. Reine Qualitätsarbeit ohne
+Verhaltensänderung, kein CHANGELOG-Eintrag. Zwei von vier Kandidaten aus dem Report
+umgesetzt (Kandidat 3, Rust-Fehlerkonvention, und Kandidat 4, `basename()`/`dirname()`,
+zurückgestellt — PO-Entscheidung):
+
+1. **`findSiblingSlot` in `packages/core/src/commands/sibling-slot.ts`.** `handleAddSibling`,
+   `handleDelete`, `handleDuplicate` und der Geschwister-Einfüge-Zweig von `handlePasteNode`
+   wiederholten dieselbe Geschwister-Positions-Arithmetik unabhängig — mit bereits sichtbarem
+   Copy-Drift (unterschiedliche Guards: `ancestors.length === 0` vs. `node === root`). Jetzt
+   eine gemeinsame, headless getestete `findSiblingSlot(row)` (3 neue Tests); alle vier Stellen
+   in `App.tsx` rufen nur noch auf.
+2. **`parseDocument`/`serializeDocument` in `packages/core/src/format/document.ts`.** Die
+   `format === "xml" ? … : …`-Weiche war an ~6 Stellen dupliziert (`document-store.ts`:
+   `openFile`/`newDocument`/`reloadFile`; `App.tsx`: `handlePasteNode`/`handleCopyNode`) — dabei
+   verwarf `handlePasteNode`s Kopie sogar still die `xmlDeclaration`. Jetzt ein Funktionspaar,
+   das die Weiche einmal kapselt (4 neue Tests). `document-store.ts`s `serializeForSave` bleibt
+   bewusst separat — sie braucht die minimal-invasive Variante mit `source`-Parameter, eine
+   andere Form als das generische Serialisieren fürs Clipboard.
+- 282 Tests grün (130 Core + 152 Editor, 7 davon neu), Typecheck beider Pakete und
+  `cargo check` sauber.
+
 ## Nachtrag 2026-07-24 — Architektur-Review Runde 2: vier Deepening-Kandidaten umgesetzt
 
 Zweiter Durchlauf von `/improve-codebase-architecture` direkt nach dem Save-Epoche-Fix (Bereich

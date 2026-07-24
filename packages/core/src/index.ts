@@ -24,10 +24,14 @@ export type { DropPosition, MovePlan } from "./commands/move-node.js";
 export { createMoveNodeCommand, planMove } from "./commands/move-node.js";
 export type { ReplaceAllResult } from "./commands/replace-all.js";
 export { createReplaceAllCommand } from "./commands/replace-all.js";
+export type { SiblingSlot } from "./commands/sibling-slot.js";
+export { findSiblingSlot } from "./commands/sibling-slot.js";
 
 export type { ParseXmlResult } from "./format/xml-import.js";
 export { parseXml } from "./format/xml-import.js";
 export { serializeXml, serializeXmlMinimal } from "./format/xml-export.js";
+export type { ParsedDocument } from "./format/document.js";
+export { parseDocument, serializeDocument } from "./format/document.js";
 export type { DecodedBase64, DecodedContentKind } from "./format/base64.js";
 export { decodeBase64, looksLikeBase64 } from "./format/base64.js";
 export { parseJson } from "./format/json-import.js";

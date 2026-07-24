@@ -55,9 +55,9 @@
     "semantic_hash": "50ede0067e425beee5760bda10d50307"
   },
   "apps/editor/src/App.tsx": {
-    "mtime": 1784911439.4671373,
-    "ast_hash": "0d342c9f45cbcba11eadc5e1cf1eeb24",
-    "semantic_hash": "0d342c9f45cbcba11eadc5e1cf1eeb24"
+    "mtime": 1784923236.1709104,
+    "ast_hash": "6e1b9976100aaf5de4d535cbd549e972",
+    "semantic_hash": "6e1b9976100aaf5de4d535cbd549e972"
   },
   "apps/editor/src/ErrorBoundary.tsx": {
     "mtime": 1784481241.9616046,
@@ -100,9 +100,9 @@
     "semantic_hash": "f9fa6f932856584a741bbc9b0e2c2e16"
   },
   "apps/editor/src/state/document-store.ts": {
-    "mtime": 1784911364.7814806,
-    "ast_hash": "1002ea3d7458ce90daacbf00267b45b6",
-    "semantic_hash": "1002ea3d7458ce90daacbf00267b45b6"
+    "mtime": 1784923292.0057359,
+    "ast_hash": "7b0ed9f8b2efde2a9f0ca7fb9deb32e8",
+    "semantic_hash": "7b0ed9f8b2efde2a9f0ca7fb9deb32e8"
   },
   "apps/editor/src/state/local-prefs.ts": {
     "mtime": 1784654194.772459,
@@ -255,9 +255,9 @@
     "semantic_hash": "253efd1a4bdb90870907f6869a0c4888"
   },
   "packages/core/src/index.ts": {
-    "mtime": 1784911394.89346,
-    "ast_hash": "aee2807c5e7cca06ce0414661a72084c",
-    "semantic_hash": "aee2807c5e7cca06ce0414661a72084c"
+    "mtime": 1784923137.3985932,
+    "ast_hash": "125f96d7094f61678adf3a60d03c1c8a",
+    "semantic_hash": "125f96d7094f61678adf3a60d03c1c8a"
   },
   "packages/core/src/model/document.ts": {
     "mtime": 1784286812.863127,
@@ -360,9 +360,9 @@
     "semantic_hash": "a15d3459e2b72295a007385b6676bf57"
   },
   "docs/status.md": {
-    "mtime": 1784921578.0340652,
-    "ast_hash": "7811c12e5c86e64b587e45f9588b219f",
-    "semantic_hash": "7811c12e5c86e64b587e45f9588b219f"
+    "mtime": 1784923352.2299874,
+    "ast_hash": "442e39751ad895e56ea28cb57a539355",
+    "semantic_hash": "442e39751ad895e56ea28cb57a539355"
   },
   "apps/editor/src-tauri/icon-source.png": {
     "mtime": 1784286990.2395062,
@@ -653,5 +653,25 @@
     "mtime": 1784911496.628039,
     "ast_hash": "9afda8159bb06ea8db0e2640c0b86c2f",
     "semantic_hash": "9afda8159bb06ea8db0e2640c0b86c2f"
+  },
+  "packages/core/src/commands/sibling-slot.ts": {
+    "mtime": 1784923115.6098628,
+    "ast_hash": "65b0a7f42c5d9ed61acd1e76b07bc4b7",
+    "semantic_hash": "65b0a7f42c5d9ed61acd1e76b07bc4b7"
+  },
+  "packages/core/src/format/document.ts": {
+    "mtime": 1784923125.1757312,
+    "ast_hash": "232194c6e395ac0e75e7ee4315ee9c74",
+    "semantic_hash": "232194c6e395ac0e75e7ee4315ee9c74"
+  },
+  "packages/core/tests/document-format.test.ts": {
+    "mtime": 1784923154.9644775,
+    "ast_hash": "e5889be138229d01fe1b9b00ced5bf59",
+    "semantic_hash": "e5889be138229d01fe1b9b00ced5bf59"
+  },
+  "packages/core/tests/sibling-slot.test.ts": {
+    "mtime": 1784923146.9459856,
+    "ast_hash": "d38494a1baab2df479e326273cae968f",
+    "semantic_hash": "d38494a1baab2df479e326273cae968f"
   }
 }
