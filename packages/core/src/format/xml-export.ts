@@ -35,11 +35,22 @@ function serializeAttributes(node: DocNode): string {
   return node.attributes.map((a) => ` ${a.name}="${escapeAttr(a.value)}"`).join("");
 }
 
-function serializeNode(node: DocNode, indent: string, depth: number): string {
+/** Reference bytes for the minimal-invasive verbatim-copy shortcut — absent for `serializeXml`,
+ * whose tree never carries a `byteRange` in the first place. */
+interface ByteSource {
+  bytes: Uint8Array;
+  decoder: InstanceType<typeof TextDecoder>;
+}
+
+function serializeNode(node: DocNode, indent: string, depth: number, byteSource?: ByteSource): string {
   const pad = indent.repeat(depth);
+  if (byteSource && node.byteRange) {
+    const [start, end] = node.byteRange;
+    return pad + byteSource.decoder.decode(byteSource.bytes.subarray(start, end));
+  }
   const attrs = serializeAttributes(node);
   if (node.children.length > 0) {
-    const inner = node.children.map((c) => serializeNode(c, indent, depth + 1)).join("\n");
+    const inner = node.children.map((c) => serializeNode(c, indent, depth + 1, byteSource)).join("\n");
     return `${pad}<${node.name}${attrs}>\n${inner}\n${pad}</${node.name}>`;
   }
   const text = node.value ?? "";
@@ -54,38 +65,11 @@ export function serializeXml(doc: { root: DocNode; xmlDeclaration?: string; inde
   return doc.xmlDeclaration ? `${doc.xmlDeclaration}\n${body}\n` : `${body}\n`;
 }
 
-function serializeNodeMinimal(
-  node: DocNode,
-  sourceBytes: Uint8Array,
-  decoder: InstanceType<typeof TextDecoder>,
-  indent: string,
-  depth: number,
-): string {
-  const pad = indent.repeat(depth);
-  if (node.byteRange) {
-    const [start, end] = node.byteRange;
-    return pad + decoder.decode(sourceBytes.subarray(start, end));
-  }
-  const attrs = serializeAttributes(node);
-  if (node.children.length > 0) {
-    const inner = node.children
-      .map((c) => serializeNodeMinimal(c, sourceBytes, decoder, indent, depth + 1))
-      .join("\n");
-    return `${pad}<${node.name}${attrs}>\n${inner}\n${pad}</${node.name}>`;
-  }
-  const text = node.value ?? "";
-  if (text === "") {
-    return `${pad}<${node.name}${attrs}/>`;
-  }
-  return `${pad}<${node.name}${attrs}>${escapeText(text)}</${node.name}>`;
-}
-
 export function serializeXmlMinimal(
   source: string,
   doc: { root: DocNode; xmlDeclaration?: string; indent: string },
 ): string {
-  const sourceBytes = new TextEncoder().encode(source);
-  const decoder = new TextDecoder();
-  const body = `${serializeNodeMinimal(doc.root, sourceBytes, decoder, doc.indent, 0)}\n`;
+  const byteSource: ByteSource = { bytes: new TextEncoder().encode(source), decoder: new TextDecoder() };
+  const body = `${serializeNode(doc.root, doc.indent, 0, byteSource)}\n`;
   return doc.xmlDeclaration ? `${doc.xmlDeclaration}\n${body}` : body;
 }

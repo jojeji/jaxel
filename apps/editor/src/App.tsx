@@ -21,6 +21,7 @@ import {
   getPathSegments,
   parseJson,
   parseXml,
+  planMove,
   serializeJson,
   serializeXml,
   type DocFormat,
@@ -652,41 +653,24 @@ export function App(): React.ReactElement {
     handleSetAttribute(name, "", coalesceKey);
   }
 
-  /** Drag&drop move in the tree; targetIndex semantics per createMoveNodeCommand's contract. */
+  /** Drag&drop move in the tree; drop-position-to-index arithmetic lives in planMove. */
   function handleMoveNode(source: TreeRow, target: TreeRow, position: DropPosition): void {
     if (!activeDoc) return;
-    const sourceParent = source.ancestors[source.ancestors.length - 1];
-    if (!sourceParent) return; // root is not draggable
-    const sourceAncestors = source.ancestors.slice(0, -1);
-    const sourceIndex = sourceParent.children.indexOf(source.node);
-    if (sourceIndex === -1) return;
-
-    let targetParent: DocNode;
-    let targetAncestors: DocNode[];
-    let targetIndex: number;
-    if (position === "into") {
-      targetParent = target.node;
-      targetAncestors = target.ancestors;
-      targetIndex = target.node.children.length;
-    } else {
-      const parent = target.ancestors[target.ancestors.length - 1];
-      if (!parent) return; // the root has no siblings
-      targetParent = parent;
-      targetAncestors = target.ancestors.slice(0, -1);
-      const anchorIndex = parent.children.indexOf(target.node);
-      if (anchorIndex === -1) return;
-      targetIndex = position === "after" ? anchorIndex + 1 : anchorIndex;
-    }
-    if (targetParent === sourceParent && targetIndex > sourceIndex) {
-      targetIndex -= 1; // contract: targetIndex counts AFTER the source was removed
-    }
-    if (targetParent === sourceParent && targetIndex === sourceIndex) return; // no-op move
+    const plan = planMove(source, target, position);
+    if (!plan) return;
 
     activeDoc.commandBus.execute(
-      createMoveNodeCommand(sourceParent, sourceIndex, sourceAncestors, targetParent, targetIndex, targetAncestors),
+      createMoveNodeCommand(
+        plan.sourceParent,
+        plan.sourceIndex,
+        plan.sourceAncestors,
+        plan.targetParent,
+        plan.targetIndex,
+        plan.targetAncestors,
+      ),
     );
     if (position === "into") {
-      setExpanded((prev) => new Set(prev).add(targetParent.id));
+      setExpanded((prev) => new Set(prev).add(plan.targetParent.id));
     }
     setSelectedId(source.node.id);
     setRevealNodeId(source.node.id);

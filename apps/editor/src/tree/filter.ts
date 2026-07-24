@@ -1,5 +1,6 @@
 import type { DocNode } from "@jaxel/core";
 import type { TreeRow } from "./flatten.js";
+import { walkTree } from "./walk.js";
 
 /**
  * Computes the set of node ids to keep visible in filter mode: every match, its full
@@ -18,20 +19,18 @@ export function buildFilterKeepSet(
     for (const child of node.children) markSubtree(child);
   }
 
-  function visit(node: DocNode, ancestors: DocNode[]): void {
+  walkTree(root, (node, ancestors) => {
     if (matchedIds.has(node.id)) {
       for (const ancestor of ancestors) keep.add(ancestor.id);
       if (includeSubtree) {
         markSubtree(node);
-        return; // everything below is kept anyway
+        return false; // everything below is kept anyway — no need to walk it again
       }
       keep.add(node.id);
     }
-    const next = [...ancestors, node];
-    for (const child of node.children) visit(child, next);
-  }
+    return true;
+  });
 
-  visit(root, []);
   return keep;
 }
 
@@ -42,15 +41,11 @@ export function buildFilterKeepSet(
  */
 export function flattenFiltered(root: DocNode, keep: ReadonlySet<string>): TreeRow[] {
   const rows: TreeRow[] = [];
-
-  function visit(node: DocNode, ancestors: DocNode[], depth: number): void {
+  walkTree(root, (node, ancestors, depth) => {
     if (keep.has(node.id)) {
       rows.push({ node, ancestors, depth, hasChildren: node.children.length > 0 });
     }
-    const next = [...ancestors, node];
-    for (const child of node.children) visit(child, next, depth + 1);
-  }
-
-  visit(root, [], 0);
+    return true; // filter narrows what's PUSHED, not what's walked
+  });
   return rows;
 }

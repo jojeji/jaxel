@@ -55,9 +55,9 @@
     "semantic_hash": "50ede0067e425beee5760bda10d50307"
   },
   "apps/editor/src/App.tsx": {
-    "mtime": 1784909124.431434,
-    "ast_hash": "7022061bdb98f97188d18a778af7d09e",
-    "semantic_hash": "7022061bdb98f97188d18a778af7d09e"
+    "mtime": 1784911439.4671373,
+    "ast_hash": "0d342c9f45cbcba11eadc5e1cf1eeb24",
+    "semantic_hash": "0d342c9f45cbcba11eadc5e1cf1eeb24"
   },
   "apps/editor/src/ErrorBoundary.tsx": {
     "mtime": 1784481241.9616046,
@@ -100,9 +100,9 @@
     "semantic_hash": "f9fa6f932856584a741bbc9b0e2c2e16"
   },
   "apps/editor/src/state/document-store.ts": {
-    "mtime": 1784904782.391398,
-    "ast_hash": "9088d6e6fa1508969388effd34973bf5",
-    "semantic_hash": "9088d6e6fa1508969388effd34973bf5"
+    "mtime": 1784911364.7814806,
+    "ast_hash": "1002ea3d7458ce90daacbf00267b45b6",
+    "semantic_hash": "1002ea3d7458ce90daacbf00267b45b6"
   },
   "apps/editor/src/state/local-prefs.ts": {
     "mtime": 1784654194.772459,
@@ -125,19 +125,19 @@
     "semantic_hash": "0f19ad9bf7314fd912d3f8d7018a820c"
   },
   "apps/editor/src/tree/TreeView.tsx": {
-    "mtime": 1784722433.9559646,
-    "ast_hash": "6bcd317f6534df67cf29db294f8936b2",
-    "semantic_hash": "6bcd317f6534df67cf29db294f8936b2"
+    "mtime": 1784911414.5420766,
+    "ast_hash": "6e23d3305b2a402e250597728a00c1ab",
+    "semantic_hash": "6e23d3305b2a402e250597728a00c1ab"
   },
   "apps/editor/src/tree/filter.ts": {
-    "mtime": 1784298484.4234762,
-    "ast_hash": "5673055bcc73fde9a41a550596b81e74",
-    "semantic_hash": "5673055bcc73fde9a41a550596b81e74"
+    "mtime": 1784921417.146082,
+    "ast_hash": "379d98da8c753c182cc9fcb10d1d594b",
+    "semantic_hash": "379d98da8c753c182cc9fcb10d1d594b"
   },
   "apps/editor/src/tree/flatten.ts": {
-    "mtime": 1784722278.213685,
-    "ast_hash": "8b761f54bb3da3674883d2bafb1e6fa0",
-    "semantic_hash": "8b761f54bb3da3674883d2bafb1e6fa0"
+    "mtime": 1784921402.3050373,
+    "ast_hash": "4f80b4825ee9afae808029480a5cf50c",
+    "semantic_hash": "4f80b4825ee9afae808029480a5cf50c"
   },
   "apps/editor/src/ui/ContextMenu.tsx": {
     "mtime": 1784306325.2187212,
@@ -200,9 +200,9 @@
     "semantic_hash": "1e32d552c2f2156236b15befee13b3de"
   },
   "packages/core/src/commands/move-node.ts": {
-    "mtime": 1784908680.184371,
-    "ast_hash": "c0fda26398b286fd7d23eb089fbd1a2b",
-    "semantic_hash": "c0fda26398b286fd7d23eb089fbd1a2b"
+    "mtime": 1784911390.2457519,
+    "ast_hash": "10ba0082cc3237df78b28aa45589d101",
+    "semantic_hash": "10ba0082cc3237df78b28aa45589d101"
   },
   "packages/core/src/commands/remove-node.ts": {
     "mtime": 1784908666.2088866,
@@ -245,9 +245,9 @@
     "semantic_hash": "92eebaed6e79a6131141c3885fa41968"
   },
   "packages/core/src/format/xml-export.ts": {
-    "mtime": 1784720043.165015,
-    "ast_hash": "4d92ce0d908f0b01834bb2dcfe6cacb7",
-    "semantic_hash": "4d92ce0d908f0b01834bb2dcfe6cacb7"
+    "mtime": 1784921507.0340676,
+    "ast_hash": "6230a804046169c9ff9d96a620f316a8",
+    "semantic_hash": "6230a804046169c9ff9d96a620f316a8"
   },
   "packages/core/src/format/xml-import.ts": {
     "mtime": 1784288866.6472354,
@@ -255,9 +255,9 @@
     "semantic_hash": "253efd1a4bdb90870907f6869a0c4888"
   },
   "packages/core/src/index.ts": {
-    "mtime": 1784909022.5889182,
-    "ast_hash": "b22638d101b7e947a2aa98ae873dc628",
-    "semantic_hash": "b22638d101b7e947a2aa98ae873dc628"
+    "mtime": 1784911394.89346,
+    "ast_hash": "aee2807c5e7cca06ce0414661a72084c",
+    "semantic_hash": "aee2807c5e7cca06ce0414661a72084c"
   },
   "packages/core/src/model/document.ts": {
     "mtime": 1784286812.863127,
@@ -360,9 +360,9 @@
     "semantic_hash": "a15d3459e2b72295a007385b6676bf57"
   },
   "docs/status.md": {
-    "mtime": 1784909319.709388,
-    "ast_hash": "2576218287ba6601a60cb1468279c203",
-    "semantic_hash": "2576218287ba6601a60cb1468279c203"
+    "mtime": 1784921578.0340652,
+    "ast_hash": "7811c12e5c86e64b587e45f9588b219f",
+    "semantic_hash": "7811c12e5c86e64b587e45f9588b219f"
   },
   "apps/editor/src-tauri/icon-source.png": {
     "mtime": 1784286990.2395062,
@@ -638,5 +638,20 @@
     "mtime": 1784909058.3912146,
     "ast_hash": "9c25391a2fe0d8052d7241c513d715b0",
     "semantic_hash": "9c25391a2fe0d8052d7241c513d715b0"
+  },
+  "apps/editor/src/tree/walk.test.ts": {
+    "mtime": 1784921464.9037032,
+    "ast_hash": "afdcbc8f4f2361c3bdb6f05ad079bef4",
+    "semantic_hash": "afdcbc8f4f2361c3bdb6f05ad079bef4"
+  },
+  "apps/editor/src/tree/walk.ts": {
+    "mtime": 1784921393.9780352,
+    "ast_hash": "f37deee0a1eb1347c26e3a1a6bc4ad84",
+    "semantic_hash": "f37deee0a1eb1347c26e3a1a6bc4ad84"
+  },
+  "packages/core/tests/plan-move.test.ts": {
+    "mtime": 1784911496.628039,
+    "ast_hash": "9afda8159bb06ea8db0e2640c0b86c2f",
+    "semantic_hash": "9afda8159bb06ea8db0e2640c0b86c2f"
   }
 }

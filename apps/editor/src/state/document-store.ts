@@ -104,6 +104,47 @@ function detectFormat(path: string, content: string): DocFormat {
   return content.trimStart().startsWith("<") ? "xml" : "json";
 }
 
+function serializeForSave(target: OpenDocumentState): string {
+  return target.format === "xml"
+    ? serializeXmlMinimal(target.sourceText, {
+        root: target.document.root,
+        xmlDeclaration: target.document.xmlDeclaration,
+        indent: target.document.indent,
+      })
+    : serializeJson({ root: target.document.root, indent: target.document.indent });
+}
+
+/**
+ * The write→refresh→baseline sequence shared by `saveFile`/`saveFileAs` — centralized because
+ * two critical bugs already came from this exact ordering breaking (docs/entscheidungen.md
+ * "Byte-Offsets nach dem Speichern auffrischen" and "Save-Epoche"). Only the state-update
+ * shape differs between the two callers (simple field patch vs. path rename + tab remap),
+ * which stays with them.
+ */
+async function persistSaved(
+  target: OpenDocumentState,
+  writePath: string,
+): Promise<{ text: string; stat: { mtimeMs: number; size: number }; changeBaseline: ChangeBaseline }> {
+  const text = serializeForSave(target);
+  const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
+    path: writePath,
+    content: text,
+    encoding: target.encoding,
+  });
+  logInfo("breadcrumb", `Datei gespeichert: ${writePath}`);
+  // The file on disk now matches the tree again — that becomes the new minimal-invasive
+  // baseline AND the new dirty/change-marker baseline (see CommandBus.markSaved, CONTEXT.md
+  // "Baseline"). The tree's byteRanges must be refreshed to match this new baseline text —
+  // otherwise the NEXT save silently corrupts (docs/entscheidungen.md, "Byte-Offsets nach dem
+  // Speichern auffrischen").
+  if (target.format === "xml") {
+    syncByteRangesAfterSave(target.document.root, parseXml(text).root);
+  }
+  target.commandBus.markSaved();
+  const changeBaseline = captureChangeBaseline(target.document.root);
+  return { text, stat, changeBaseline };
+}
+
 /**
  * Manages every currently open document and tab (the default multi-window mode, see
  * docs/entscheidungen.md #5). Documents are deduped by `filePath`; opening a path that's
@@ -171,6 +212,18 @@ export function useJaxelDocuments(): {
     }));
   }
 
+  /** Wires a freshly created `JaxelDocument` into the store's revision/dirty tracking —
+   * shared by every place a document is (re)created (open, new, reload) so this bootstrap
+   * can't drift or get forgotten at a future call site. */
+  function attachDocument(doc: JaxelDocument): { commandBus: CommandBus; unsubscribe: () => void } {
+    const commandBus = new CommandBus(doc);
+    const unsubscribe = commandBus.subscribe(() => {
+      setRevision((r) => r + 1);
+      syncDirty(commandBus);
+    });
+    return { commandBus, unsubscribe };
+  }
+
   const openFile = useCallback(async (path: string) => {
     const result = await invoke<{ content: string; encoding: string; mtimeMs: number; size: number }>(
       "read_text_file",
@@ -190,11 +243,7 @@ export function useJaxelDocuments(): {
     }
 
     const doc = createDocument({ format, root, encoding: result.encoding, xmlDeclaration });
-    const commandBus = new CommandBus(doc);
-    const unsubscribe = commandBus.subscribe(() => {
-      setRevision((r) => r + 1);
-      syncDirty(commandBus);
-    });
+    const { commandBus, unsubscribe } = attachDocument(doc);
 
     setState((prev) => {
       const key = tabKey(path, null);
@@ -233,31 +282,7 @@ export function useJaxelDocuments(): {
     const targetPath = path ?? stateRef.current.tabs.find((t) => t.key === stateRef.current.activeKey)?.filePath;
     const target = stateRef.current.docs.find((d) => d.filePath === targetPath);
     if (!target) return;
-    const text =
-      target.format === "xml"
-        ? serializeXmlMinimal(target.sourceText, {
-            root: target.document.root,
-            xmlDeclaration: target.document.xmlDeclaration,
-            indent: target.document.indent,
-          })
-        : serializeJson({ root: target.document.root, indent: target.document.indent });
-    const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
-      path: target.filePath,
-      content: text,
-      encoding: target.encoding,
-    });
-    logInfo("breadcrumb", `Datei gespeichert: ${target.filePath}`);
-    // The file on disk now matches the tree again — that becomes the new minimal-invasive
-    // baseline AND the new dirty/change-marker baseline (see CommandBus.markSaved,
-    // CONTEXT.md "Baseline"). The tree's byteRanges must be refreshed to match this new
-    // baseline text (not just the sourceText string swapped below) — otherwise the NEXT
-    // save silently corrupts (docs/entscheidungen.md, "Byte-Offsets nach dem Speichern
-    // auffrischen").
-    if (target.format === "xml") {
-      syncByteRangesAfterSave(target.document.root, parseXml(text).root);
-    }
-    target.commandBus.markSaved();
-    const changeBaseline = captureChangeBaseline(target.document.root);
+    const { text, stat, changeBaseline } = await persistSaved(target, target.filePath);
     setState((current) => ({
       ...current,
       docs: current.docs.map((d) =>
@@ -271,25 +296,7 @@ export function useJaxelDocuments(): {
   const saveFileAs = useCallback(async (currentPath: string, newPath: string) => {
     const target = stateRef.current.docs.find((d) => d.filePath === currentPath);
     if (!target) return;
-    const text =
-      target.format === "xml"
-        ? serializeXmlMinimal(target.sourceText, {
-            root: target.document.root,
-            xmlDeclaration: target.document.xmlDeclaration,
-            indent: target.document.indent,
-          })
-        : serializeJson({ root: target.document.root, indent: target.document.indent });
-    const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
-      path: newPath,
-      content: text,
-      encoding: target.encoding,
-    });
-    logInfo("breadcrumb", `Datei gespeichert: ${newPath}`);
-    if (target.format === "xml") {
-      syncByteRangesAfterSave(target.document.root, parseXml(text).root);
-    }
-    target.commandBus.markSaved();
-    const changeBaseline = captureChangeBaseline(target.document.root);
+    const { text, stat, changeBaseline } = await persistSaved(target, newPath);
     const unsubscribe = unsubscribersRef.current.get(currentPath);
     if (unsubscribe) {
       unsubscribersRef.current.delete(currentPath);
@@ -337,11 +344,7 @@ export function useJaxelDocuments(): {
     }
 
     const doc = createDocument({ format, root, encoding: "UTF-8", xmlDeclaration });
-    const commandBus = new CommandBus(doc);
-    const unsubscribe = commandBus.subscribe(() => {
-      setRevision((r) => r + 1);
-      syncDirty(commandBus);
-    });
+    const { commandBus, unsubscribe } = attachDocument(doc);
 
     setState((prev) => {
       const path = nextUntitledPath(prev.docs);
@@ -505,11 +508,7 @@ export function useJaxelDocuments(): {
       }
 
       const doc = createDocument({ format: target.format, root: newRoot, encoding: result.encoding, xmlDeclaration });
-      const commandBus = new CommandBus(doc);
-      const unsubscribe = commandBus.subscribe(() => {
-        setRevision((r) => r + 1);
-        syncDirty(commandBus);
-      });
+      const { commandBus, unsubscribe } = attachDocument(doc);
       unsubscribersRef.current.get(filePath)?.(); // drop the pre-reload subscription
       unsubscribersRef.current.set(filePath, unsubscribe);
 

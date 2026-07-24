@@ -20,7 +20,8 @@ export { createSetAttributeCommand } from "./commands/set-attribute.js";
 export { createRenameAttributeCommand } from "./commands/rename-attribute.js";
 export { createInsertNodeCommand } from "./commands/insert-node.js";
 export { createRemoveNodeCommand } from "./commands/remove-node.js";
-export { createMoveNodeCommand } from "./commands/move-node.js";
+export type { DropPosition, MovePlan } from "./commands/move-node.js";
+export { createMoveNodeCommand, planMove } from "./commands/move-node.js";
 export type { ReplaceAllResult } from "./commands/replace-all.js";
 export { createReplaceAllCommand } from "./commands/replace-all.js";
 

@@ -3,6 +3,40 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-24 — Architektur-Review Runde 2: vier Deepening-Kandidaten umgesetzt
+
+Zweiter Durchlauf von `/improve-codebase-architecture` direkt nach dem Save-Epoche-Fix (Bereich
+bewusst ausgeklammert). Reine Qualitätsarbeit ohne Verhaltensänderung — kein CHANGELOG-Eintrag,
+da nichts Nutzersichtbares betroffen ist. Alle vier Kandidaten aus dem Report umgesetzt:
+
+1. **`persistSaved`/`attachDocument` in `document-store.ts`.** `saveFile`/`saveFileAs`
+   wiederholten die Reihenfolge serialize → schreiben → byteRange auffrischen → markSaved →
+   Baseline unabhängig (~25 Zeilen je) — genau an dieser Stelle waren bereits zwei kritische
+   Bugs entstanden (siehe die beiden vorigen Nachträge). Jetzt ein gemeinsamer
+   `persistSaved(target, writePath)`, der die Reihenfolge strukturell erzwingt. Separat:
+   `openFile`/`newDocument`/`reloadFile` teilen sich jetzt `attachDocument(doc)` für die
+   CommandBus-Bootstrap-Sequenz (Erzeugen, Subscriben, Revision/Dirty-Sync).
+2. **`planMove` in `packages/core/src/commands/move-node.ts`.** Die Drop-Position-zu-Index-
+   Arithmetik (inkl. der dokumentierten -1-Korrektur beim Verschieben innerhalb desselben
+   Parents) saß bisher nur in `App.tsx::handleMoveNode`, ungetestet — derselbe
+   Invariante-#3-Verstoß wie das bereits behobene `replaceAll`. Jetzt eine reine
+   `planMove(source, target, position): MovePlan | null`, headless getestet
+   (`plan-move.test.ts`, 8 Tests); `handleMoveNode` ruft nur noch auf.
+3. **`walkTree` in `apps/editor/src/tree/walk.ts`.** `flattenTree`, `flattenFiltered` und
+   `buildFilterKeepSet` implementierten dieselbe `[...ancestors, node]`-Traversierung
+   unabhängig. Ein gemeinsamer `walkTree(root, visit)` (Rückgabe `false` stoppt die Rekursion
+   in dem Zweig) deckt alle drei ab; `findAncestorChain`/`findNodeById`/`computeChanges` etc.
+   wurden bewusst NICHT mit hineingezogen — ihre Traversierungs-Form unterscheidet sich
+   genug (Suche mit Früh-Ausstieg bzw. Baseline-Vergleich inline), dass eine Vereinheitlichung
+   nur verschoben, nicht konzentriert hätte (Deletion-Test negativ). Neuer `walk.test.ts`.
+4. **`serializeNode`/`serializeNodeMinimal` zusammengeführt** (`packages/core/src/format/
+   xml-export.ts): ein Renderer mit optionalem `byteSource`-Kurzschluss statt zweier
+   Fast-Klone.
+- Fünfter Kandidat aus dem Report (Fokus-Fallback-Vereinheitlichung) bewusst NICHT umgesetzt —
+  als "Speculative" eingestuft (zwei verschiedene Datenbasen, ID vs. Pfad-Segment).
+- 275 Tests grün (123 Core + 152 Editor, inkl. 11 neuer Tests), Typecheck beider Pakete und
+  `cargo check` sauber.
+
 ## Nachtrag 2026-07-24 — byteRange-Invalidierung zentralisiert (Save-Epoche), "Alle ersetzen" nach Core verschoben
 
 - **Symptom (PO-Meldung, unmittelbar nach dem vorigen Byte-Offset-Fix):** Feld ändern,

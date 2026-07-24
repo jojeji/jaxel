@@ -1,15 +1,13 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { looksLikeBase64, type ChangeSet, type DocNode, type Tombstone } from "@jaxel/core";
+import { looksLikeBase64, type ChangeSet, type DocNode, type DropPosition, type Tombstone } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
 import { withTombstones, type DisplayRow, type TreeRow } from "./flatten.js";
 
 const ROW_HEIGHT = 22;
 const OVERSCAN = 8;
 
+export type { DropPosition };
 export type EditingField = { nodeId: string; field: "name" | "value" };
-
-/** Where a dragged row would land relative to the hovered row. */
-export type DropPosition = "before" | "after" | "into";
 
 interface DropTarget {
   rowId: string;
