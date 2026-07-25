@@ -38,3 +38,26 @@ an erster Stelle, falls der gelöschte Knoten das erste Kind war). Bleibt auch d
 wenn andere Geschwister danach noch verschoben werden — die Tombstone-Position ist relativ
 zum Anker-Geschwister, nicht ein fixer numerischer Index.
 _Avoid_: Ursprungsposition, Index-Anker.
+
+**Kommentarknoten**:
+Ein `DocNode` mit `kind: "comment"`, der einen XML-Kommentar an genau der Position im
+`children`-Array vertritt, an der er in der Datei steht. Vollwertiger Knoten: löschbar,
+verschiebbar, duplizierbar, Text änderbar. Optisch eigene Kommentarfarbe (`--comment`) plus
+Kursivschrift — bewusst NICHT die Tombstone-Optik, die er sonst nicht unterscheidbar wäre.
+_Avoid_: Kommentar-Zeile (das ist die Darstellung, nicht der Knoten), Pseudo-Knoten.
+
+**Auskommentierter Teilbaum**:
+Ein Kommentarknoten, dessen Inhalt sich als wohlgeformtes XML parsen lässt und deshalb als
+aufklappbare Struktur statt als Textzeile dargestellt wird. Schreibgeschützt: sichtbar und
+durchsuchbar, aber weder editierbar noch von "Alle ersetzen" veränderbar — Jaxel reicht beim
+Speichern den Originaltext durch und muss ihn nie reserialisieren. Ob ein Kommentar einer ist,
+entscheidet allein der Parse-Versuch beim Laden; es gibt keine Markierung in der Datei.
+_Avoid_: deaktivierter Knoten, stillgelegter Knoten (Umgangssprache ok), Kommentar-Block.
+
+**Prolog / Epilog**:
+Alles vor dem öffnenden Wurzel-Tag (XML-Deklaration, DOCTYPE, Kommentare,
+Verarbeitungsanweisungen) bzw. alles nach dem schließenden. Wird als Rohtext am Dokument
+mitgeführt und beim Speichern wörtlich wieder vorangestellt bzw. angehängt — der Baum hat
+dafür keine Knoten, weil ein Dokument genau eine Wurzel hat. Kommentare darin erscheinen als
+schreibgeschützte Zeilen über bzw. unter der Wurzel.
+_Avoid_: Header/Footer, Vorspann, Dokumentkopf.

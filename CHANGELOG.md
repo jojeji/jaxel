@@ -11,6 +11,23 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- **Mehrfachauswahl im Baum:** `Strg`+Klick wählt einzelne Knoten zusätzlich aus, `Shift`+Klick
+  einen ganzen Bereich, `Shift`+`↑`/`↓` erweitert die Auswahl zeilenweise. Die Auswahl darf über
+  verschiedene Ebenen hinweg gehen. **Löschen**, **Duplizieren**, **Kopieren** und **Verschieben
+  per Drag&Drop** wirken dann auf alle ausgewählten Knoten — jeweils als ein Schritt, den ein
+  einziges „Rückgängig" komplett zurücknimmt. Umbenennen, Wert ändern und Knoten anlegen brauchen
+  weiterhin genau einen ausgewählten Knoten.
+- **„Speichern unter"** als eigener Menüpunkt (Menü „Datei", `Strg+Shift+S`) — bisher erschien der
+  Dialog nur automatisch beim ersten Speichern eines neuen Dokuments.
+- **XML↔JSON konvertieren:** In „Speichern unter" einfach die Endung des anderen Formats wählen.
+  Eine Rückfrage nennt vorher, was dabei verloren geht; danach ist das offene Tab ein Dokument
+  des neuen Formats. XML-Attribute werden zu Eigenschaften mit `@`-Präfix (und wieder zurück),
+  der Textinhalt eines Elements mit Attributen zu `#text`. Lässt sich ein JSON-Schlüssel nicht in
+  einen XML-Elementnamen übersetzen (z. B. `"1. Quartal"`), bricht die Konvertierung mit einer
+  Meldung ab, statt stillschweigend umzubenennen — es wird dann keine Datei geschrieben.
+
 ## [0.5.0] - 2026-07-25
 
 ### Hinzugefügt

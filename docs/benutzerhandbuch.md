@@ -30,6 +30,31 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   nummeriert); `Strg+S` öffnet dafür automatisch „Speichern unter".
 - **Speichern**: Toolbar-Button oder `Strg+S`. XML wird minimal-invasiv gespeichert: unveränderte
   Bereiche der Datei bleiben byte-genau erhalten.
+- **Speichern unter**: Menü „Datei" → „Speichern unter…" oder `Strg+Shift+S` — legt eine Kopie
+  unter neuem Namen/Pfad an; der Tab wechselt danach auf die neue Datei.
+- **XML in JSON umwandeln (und umgekehrt)**: Dafür gibt es keinen eigenen Menüpunkt — wählen Sie
+  in „Speichern unter" einfach die Endung des anderen Formats (`.json` bei einer XML-Datei bzw.
+  `.xml` bei einer JSON-Datei). Jaxel fragt dann nach und nennt vorher, was dabei verloren geht.
+  Nach dem Bestätigen ist der offene Tab ein Dokument des neuen Formats.
+
+  So wird übersetzt:
+
+  | XML | JSON |
+  |---|---|
+  | `<name>Anna</name>` | `"name": "Anna"` |
+  | Attribut `id="P-1"` | Eigenschaft `"@id": "P-1"` |
+  | Text eines Elements, das *auch* Attribute hat | Eigenschaft `"#text"` |
+  | mehrere gleichnamige Geschwister | ein Array |
+
+  Was die Umwandlung **nicht** mitnimmt: Kommentare und CDATA-Markierungen (Richtung JSON),
+  die Zahlen- und Boolean-Typen (Richtung XML — dort wird alles zu Text) und in beiden
+  Richtungen die Rückgängig-Historie.
+
+  **Wenn die Umwandlung nach XML nicht möglich ist:** JSON-Schlüssel dürfen alles heißen,
+  XML-Elementnamen nicht (kein führende Ziffer, keine Leerzeichen). Stößt Jaxel auf so einen
+  Schlüssel — etwa `"1. Quartal"` — bricht die Umwandlung mit einer Meldung ab, die den
+  Schlüssel und seine Stelle nennt. Es wird dann **keine** Datei geschrieben; benennen Sie den
+  Schlüssel im Baum um und versuchen Sie es erneut.
 - **Ungespeicherte Änderungen**: Ein Tab mit ungespeicherten Änderungen zeigt einen Punkt statt
   des Schließen-Kreuzes; beim Darüberfahren mit der Maus erscheint trotzdem das `×` zum
   Schließen. Der Punkt verschwindet auch, wenn per `Strg+Z` exakt bis zum letzten Speicherstand
@@ -64,14 +89,29 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 ## Baumansicht und Navigation
 
 - **Klick** auf einen Knoten: auswählen und (bei Containern) auf-/zuklappen.
+- **Mehrere Knoten auswählen**: `Strg`+Klick wählt einen Knoten zusätzlich aus bzw. wieder ab,
+  `Shift`+Klick wählt den ganzen Bereich zwischen dem zuletzt angeklickten und diesem Knoten.
+  Mit `Strg`/`Shift` wird nur ausgewählt — der Knoten klappt dabei nicht auf oder zu. Die Auswahl
+  darf über verschiedene Ebenen und Elternknoten hinweg gehen.
+  - Mit mehreren ausgewählten Knoten funktionieren **Löschen**, **Duplizieren**, **Kopieren** und
+    **Verschieben per Drag&Drop** — jeweils als *ein* Schritt, den ein einziges `Strg+Z`
+    komplett zurücknimmt.
+  - **Umbenennen**, **Wert ändern** und **Kind/Geschwister anlegen** brauchen genau einen
+    ausgewählten Knoten und sind bei Mehrfachauswahl abgeschaltet. Das Attribute-Panel zeigt dann
+    „N Knoten ausgewählt".
 - **Rechtsklick** öffnet das Kontextmenü mit allen Knoten-Aktionen (Pfade kopieren, Kind
-  anlegen, Duplizieren, Kopieren/Einfügen, Löschen).
+  anlegen, Duplizieren, Kopieren/Einfügen, Löschen). Rechtsklick auf einen bereits ausgewählten
+  Knoten behält eine Mehrfachauswahl; Rechtsklick auf einen anderen Knoten wählt nur diesen aus.
 - **Pfeiltasten**: `↑`/`↓` bewegen die Auswahl, `→` klappt auf bzw. springt ins erste Kind,
-  `←` klappt zu bzw. springt zum Elternknoten.
+  `←` klappt zu bzw. springt zum Elternknoten. `Shift`+`↑`/`↓` erweitert die Auswahl Zeile für
+  Zeile (und schrumpft sie wieder, wenn man die Richtung wechselt); `↑`/`↓` ohne `Shift` hebt
+  eine Mehrfachauswahl wieder auf.
 - **Verschieben per Drag&Drop**: Knoten einfach ziehen. Beim Ziehen ist die Zeile halbtransparent,
   damit die Einfüge-Linie/Als-Kind-Markierung darunter sichtbar bleibt. Eine Linie zwischen den
   Zeilen zeigt die Ziel-Position als Geschwister; landet der Mauszeiger mittig auf einer Zeile,
-  wird sie hervorgehoben und der Knoten dort als Kind eingehängt. Nicht möglich: die Wurzel
+  wird sie hervorgehoben und der Knoten dort als Kind eingehängt. Zieht man einen Knoten, der Teil
+  einer Mehrfachauswahl ist, wandert die ganze Auswahl mit (in ihrer bisherigen Reihenfolge);
+  zieht man einen nicht ausgewählten Knoten, bewegt sich nur dieser. Nicht möglich: die Wurzel
   ziehen oder einen Knoten in seinen eigenen Unterbaum verschieben.
 - **Fokus-Ansicht ab einem Knoten**: Rechtsklick → „Fokus ab hier öffnen" öffnet einen neuen Tab,
   der nur den Unterbaum ab diesem Knoten zeigt (praktisch wie ein eigenes kleines Dokument) —
@@ -105,12 +145,14 @@ Standardmäßig ausgeschaltet, in den Einstellungen unter „Baum" aktivierbar:
 - **Kind anlegen**: `Strg` + `+` oder Menü „Bearbeiten" → „Kind hinzufügen" — der neue Knoten
   steht sofort im Namens-Editor, einfach lostippen und mit `Enter` bestätigen.
 - **Duplizieren**: `Strg+D` oder Menü „Bearbeiten" → „Duplizieren" — kopiert den Knoten samt
-  Unterbaum direkt darunter.
-- **Löschen**: `Entf` oder Menü „Bearbeiten" → „Löschen" (die Wurzel ist nicht löschbar).
+  Unterbaum direkt darunter. Mit mehreren ausgewählten Knoten wird jeder von ihnen dupliziert.
+- **Löschen**: `Entf` oder Menü „Bearbeiten" → „Löschen" (die Wurzel ist nicht löschbar). Mit
+  mehreren ausgewählten Knoten werden alle auf einmal gelöscht.
 - **Kopieren/Einfügen**: `Strg+C` legt den Knoten als XML-/JSON-Text in die System-Zwischenablage
   (auch in andere Programme einfügbar); `Strg+V` fügt Zwischenablage-Inhalt als nächstes
   Geschwister unter der Auswahl ein (bei ausgewählter Wurzel: als letztes Kind). Beides auch
-  über Menü „Bearbeiten".
+  über Menü „Bearbeiten". Sind mehrere Knoten ausgewählt, landen sie alle hintereinander in der
+  Zwischenablage und werden beim Einfügen auch wieder als mehrere Knoten eingesetzt.
 - **Rückgängig/Wiederholen**: `Strg+Z` / `Strg+Y`, Toolbar-Buttons oder Menü „Bearbeiten" — jede
   sichtbare Aktion ist genau ein Schritt, auch „Alle ersetzen".
 
@@ -221,8 +263,11 @@ Dateipfade, Fehlermeldungen und technische Metadaten.
 | `Strg+N` | Neues Dokument |
 | `Strg+O` | Datei öffnen |
 | `Strg+S` | Speichern |
+| `Strg+Shift+S` | Speichern unter (mit der Endung des anderen Formats: umwandeln) |
 | `Strg+F` | Suchen/Ersetzen |
 | `↑ ↓ ← →` | Im Baum navigieren |
+| `Shift+↑` / `Shift+↓` | Auswahl zeilenweise erweitern/verkleinern |
+| `Strg`+Klick / `Shift`+Klick | Knoten zusätzlich auswählen / Bereich auswählen |
 | `F2` | Umbenennen |
 | `Enter` | Wert ändern |
 | `Strg` + `+` | Neuen Knoten als Geschwister anlegen (gleiche Ebene) |

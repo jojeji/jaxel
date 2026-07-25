@@ -4,6 +4,7 @@ import { useI18n } from "../i18n/index.js";
 import { withTombstones, type DisplayRow, type TreeRow } from "./flatten.js";
 import { computeDropAllowed, positionFromRatio } from "./dnd.js";
 import { computeAnchoredScrollTop, computeRevealScrollTop } from "./scroll-math.js";
+import { selectModifierOf, type SelectModifier } from "./selection.js";
 
 const ROW_HEIGHT = 22;
 const OVERSCAN = 8;
@@ -49,15 +50,18 @@ interface TreeViewProps {
    */
   rows: TreeRow[];
   expanded: ReadonlySet<string>;
-  selectedId: string | null;
+  /** Every selected node's id — a single selection is just the one-element case. */
+  selectedIds: ReadonlySet<string>;
   onToggle: (row: TreeRow) => void;
-  onSelect: (row: TreeRow) => void;
+  /** `modifier` carries the click's Ctrl/Shift gesture; App owns what each one means. */
+  onSelect: (row: TreeRow, modifier: SelectModifier) => void;
   editingField: EditingField | null;
   onStartEditName: (row: TreeRow) => void;
   onStartEditValue: (row: TreeRow) => void;
   onCommitEdit: (row: TreeRow, field: "name" | "value", newText: string) => void;
   onCancelEdit: () => void;
-  /** Right-click on a row (row is already selected when this fires). */
+  /** Right-click on a row. App decides what it does to the selection (keep a multi-selection
+   * the row belongs to, otherwise collapse onto this row) — TreeView does not preselect. */
   onRowContextMenu: (row: TreeRow, x: number, y: number) => void;
   /** Drag&drop move; validity (own subtree etc.) is pre-checked here in TreeView. */
   onMoveNode: (source: TreeRow, target: TreeRow, position: DropPosition) => void;
@@ -83,7 +87,7 @@ interface TreeViewProps {
 export function TreeView({
   rows,
   expanded,
-  selectedId,
+  selectedIds,
   onToggle,
   onSelect,
   editingField,
@@ -219,7 +223,7 @@ export function TreeView({
               row={row}
               top={top}
               expanded={expanded.has(row.node.id)}
-              selected={row.node.id === selectedId}
+              selected={selectedIds.has(row.node.id)}
               editingField={editingField?.nodeId === row.node.id ? editingField.field : null}
               dropPosition={dropTarget?.rowId === row.node.id ? dropTarget.position : null}
               changeMarker={
@@ -232,7 +236,7 @@ export function TreeView({
                       : null
               }
               onToggle={handleToggle}
-              onSelect={() => onSelect(row)}
+              onSelect={(modifier) => onSelect(row, modifier)}
               onStartEditName={() => onStartEditName(row)}
               onStartEditValue={() => onStartEditValue(row)}
               onCommitEdit={(field, text) => onCommitEdit(row, field, text)}
@@ -272,7 +276,7 @@ interface TreeRowViewProps {
   dropPosition: DropPosition | null;
   changeMarker: ChangeMarker;
   onToggle: () => void;
-  onSelect: () => void;
+  onSelect: (modifier: SelectModifier) => void;
   onStartEditName: () => void;
   onStartEditValue: () => void;
   onCommitEdit: (field: "name" | "value", newText: string) => void;
@@ -320,9 +324,12 @@ function TreeRowView({
 
   // Single click selects AND toggles (double-click fires two clicks first, so a toggle
   // pair cancels itself out before the name/value editor opens — net-neutral by design).
-  function handleRowClick(): void {
-    onSelect();
-    if (hasChildren) onToggle();
+  // A Ctrl/Shift click is a pure selection gesture: toggling expand/collapse while picking
+  // several rows would reshuffle the very list the user is clicking through.
+  function handleRowClick(event: React.MouseEvent): void {
+    const modifier = selectModifierOf(event);
+    onSelect(modifier);
+    if (hasChildren && modifier === "none") onToggle();
   }
 
   return (
@@ -332,7 +339,8 @@ function TreeRowView({
       onClick={handleRowClick}
       onContextMenu={(event) => {
         event.preventDefault();
-        onSelect();
+        // No onSelect here: App decides whether this right-click keeps an existing
+        // multi-selection or collapses onto this row (see onRowContextMenu).
         onContextMenu(event.clientX, event.clientY);
       }}
       draggable={row.ancestors.length > 0 && editingField === null}
@@ -345,7 +353,7 @@ function TreeRowView({
         className="tree-row__twisty"
         onClick={(event) => {
           event.stopPropagation();
-          onSelect();
+          onSelect(selectModifierOf(event));
           onToggle();
         }}
       >
@@ -371,7 +379,7 @@ function TreeRowView({
           className="tree-row__name"
           onDoubleClick={(event) => {
             event.stopPropagation();
-            onSelect();
+            onSelect("none"); // editing acts on this one node — collapse any multi-selection
             onStartEditName();
           }}
         >
@@ -398,7 +406,7 @@ function TreeRowView({
             onDoubleClick={(event) => {
               if (hasChildren) return; // only leaf values are directly editable
               event.stopPropagation();
-              onSelect();
+              onSelect("none"); // editing acts on this one node — collapse any multi-selection
               onStartEditValue();
             }}
           >
@@ -413,7 +421,7 @@ function TreeRowView({
           title={t("base64.decode")}
           onClick={(event) => {
             event.stopPropagation();
-            onSelect();
+            onSelect("none"); // decoding acts on this one node — collapse any multi-selection
             onDecodeBase64();
           }}
         >

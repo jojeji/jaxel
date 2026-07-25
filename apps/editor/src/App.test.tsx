@@ -86,11 +86,29 @@ const NAMESPACED_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </ram:ExchangedDocument>
 </rsm:CrossIndustryInvoice>`;
 
+const SAMPLE_JSON = `{
+  "catalog": {
+    "person": {
+      "name": "Anna"
+    }
+  }
+}`;
+
+/** A key that cannot become an XML element name (leading digit + space) — the conversion must
+ * refuse this document rather than silently renaming it. */
+const UNCONVERTIBLE_JSON = `{
+  "berichte": {
+    "1. Quartal": "x"
+  }
+}`;
+
 const FILES: Record<string, string> = {
   "/fake/sample.xml": SAMPLE_XML,
   "/fake/second.xml": SECOND_XML,
   "/fake/blob.xml": BLOB_XML,
   "/fake/namespaced.xml": NAMESPACED_XML,
+  "/fake/sample.json": SAMPLE_JSON,
+  "/fake/berichte.json": UNCONVERTIBLE_JSON,
 };
 
 const writeText = vi.fn().mockResolvedValue(undefined);
@@ -473,6 +491,146 @@ describe("Knoten einfuegen/loeschen/duplizieren", () => {
     // EIN Undo-Schritt entfernt das Duplikat wieder.
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+});
+
+describe("Mehrfachauswahl im Baum", () => {
+  /** Rows are selected via their .tree-row wrapper, so Ctrl/Shift land on the same element a
+   * real click would hit. */
+  function rowOf(text: string, index = 0): HTMLElement {
+    return screen.getAllByText(text, { selector: ".tree-row__name" })[index]!.closest(".tree-row") as HTMLElement;
+  }
+
+  function selectedRowCount(): number {
+    return document.querySelectorAll(".tree-row--selected").length;
+  }
+
+  it("Strg+Klick waehlt einen zweiten Knoten hinzu und wieder ab", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    expect(selectedRowCount()).toBe(1);
+
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+    expect(selectedRowCount()).toBe(2);
+
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+    expect(selectedRowCount()).toBe(1);
+  });
+
+  it("Strg+Klick klappt den Knoten NICHT auf (reine Auswahl-Geste)", async () => {
+    await openSampleFile(); // catalog aufgeklappt, beide person-Knoten zugeklappt
+    const rowsBefore = document.querySelectorAll(".tree-row").length;
+
+    fireEvent.click(rowOf("person", 0), { ctrlKey: true });
+    expect(document.querySelectorAll(".tree-row").length).toBe(rowsBefore);
+    expect(selectedRowCount()).toBe(1);
+  });
+
+  it("Shift+Klick waehlt den ganzen Bereich zwischen Anker und Ziel", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0)); // klappt P-1 auf: catalog, person, name, city, person
+    fireEvent.click(rowOf("city"), { shiftKey: true });
+    expect(selectedRowCount()).toBe(3); // person, name, city
+  });
+
+  it("Shift+Pfeiltaste erweitert die Auswahl und schrumpft sie bei Richtungswechsel wieder", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0)); // klappt P-1 auf: catalog, person, name, city, person
+    await user.click(rowOf("name")); // Blattknoten — ein Klick darauf klappt nichts um
+    expect(selectedRowCount()).toBe(1);
+
+    fireEvent.keyDown(window, { key: "ArrowDown", shiftKey: true });
+    expect(selectedRowCount()).toBe(2); // name + city
+
+    fireEvent.keyDown(window, { key: "ArrowDown", shiftKey: true });
+    expect(selectedRowCount()).toBe(3); // name + city + person(P-2)
+
+    fireEvent.keyDown(window, { key: "ArrowUp", shiftKey: true });
+    expect(selectedRowCount()).toBe(2); // schrumpft wieder statt in die andere Richtung zu wachsen
+  });
+
+  it("Pfeiltaste OHNE Shift kollabiert die Mehrfachauswahl auf einen Knoten", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+    expect(selectedRowCount()).toBe(2);
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(selectedRowCount()).toBe(1);
+  });
+
+  it("Entf loescht alle ausgewaehlten Knoten als EINEN Undo-Schritt", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(screen.queryAllByText("person", { selector: ".tree-row__name" })).toHaveLength(0);
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true }); // ein einziges Undo
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+
+  it("Strg+D dupliziert alle ausgewaehlten Knoten als EINEN Undo-Schritt", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+
+    fireEvent.keyDown(window, { key: "d", ctrlKey: true });
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(4);
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+
+  it("Strg+C kopiert mehrere Knoten als aufeinanderfolgende Fragmente", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+
+    fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+    const copied = writeText.mock.calls[0]![0] as string;
+    expect(copied).toContain('<person id="P-1">');
+    expect(copied).toContain('<person id="P-2">');
+  });
+
+  it("Das Attribute-Panel zeigt bei Mehrfachauswahl die Anzahl statt einer Tabelle", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    expect(screen.getByDisplayValue("P-1")).toBeInTheDocument(); // Einzelauswahl: Tabelle
+
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+    expect(screen.getByText("2 Knoten ausgewählt")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("P-1")).not.toBeInTheDocument();
+  });
+
+  it("Umbenennen bleibt bei Mehrfachauswahl aus (F2 wirkt nur auf genau einen Knoten)", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+
+    fireEvent.keyDown(window, { key: "F2" });
+    expect(screen.queryByDisplayValue("person")).not.toBeInTheDocument();
+  });
+
+  it("Rechtsklick auf einen NICHT ausgewaehlten Knoten kollabiert die Auswahl auf diesen", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+    expect(selectedRowCount()).toBe(2);
+
+    fireEvent.contextMenu(rowOf("catalog"));
+    expect(selectedRowCount()).toBe(1);
+  });
+
+  it("Rechtsklick auf einen bereits ausgewaehlten Knoten behaelt die Mehrfachauswahl", async () => {
+    const user = await openSampleFile();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+
+    fireEvent.contextMenu(rowOf("person", 1));
+    expect(selectedRowCount()).toBe(2);
   });
 });
 
@@ -1479,6 +1637,120 @@ describe("Neues Dokument anlegen", () => {
     await user.keyboard("{Control>}s{/Control}");
 
     expect(screen.getByText("Unbenannt-1", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+});
+
+describe("XML/JSON-Konvertierung über Speichern unter", () => {
+  /** The content handed to write_text_file by the last call, or null if nothing was written. */
+  function writtenContent(): string | null {
+    const call = vi
+      .mocked(invoke)
+      .mock.calls.filter(([cmd]) => cmd === "write_text_file")
+      .at(-1);
+    return call ? ((call[1] as { content: string }).content ?? null) : null;
+  }
+
+  async function openJsonFile(path: string, rootLabel: string) {
+    const user = userEvent.setup();
+    renderApp();
+    vi.mocked(open).mockResolvedValueOnce(path);
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText(rootLabel);
+    return user;
+  }
+
+  it("fragt nach, bevor eine XML-Datei als JSON geschrieben wird", async () => {
+    const user = await openSampleFile();
+    vi.mocked(save).mockResolvedValue("/fake/sample.json");
+
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+
+    expect(await screen.findByText("Nach JSON konvertieren?")).toBeInTheDocument();
+    // Erst nach der Bestätigung darf etwas auf die Platte gehen.
+    expect(writtenContent()).toBeNull();
+  });
+
+  it("schreibt nach der Bestätigung JSON mit Attributen als @-Eigenschaften", async () => {
+    const user = await openSampleFile();
+    vi.mocked(save).mockResolvedValue("/fake/sample.json");
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+    await screen.findByText("Nach JSON konvertieren?");
+
+    await user.click(screen.getByRole("button", { name: "Konvertieren" }));
+
+    await waitFor(() => expect(writtenContent()).not.toBeNull());
+    const written = writtenContent()!;
+    expect(written).toContain('"@id": "P-1"');
+    expect(written).toContain('"name": "Anna"');
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith(
+      "write_text_file",
+      expect.objectContaining({ path: "/fake/sample.json" }),
+    );
+  });
+
+  it("macht das offene Tab danach wirklich zu einem JSON-Dokument", async () => {
+    const user = await openSampleFile();
+    vi.mocked(save).mockResolvedValue("/fake/sample.json");
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+    await screen.findByText("Nach JSON konvertieren?");
+    await user.click(screen.getByRole("button", { name: "Konvertieren" }));
+
+    expect(await screen.findByText("sample.json", { selector: ".tab__label" })).toBeInTheDocument();
+    // Das Attribut ist im neu geparsten Baum ein @-Knoten, kein XML-Attribut mehr.
+    await user.click(screen.getAllByText("person")[0]!);
+    expect(await screen.findByText("@id")).toBeInTheDocument();
+  });
+
+  it("schreibt nichts, wenn die Konvertierung abgebrochen wird", async () => {
+    const user = await openSampleFile();
+    vi.mocked(save).mockResolvedValue("/fake/sample.json");
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+    await screen.findByText("Nach JSON konvertieren?");
+
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    await waitFor(() => expect(screen.queryByText("Nach JSON konvertieren?")).not.toBeInTheDocument());
+    expect(writtenContent()).toBeNull();
+    expect(screen.getByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+
+  it("fragt nicht nach, wenn die Endung das Format nicht wechselt", async () => {
+    const user = await openSampleFile();
+    vi.mocked(save).mockResolvedValue("/fake/kopie.xml");
+
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+
+    await waitFor(() => expect(writtenContent()).not.toBeNull());
+    expect(screen.queryByText("Nach JSON konvertieren?")).not.toBeInTheDocument();
+    expect(writtenContent()).toContain("<catalog>");
+  });
+
+  it("konvertiert auch in die Gegenrichtung, von JSON nach XML", async () => {
+    const user = await openJsonFile("/fake/sample.json", "catalog");
+    vi.mocked(save).mockResolvedValue("/fake/sample.xml");
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+    await screen.findByText("Nach XML konvertieren?");
+
+    await user.click(screen.getByRole("button", { name: "Konvertieren" }));
+
+    await waitFor(() => expect(writtenContent()).not.toBeNull());
+    expect(writtenContent()).toContain("<name>Anna</name>");
+    expect(writtenContent()).toContain('<?xml version="1.0"');
+  });
+
+  it("bricht mit Fehlermeldung ab, wenn ein JSON-Schlüssel kein XML-Name sein kann", async () => {
+    const user = await openJsonFile("/fake/berichte.json", "berichte");
+    vi.mocked(save).mockResolvedValue("/fake/berichte.xml");
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+    await screen.findByText("Nach XML konvertieren?");
+
+    await user.click(screen.getByRole("button", { name: "Konvertieren" }));
+
+    // Auf den Toast eingegrenzt: "1. Quartal" steht auch als Knotenname im Baum.
+    expect(await screen.findByText(/1\. Quartal/, { selector: ".toast__message" })).toBeInTheDocument();
+    expect(writtenContent()).toBeNull();
+    // Das Dokument bleibt unangetastet JSON.
+    expect(screen.getByText("berichte.json", { selector: ".tab__label" })).toBeInTheDocument();
   });
 });
 

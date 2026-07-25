@@ -3,6 +3,141 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-25 — XML↔JSON-Konvertierung über „Speichern unter"
+
+Letztes der drei vom PO angestoßenen Features. Design vorab geklärt — siehe den neuen Eintrag
+„Grilling: XML/JSON-Konvertierung" in `docs/entscheidungen.md`. Kern der Umsetzung: die
+Konvertierung erzeugt **Text** im Zielformat und lässt ihn vom normalen Importer neu parsen,
+statt einen Zielbaum direkt zu bauen. Damit bleiben `xml-import`/`json-import` die einzige
+Instanz, die die Baumform je Format kennt.
+
+**Neues Core-Modul `packages/core/src/format/convert.ts`** (+41 Tests): `convertDocument({to,
+root, indent, encoding})`, `isValidXmlName`, `InvalidXmlNameError`. Zwei Baumtransformationen
+(XML-Form ↔ JSON-Form) plus die XML-Namensprüfung nach der XML-1.0-Name-Produktion.
+
+**Bedienung:** „Speichern unter" (`Strg+Shift+S`) mit der Endung des anderen Formats. Ein
+Bestätigungsdialog (`ui/ConvertDialog.tsx`) nennt vorher, was verloren geht. Danach ist das
+offene Tab wirklich ein Dokument des neuen Formats — Baum, Format, Dateiname und Speicherpfad.
+
+**Beim Bauen gefunden (nicht im Vorab-Design):**
+
+- **`$root` steckt nicht nur in der Wurzel.** Bei einem Wurzel-Array vergibt `json-import` den
+  erfundenen Namen `$root` auch an *jedes Array-Element*. Die Ersetzung durch `root` konnte
+  deshalb nicht auf den Wurzelknoten beschränkt bleiben, sonst scheitert `[1,2]` an den Kindern.
+- **Leerer Text neben Attributen.** `<a x="1"/>` liefert aus `xml-import` einen leeren
+  String als Wert, was zunächst ein informationsloses `"#text": ""` erzeugte. Wird jetzt
+  weggelassen — der Rückweg ergibt trotzdem wieder `<a x="1"/>`.
+- **Alle XML-Werte werden JSON-*Strings*.** Bewusst kein Raten: aus `<n>42</n>` wird `"42"`,
+  nicht `42`. Ein Typwechsel wäre eine Datenänderung, die der Nutzer nicht beauftragt hat.
+- **Das Regelwerk fängt sich selbst ab.** Fälle, die XML nicht darstellen kann (`@x` mit
+  Objektwert, `#text` neben echten Kindern), fallen automatisch auf „normaler Kindknoten"
+  zurück — und scheitern dann an der Namensprüfung mit einer klaren Meldung, statt still etwas
+  Falsches zu schreiben.
+
+**Geteilte Mechanik statt Kopie:** Konvertieren und „Datei extern geändert → neu laden" machen
+denselben heiklen Schritt — den ganzen Baum ersetzen, obwohl Selektion, aufgeklappte Knoten und
+Fokus-Tabs auf Knoten-IDs zeigen, die es danach nicht mehr gibt. Diese Logik lag bisher in
+`reloadFile` und ist jetzt als `swapDocument` herausgezogen (`state/document-store.ts`), von
+beiden Wegen genutzt. Der Konvertierungsfall ergänzt nur, dass sich zusätzlich Pfad und Format
+ändern. In App.tsx entsprechend `captureViewSegments` aus `performReload` extrahiert.
+
+**Bewusste Vereinfachungen / offene Punkte:**
+
+- **Die Undo-Historie geht verloren** (der Baum wird komplett ersetzt). Im Dialog benannt.
+- **Der Schließen-Dialog wertet eine angestoßene Konvertierung wie „Abbrechen"** und lässt das
+  Tab offen: `promptSaveAs` kann keinen Pfad zurückgeben, weil erst noch der Bestätigungsdialog
+  kommt. Die sichere Richtung — es geht nichts verloren, nur das Tab schließt sich nicht mit.
+- **Kommentare/CDATA-Markierungen überleben nicht**, weil `DocNode` sie ohnehin nie enthält.
+  Unvermeidlich, nicht behebbar ohne Modelländerung.
+- **Eine Endung außerhalb von `.xml`/`.json` löst keine Konvertierung aus** — das Dokument wird
+  im bisherigen Format unter dem gewählten Namen gespeichert.
+
+**Verifiziert:** Core 213/213, Editor 230/230 (7 neue App-Integrationstests), `tsc --noEmit` in
+beiden Paketen, Produktionsbuild (`vite build`) sauber. Der Sichttest im laufenden Fenster steht
+noch aus — auf Port 1420 lief ein vom PO selbst gestarteter Dev-Server, der nicht angetastet wurde.
+
+## Nachtrag 2026-07-25 — Mehrfachauswahl im Baum
+
+Drittes der drei vom PO angestoßenen Features (nach „Speichern unter"; die XML↔JSON-Konvertierung
+steht noch aus). Design vorab per `/grilling` in neun Punkten festgelegt — siehe neuen Eintrag in
+`docs/entscheidungen.md`. Der bisher größte Einzelumbau der UI-Seite: `selectedId: string | null`
+wird zu einem vollwertigen Auswahlmodell, und praktisch jede Stelle, die bisher `selectedRow`
+kannte, musste entscheiden, ob sie Einzel- oder Bulk-Semantik will.
+
+**Neue Module (alle headless testbar, kein React):**
+
+1. **`apps/editor/src/tree/selection.ts`** (+20 Tests) — `Selection = {ids, anchorId, leadId}` mit
+   `selectOnly`/`toggle`/`selectRange`/`extendSelection`/`pruneSelection`/`selectionForActionOn`.
+   **Warum `anchorId` UND `leadId`:** mit nur einem Anker kann eine Shift+Pfeil-Erweiterung nicht
+   wieder *schrumpfen* — Shift+Runter, dann Shift+Hoch würde die Auswahl in die Gegenrichtung
+   wachsen lassen statt den letzten Schritt zurückzunehmen. Das ist beim Implementieren
+   aufgefallen, nicht im Grilling.
+2. **`packages/core/src/format/fragments.ts`** (+17 Tests) — `parseFragments`/`serializeFragments`
+   für mehrere Knoten in einer Zwischenablage-Operation. XML: Fragmente hintereinander, geparst
+   über einen Wegwerf-Wurzelknoten. JSON: die Knoten werden zu Properties EINES Objekts, damit die
+   Nutzlast gültiges JSON bleibt und gleichnamige Geschwister nach Konvention #4 wieder als Array
+   zurückkommen. **Beim Testen gefunden:** `json-import` markiert auch einen Einzelschlüssel-Root
+   als `synthetic`, wenn dessen Wert zu mehreren Knoten expandiert (`{"person": [{…},{…}]}`) — die
+   Unwrap-Regel prüft deshalb `synthetic && children.length > 0`, nicht auf den Namen `$root`.
+   Ebenfalls dabei aufgefallen und vermieden: ein Einzelknoten wird bewusst OHNE Wrapper
+   serialisiert, sonst hätte ein bereits synthetischer Knoten als bare Array herausgeschrieben —
+   eine Regression gegenüber dem bisherigen Einzelknoten-Kopieren.
+3. **`packages/core/src/commands/bulk.ts`** (+18 Tests) — `createBulkRemove/Duplicate/Insert/Move`
+   plus `topmostRows`. Alle liefern EIN Composite-Command (ein Undo-Schritt, wie replace-all).
+   Zwei Fallen, die dort gelöst sind: (a) **Index-Verschiebung** — Entfernen/Duplizieren läuft in
+   absteigender Index-Reihenfolge, sonst zeigt der zweite Index nach der ersten Mutation auf den
+   falschen Knoten; (b) **`topmostRows`** verwirft Knoten, deren Vorfahre ebenfalls ausgewählt ist
+   (sonst würde ein Kind zweimal entfernt — einmal einzeln, einmal im Unterbaum seines Elternteils).
+   `createBulkMoveCommand` ist als „alle entfernen, dann alle am Ziel einfügen" formuliert statt
+   als Kette einzelner Moves, weil einzelne Moves sich gegenseitig die erfassten Indizes
+   ungültig machen; der Zielindex wird um die Entfernungen *oberhalb* korrigiert.
+   Ein einzelner Quellknoten delegiert weiterhin an `planMove` — der lange bestehende,
+   getestete Einzel-Drag-Pfad (inkl. No-op-Erkennung) bleibt damit unverändert.
+
+**Verhalten (wie durchgegrillt):** Strg+Klick togglet, Shift+Klick spannt einen Bereich,
+Shift+Pfeil hoch/runter erweitert bzw. schrumpft, Pfeil ohne Shift kollabiert auf einen Knoten.
+Auswahl darf beliebig über Ebenen/Elternknoten hinweg gehen. Bulk-fähig sind Löschen, Duplizieren,
+Kopieren und Drag&Drop; Umbenennen/Wert ändern/Kind bzw. Geschwister anlegen sind bei >1 Auswahl
+deaktiviert. Rechtsklick auf einen bereits markierten Knoten behält die Auswahl, auf einen anderen
+kollabiert sie. Attribute-Panel zeigt „N Knoten ausgewählt". Alle markierten Zeilen bekommen
+dieselbe bestehende `.tree-row--selected`-Optik — **kein CSS geändert**.
+
+**Wie die Einzelauswahl geschützt wurde:** `selectedRow` (Typ `TreeRow | null`) bleibt bestehen
+und ist jetzt genau dann gesetzt, wenn EIN Knoten ausgewählt ist (`soleSelectedId`). Dadurch
+schalten sich alle Einzelknoten-Funktionen bei Mehrfachauswahl automatisch ab, statt dass jede
+davon eine eigene Mehrfachauswahl-Geschichte bräuchte. Die 128 bestehenden App-Integrationstests
+liefen nach dem Umbau unverändert durch — das war die eigentliche Absicherung.
+
+**Bewusste Vereinfachungen / offene Punkte:**
+- Ein exakter No-op-Bulk-Move (einen Block auf sich selbst fallen lassen) wird nicht erkannt und
+  erzeugt einen wirkungslosen Undo-Schritt. Bei einem einzelnen Knoten greift weiterhin die
+  bestehende No-op-Erkennung.
+- Nach einem Neuladen (`performReload`) überlebt nur die eine wiederaufgelöste Auswahl, keine
+  Mehrfachauswahl — die Wiederauflösung läuft über Pfad-Segmente eines einzelnen Knotens.
+- Ctrl+Klick auf einen Knoten mit Kindern klappt ihn bewusst NICHT auf/zu (sonst würde sich die
+  Liste unter dem Cursor umsortieren, während man mehrere Zeilen anklickt).
+- `pruneSelection` läuft in einem Effekt auf `rows` und verwirft unsichtbar gewordene Knoten
+  (zugeklappt, weggefiltert, gelöscht).
+
+**Verifikation:** `npm test` Core 172/172 (35 neu), Editor 223/223 (32 neu, davon 12
+App-Integrationstests für Mehrfachauswahl), `tsc --noEmit` beide Pakete sauber, `cargo check`
+sauber, `npm run dev` im Wurzelverzeichnis gestartet und fehlerfrei gelaufen.
+
+## Nachtrag 2026-07-25 — „Speichern unter" ergänzt
+
+Erste von drei vom PO angestoßenen Ideen (Speichern unter, XML↔JSON-Konvertierung,
+Mehrfachselektion — die anderen beiden brauchen noch Design-Entscheidungen, siehe Rückfrage
+an den PO). `saveFileAs` existierte im `document-store` bereits (nur für unbenannte Dokumente
+genutzt), jetzt auch über einen expliziten Menüpunkt erreichbar.
+
+- **`promptSaveAs(doc)`** neu in `App.tsx` — zeigt IMMER den OS-Speichern-Dialog (vorbelegt mit
+  dem aktuellen Pfad bei bereits benannten Dokumenten). `saveDoc`s bisheriger inline
+  Untitled-Zweig ruft jetzt nur noch diese Funktion auf statt sie zu duplizieren.
+- **`handleSaveAs()`** neu — Menü „Datei" → „Speichern unter…" und `Strg+Shift+S`.
+- `shortcuts.ts`: `Strg+S` prüfte `shiftKey` bisher gar nicht (Strg+Shift+S löste vorher
+  ebenfalls "save" aus); jetzt eigene `"saveAs"`-Action.
+- `npm test` (editor): 190/190 (1 neu), `tsc --noEmit` sauber.
+
 ## Nachtrag 2026-07-25 — Klassische Menüleiste (Vorschlag B der UI-Skizze) umgesetzt
 
 Auf PO-Wunsch zunächst 3 UI-Vorschläge für Titelleiste/Menü als Artifact skizziert (nichts

@@ -4,6 +4,7 @@ import { logInfo } from "../logging.js";
 import {
   CommandBus,
   captureChangeBaseline,
+  convertDocument,
   createDocument,
   findAncestorChain,
   findNodeById,
@@ -97,11 +98,17 @@ function nextUntitledPath(docs: OpenDocumentState[]): string {
   return `Unbenannt-${max + 1}`;
 }
 
-function detectFormat(path: string, content: string): DocFormat {
+/** The format a path's extension asks for, or null for anything else (".txt", no extension).
+ * Also what "Speichern unter" reads to decide whether the user is asking for a conversion. */
+export function formatOfExtension(path: string): DocFormat | null {
   const lower = path.toLowerCase();
   if (lower.endsWith(".json")) return "json";
   if (lower.endsWith(".xml")) return "xml";
-  return content.trimStart().startsWith("<") ? "xml" : "json";
+  return null;
+}
+
+function detectFormat(path: string, content: string): DocFormat {
+  return formatOfExtension(path) ?? (content.trimStart().startsWith("<") ? "xml" : "json");
 }
 
 function serializeForSave(target: OpenDocumentState): string {
@@ -162,6 +169,16 @@ export function useJaxelDocuments(): {
   /** Renames an untitled (or any) document's tab identity to a real, now-saved path —
    * updates every tab (full view + any foci) pointing at it. */
   saveFileAs: (currentPath: string, newPath: string) => Promise<void>;
+  /** "Speichern unter" into the OTHER format: converts, writes, and turns the open document
+   * into one of `targetFormat`. The undo history necessarily resets (every node id changes);
+   * selection/expansion are re-resolved by path, like a reload. */
+  convertSaveAs: (
+    currentPath: string,
+    newPath: string,
+    targetFormat: DocFormat,
+    selectionSegments: PathSegment[] | null,
+    expandedSegmentsList: PathSegment[][],
+  ) => Promise<{ selectedId: string | null; expandedIds: string[] }>;
   /** Creates a brand-new, unsaved document ("Unbenannt-N") and activates its full-view tab.
    * `content` overrides the default skeleton (e.g. a decoded Base64 payload) and must parse
    * in the given format — the caller handles parse errors. */
@@ -461,6 +478,114 @@ export function useJaxelDocuments(): {
     }));
   }, []);
 
+  /**
+   * Replaces a loaded document's tree wholesale and re-resolves everything that pointed into
+   * the old one. Shared by "reload from disk" and "convert to the other format" because both
+   * throw away every node id: both need a fresh CommandBus (an undo stack captured against
+   * dead nodes cannot survive), and both must re-find the caller's selection/expansion and
+   * every focus tab's node by PATH instead of by id.
+   *
+   * `newFilePath`/`newFormat` are the conversion's extra move — it also changes the document's
+   * identity and format, which a reload never does.
+   */
+  function swapDocument(params: {
+    filePath: string;
+    newFilePath?: string;
+    newFormat?: DocFormat;
+    newRoot: DocNode;
+    xmlDeclaration?: string;
+    encoding: string;
+    sourceText: string;
+    mtimeMs: number;
+    size: number;
+    selectionSegments: PathSegment[] | null;
+    expandedSegmentsList: PathSegment[][];
+  }): { selectedId: string | null; expandedIds: string[] } {
+    const { filePath, newRoot } = params;
+    const newPath = params.newFilePath ?? filePath;
+    const target = stateRef.current.docs.find((d) => d.filePath === filePath);
+    const oldRoot = target?.document.root ?? newRoot;
+
+    // Nearest-still-resolvable-ancestor fallback: try the full segment chain first, then
+    // progressively shorter prefixes. A 1-element chain (the root's own segment) always
+    // resolves (see resolveNodeBySegments), so this can never come up empty.
+    function resolveDeepest(segments: PathSegment[]): DocNode {
+      for (let cut = segments.length; cut >= 1; cut--) {
+        const found = resolveNodeBySegments(newRoot, segments.slice(0, cut));
+        if (found) return found;
+      }
+      return newRoot;
+    }
+
+    function remapTab(tab: TabState): TabState {
+      if (!tab.focusNodeId) return { ...tab, key: tabKey(newPath, null), filePath: newPath };
+      const oldNode = findNodeById(oldRoot, tab.focusNodeId);
+      const segments = oldNode ? pathSegmentsOf(oldRoot, oldNode) : null;
+      const resolved = segments ? resolveDeepest(segments) : newRoot;
+      const isTrueRoot = resolved === newRoot;
+      return {
+        key: tabKey(newPath, isTrueRoot ? null : resolved.id),
+        filePath: newPath,
+        focusNodeId: isTrueRoot ? null : resolved.id,
+        focusLabel: isTrueRoot ? null : resolved.name,
+        focusAncestorIds: isTrueRoot ? [] : (findAncestorChain(newRoot, resolved) ?? []).map((a) => a.id),
+      };
+    }
+
+    const resolvedSelectedId = params.selectionSegments ? resolveDeepest(params.selectionSegments).id : null;
+    const resolvedExpandedIds = params.expandedSegmentsList.map((segments) => resolveDeepest(segments).id);
+
+    const { core, unsubscribe } = createDocumentCore({
+      format: params.newFormat ?? target?.format ?? "xml",
+      root: newRoot,
+      xmlDeclaration: params.xmlDeclaration,
+      encoding: params.encoding,
+      sourceText: params.sourceText,
+      mtimeMs: params.mtimeMs,
+      size: params.size,
+    });
+    unsubscribersRef.current.get(filePath)?.(); // drop the pre-swap subscription
+    unsubscribersRef.current.delete(filePath);
+    unsubscribersRef.current.set(newPath, unsubscribe);
+
+    setState((prev) => {
+      const keyRemap = new Map<string, string>();
+      const docs = prev.docs.map((d) =>
+        d.filePath === filePath
+          ? {
+              ...d,
+              ...core,
+              filePath: newPath,
+              ...(params.newFormat ? { format: params.newFormat, isUntitled: false } : {}),
+            }
+          : d,
+      );
+      const remapped = prev.tabs.map((tab) => {
+        if (tab.filePath !== filePath) return tab;
+        const next = remapTab(tab);
+        keyRemap.set(tab.key, next.key);
+        return next;
+      });
+      // Two foci can fall back to the same ancestor (or to the full view) and collide —
+      // keep the first, drop later duplicates, same rule as retargetFocusTab's merge.
+      const seenKeys = new Set<string>();
+      const tabs = remapped.filter((tab) => {
+        if (tab.filePath !== newPath) return true;
+        if (seenKeys.has(tab.key)) return false;
+        seenKeys.add(tab.key);
+        return true;
+      });
+      const mappedActive = prev.activeKey ? (keyRemap.get(prev.activeKey) ?? prev.activeKey) : null;
+      const activeKey = tabs.some((tab) => tab.key === mappedActive)
+        ? mappedActive
+        : (tabs.find((tab) => tab.filePath === newPath)?.key ?? prev.activeKey);
+      return { docs, tabs, activeKey };
+    });
+    setRevision((r) => r + 1);
+
+    return { selectedId: resolvedSelectedId, expandedIds: resolvedExpandedIds };
+  }
+
   const reloadFile = useCallback(
     async (
       filePath: string,
@@ -481,68 +606,68 @@ export function useJaxelDocuments(): {
       if (canCommit && !canCommit()) return null;
       logInfo("breadcrumb", `Datei neu geladen: ${filePath}`);
 
-      // Nearest-still-resolvable-ancestor fallback: try the full segment chain first, then
-      // progressively shorter prefixes. A 1-element chain (the root's own segment) always
-      // resolves (see resolveNodeBySegments), so this can never come up empty.
-      function resolveDeepest(segments: PathSegment[]): DocNode {
-        for (let cut = segments.length; cut >= 1; cut--) {
-          const found = resolveNodeBySegments(newRoot, segments.slice(0, cut));
-          if (found) return found;
-        }
-        return newRoot;
-      }
-
-      const resolvedSelectedId = selectionSegments ? resolveDeepest(selectionSegments).id : null;
-      const resolvedExpandedIds = expandedSegmentsList.map((segments) => resolveDeepest(segments).id);
-
-      const oldRoot = target.document.root;
-      function remapTab(tab: TabState): TabState {
-        if (!tab.focusNodeId) return tab; // full-view tab: no node reference to remap
-        const oldNode = findNodeById(oldRoot, tab.focusNodeId);
-        const segments = oldNode ? pathSegmentsOf(oldRoot, oldNode) : null;
-        const resolved = segments ? resolveDeepest(segments) : newRoot;
-        const isTrueRoot = resolved === newRoot;
-        return {
-          key: tabKey(filePath, isTrueRoot ? null : resolved.id),
-          filePath,
-          focusNodeId: isTrueRoot ? null : resolved.id,
-          focusLabel: isTrueRoot ? null : resolved.name,
-          focusAncestorIds: isTrueRoot ? [] : (findAncestorChain(newRoot, resolved) ?? []).map((a) => a.id),
-        };
-      }
-
-      const { core, unsubscribe } = createDocumentCore({
-        format: target.format,
-        root: newRoot,
+      return swapDocument({
+        filePath,
+        newRoot,
         xmlDeclaration,
         encoding: result.encoding,
         sourceText: result.content,
         mtimeMs: result.mtimeMs,
         size: result.size,
+        selectionSegments,
+        expandedSegmentsList,
       });
-      unsubscribersRef.current.get(filePath)?.(); // drop the pre-reload subscription
-      unsubscribersRef.current.set(filePath, unsubscribe);
+    },
+    [],
+  );
 
-      setState((prev) => {
-        const docs = prev.docs.map((d) => (d.filePath === filePath ? { ...d, ...core } : d));
-        const remapped = prev.tabs.map((tab) => (tab.filePath === filePath ? remapTab(tab) : tab));
-        // Two foci can fall back to the same ancestor (or to the full view) and collide —
-        // keep the first, drop later duplicates, same rule as retargetFocusTab's merge.
-        const seenKeys = new Set<string>();
-        const tabs = remapped.filter((tab) => {
-          if (tab.filePath !== filePath) return true;
-          if (seenKeys.has(tab.key)) return false;
-          seenKeys.add(tab.key);
-          return true;
-        });
-        const activeKey = tabs.some((tab) => tab.key === prev.activeKey)
-          ? prev.activeKey
-          : (tabs.find((tab) => tab.filePath === filePath)?.key ?? prev.activeKey);
-        return { docs, tabs, activeKey };
+  /**
+   * "Speichern unter" with the other format's extension: converts the tree, writes it, and
+   * re-parses the result so the open tab really becomes a document of the new format — with a
+   * tree built by the target format's own importer rather than by the converter, which keeps
+   * `xml-import`/`json-import` the single authority on each format's tree shape.
+   *
+   * Throws before writing anything if the tree has no representation in the target format
+   * (`InvalidXmlNameError`), so a failed conversion never leaves a file behind.
+   */
+  const convertSaveAs = useCallback(
+    async (
+      currentPath: string,
+      newPath: string,
+      targetFormat: DocFormat,
+      selectionSegments: PathSegment[] | null,
+      expandedSegmentsList: PathSegment[][],
+    ): Promise<{ selectedId: string | null; expandedIds: string[] }> => {
+      const target = stateRef.current.docs.find((d) => d.filePath === currentPath);
+      if (!target) return { selectedId: null, expandedIds: [] };
+
+      const text = convertDocument({
+        to: targetFormat,
+        root: target.document.root,
+        indent: target.document.indent,
+        encoding: target.encoding,
       });
-      setRevision((r) => r + 1);
+      const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
+        path: newPath,
+        content: text,
+        encoding: target.encoding,
+      });
+      logInfo("breadcrumb", `Datei konvertiert nach ${targetFormat} und gespeichert: ${newPath}`);
 
-      return { selectedId: resolvedSelectedId, expandedIds: resolvedExpandedIds };
+      const { root: newRoot, xmlDeclaration } = parseDocument(targetFormat, text);
+      return swapDocument({
+        filePath: currentPath,
+        newFilePath: newPath,
+        newFormat: targetFormat,
+        newRoot,
+        xmlDeclaration,
+        encoding: target.encoding,
+        sourceText: text,
+        mtimeMs: stat.mtimeMs,
+        size: stat.size,
+        selectionSegments,
+        expandedSegmentsList,
+      });
     },
     [],
   );
@@ -559,6 +684,7 @@ export function useJaxelDocuments(): {
     openFile,
     saveFile,
     saveFileAs,
+    convertSaveAs,
     newDocument,
     closeTab,
     activate,

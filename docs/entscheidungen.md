@@ -343,3 +343,131 @@ Undo-Choreographie von "Alle ersetzen" saß in `App.tsx` (Invariante #3 verletzt
 `packages/core` nicht testbar). Neue reine `planReplacements` (`search.ts`, berechnet
 Vorher/Nachher ohne zu mutieren) + `createReplaceAllCommand` (`commands/replace-all.ts`, baut
 daraus die Sub-Commands). Die alte mutierende `replaceAll()` entfällt ersatzlos.
+
+## 2026-07-25 — Grilling: Mehrfachauswahl im Baum
+
+Neun Punkte vor der Umsetzung mit dem PO festgelegt (Feature auf PO-Wunsch, zusammen mit
+"Speichern unter" und der noch ausstehenden XML↔JSON-Konvertierung angestoßen).
+
+1. **Eingabe: Strg+Klick togglet, Shift+Klick spannt einen Bereich, Shift+Pfeil hoch/runter
+   erweitert zeilenweise.** Pfeiltasten OHNE Shift kollabieren die Auswahl auf den einen Knoten
+   in Pfeilrichtung — kein getrennter Fokus-Rahmen neben der Auswahl (Windows-Explorer-Stil),
+   weil das ein zweites, überall mitzuführendes Konzept wäre.
+2. **Auswahl darf beliebig über Ebenen und Elternknoten hinweg gehen**, nicht nur Geschwister.
+   Der PO wollte ausdrücklich die volle Flexibilität; der Preis ist die Index-Arithmetik für
+   Cross-Parent-Verschieben (gelöst in `packages/core/src/commands/bulk.ts`).
+3. **Bulk-fähig sind nur Löschen und Duplizieren** (dazu Kopieren und Drag&Drop, siehe 5/6).
+   Umbenennen, Wert ändern, Kind/Geschwister anlegen sind bei mehr als einem ausgewählten Knoten
+   deaktiviert — es gibt keinen eindeutigen Namen bzw. Elternknoten.
+4. **Attribute-Panel zeigt bei Mehrfachauswahl nur "N Knoten ausgewählt"**, keine Schnittmenge
+   gemeinsamer Attribute. Letzteres hätte Set-Attribute zu einer Composite-Aktion gemacht, für
+   einen Nutzen, der sich erst im Gebrauch zeigen müsste.
+5. **Drag&Drop nimmt die ganze Auswahl mit**, wenn ein markierter Knoten gezogen wird (relative
+   Reihenfolge bleibt erhalten, ein Composite = ein Undo-Schritt); wird ein nicht markierter
+   Knoten gezogen, kollabiert die Auswahl vorher auf diesen einen.
+6. **Kopieren schreibt mehrere Fragmente hintereinander** (XML) bzw. als Properties eines
+   Objekts (JSON, damit die Nutzlast gültiges JSON bleibt). Einfügen parst beides wieder als
+   Liste — neue Funktionen `parseFragments`/`serializeFragments` in `packages/core`.
+7. **Kontextmenü folgt der Datei-Explorer-Konvention:** Rechtsklick auf einen bereits markierten
+   Knoten behält die Mehrfachauswahl, Rechtsklick auf einen anderen kollabiert auf diesen einen.
+8. **Optik: alle markierten Zeilen bekommen dieselbe bestehende `.tree-row--selected`-Markierung**
+   — kein Sonderstil für den zuletzt angeklickten Knoten, damit kein zweiter visueller Zustand
+   über alle acht Themes hinweg abgestimmt werden muss.
+9. **Jede Bulk-Aktion ist EIN Undo-Schritt** (`createCompositeCommand`, wie schon bei "Alle
+   ersetzen") — folgt direkt aus der bestehenden Invariante "ein sichtbarer Nutzerschritt = ein
+   Undo-Schritt".
+
+Umsetzungsdetails, offene Punkte und die beim Bauen gefundenen Fallstricke (Anker/Lead,
+Index-Verschiebung, `topmostRows`) stehen im zugehörigen `docs/status.md`-Nachtrag.
+
+## 2026-07-25 — Grilling: XML/JSON-Konvertierung
+
+Drittes und letztes der drei vom PO benannten Features. Die Attributfrage war schon vorab
+geklärt (Attribute werden als `@`-Properties mitgeschrieben); die restlichen Punkte wurden vor
+der Umsetzung entschieden:
+
+1. **Die Konvertierung hängt an "Speichern unter", nicht an einem eigenen Menüpunkt.** Wählt man
+   im Dateidialog die Endung des jeweils anderen Formats, wird konvertiert geschrieben. Der PO
+   hat sich bewusst gegen die Alternative "Extras → Konvertieren, Ergebnis als neues Tab"
+   entschieden — ein Weg statt zwei.
+2. **Element mit Attributen UND Textinhalt: der Text landet in einer `#text`-Property.**
+   `<preis waehrung="EUR">19.99</preis>` → `{"preis": {"@waehrung": "EUR", "#text": "19.99"}}`.
+   Verbreitete Konvention (DOM, fast-xml-parser) und verlustfrei rückkonvertierbar. Ein Element
+   ohne Attribute bleibt ein schlichtes Primitiv (`{"preis": "19.99"}`), damit der Normalfall
+   nicht unnötig aufgebläht wird. Beide Präfixe (`@`, `#`) sind kollisionsfrei, weil sie keine
+   gültigen XML-Namenszeichen sind.
+3. **JSON-Schlüssel, die keine XML-Namen sein können, brechen die Konvertierung ab** — mit einer
+   Fehlermeldung, die den Schlüssel und seinen Pfad nennt, und ohne dass eine Datei entsteht.
+   Automatisches Bereinigen (`"1. Quartal"` → `_1._Quartal`) wurde verworfen: das erzeugt eine
+   Datei, die korrekt aussieht und es nicht ist. Einzige Ausnahme ist der von `json-import`
+   *erfundene* Name `$root` (bei Wurzel-Array, -Primitiv oder Mehrschlüssel-Objekt) — der wird
+   zu `root`, weil ihn nicht der Nutzer gewählt hat.
+4. **Vor der Konvertierung fragt ein Dialog nach** und benennt konkret, was verloren geht
+   (XML→JSON: Kommentare/CDATA-Markierungen; JSON→XML: Zahlen- und Boolean-Typen; beide
+   Richtungen: die Rückgängig-Historie). Grund: die Endung im Dateidialog verstellt man leicht
+   versehentlich, und die Konvertierung ist kein reines Speichern — sie ersetzt den Baum.
+5. **Die Konvertierung erzeugt Text und parst ihn neu, statt einen Zielbaum direkt zu bauen.**
+   Damit bleiben `xml-import`/`json-import` die einzige Instanz, die weiß, wie ein Baum des
+   jeweiligen Formats aussieht; ein direkt gebauter Baum wäre eine zweite, still auseinander-
+   driftende Umsetzung derselben Mapping-Regeln.
+
+Umsetzungsdetails und die beim Bauen gefundenen Fallstricke stehen im zugehörigen
+`docs/status.md`-Nachtrag.
+
+## 2026-07-25 — Grilling: Kommentare in XML (anzeigen, aus-/einkommentieren)
+
+Design vollständig geklärt, Umsetzung bewusst in zwei Schritte geteilt (siehe Punkt 9). Begriffe
+dazu stehen in `CONTEXT.md` (Kommentarknoten, Auskommentierter Teilbaum, Prolog/Epilog).
+
+**Befund, der die Runde ausgelöst hat:** Eine XML-Datei nur zu öffnen und zu speichern verliert
+schon in 0.5.0 den DOCTYPE und alle Kommentare vor der Wurzel — `skipMisc` in `xml-import.ts`
+überspringt sie, und `serializeXmlMinimal` stellt nur die XML-Deklaration wieder voran. Derselbe
+Fehlertyp wie der in 0.3.2 behobene Verlust der XML-Deklaration, nur eine Ebene weiter.
+
+1. **Kommentare werden echte Knoten in `children`** — `DocNode` bekommt einen Diskriminator
+   (`kind: "element" | "comment"`). Die Alternativen (separate Liste am Elternknoten mit
+   Anker-Logik, oder rein visuell aus dem Quelltext) wurden verworfen: Auskommentieren ist damit
+   ein Ersetzen an Ort und Stelle, und die bestehenden Insert/Remove/Move-Commands greifen
+   unverändert. Preis: die ~50 Stellen, die `.children` iterieren, müssen je entscheiden, ob sie
+   Kommentare mitnehmen oder überspringen.
+2. **Ein auskommentierter Teilbaum bleibt aufklappbar, aber schreibgeschützt.** Nicht nur eine
+   Textzeile (man sähe nicht mehr, was stillgelegt wurde) und nicht voll bearbeitbar (jede
+   Änderung erzwänge eine Reserialisierung des Kommentartexts, und alle Mutations-Commands
+   müssten den Sonderfall "Knoten liegt in einem Kommentar" kennen). Ob ein Kommentar einer ist,
+   entscheidet der Parse-Versuch beim Laden — keine Markierung in der Datei.
+3. **Prolog und Epilog werden wörtlich bewahrt** und beim Speichern unverändert wieder
+   vorangestellt bzw. angehängt; Kommentare darin erscheinen als schreibgeschützte Zeilen über
+   bzw. unter der Wurzel. Ein synthetischer Dokumentknoten über der Wurzel wurde verworfen — die
+   Wurzel ist an zu vielen Stellen als "der eine Knoten" verdrahtet (Fokus-Tabs, Pfade,
+   `findSiblingSlot`, Serialisierung).
+4. **Lässt sich ein Knoten nicht einwickeln, ist die Aktion ausgegraut** — mit Begründung im
+   Tooltip. Betroffen ist jeder Teilbaum, der einen Kommentar oder ein `--` enthält, denn XML
+   erlaubt keine verschachtelten Kommentare und kein `--` darin. Escaping scheidet aus (in
+   Kommentaren löst XML keine Entities auf). Innere Kommentare stillschweigend zu entfernen wäre
+   ein Verlust, der erst beim Einkommentieren auffällt; eine Jaxel-eigene Ersatzschreibweise
+   würde eine Datei erzeugen, die nur Jaxel korrekt zurückliest.
+5. **Kommentare sind vollwertige Knoten**: löschen, Text ändern (mit `--`-Prüfung), verschieben,
+   duplizieren, und "Kommentar einfügen" (davor / danach / als Kind) im Kontextmenü.
+   Löschen/Verschieben/Duplizieren fallen ohnehin ab, weil die Commands auf Indizes arbeiten.
+6. **Suche findet Prosa-Kommentare UND auskommentierte Teilbäume; ersetzt wird nur, was auch von
+   Hand editierbar ist.** "Alle ersetzen" meldet hinterher, wie viele Treffer wegen
+   Auskommentierung übersprungen wurden — still übergehen wäre die schlechtere Variante.
+7. **Bulk-Auskommentieren wickelt jeden Knoten einzeln ein** (ein Composite = ein Undo-Schritt).
+   Funktioniert damit auch für die verstreuten Auswahlen, die die Mehrfachauswahl erlaubt, und
+   Einkommentieren bleibt pro Knoten symmetrisch.
+8. **Eigene Optik statt Wiederverwendung der Tombstone-Darstellung.** Neue CSS-Variable
+   `--comment` (in allen acht Themes), Kursivschrift und ein `<!--`-Zeilenmarker; auskommentierte
+   Teilbäume zusätzlich mit linkem Randstreifen, der die Reichweite zeigt. Der PO hat die
+   ursprüngliche Annahme "bestehende Mittel wiederverwenden" ausdrücklich korrigiert: Tombstones
+   sind `--text-2` + durchgestrichen, ein Kommentar in derselben Farbe wäre nicht unterscheidbar.
+9. **Zuschnitt: erst der Bugfix, dann das Feature.** Schritt 1 ist allein "Prolog und Epilog
+   wörtlich bewahren" — klein, risikoarm, sofort als 0.5.1 auslieferbar, weil der Datenverlust in
+   einer veröffentlichten Version steckt. Schritt 2 ist das Kommentar-Feature als eigenes Paket.
+
+**Angenommen (nicht ausdrücklich entschieden):** Kommentare heißen im Pfad `#comment`
+(`catalog.#comment[0]`) — dieselbe DOM-Konvention wie das bereits beschlossene `#text` der
+JSON-Konvertierung, womit die Index-Logik in `path.ts` unverändert greift.
+
+**Nebeneffekt, der für Punkt 1 spricht:** Heute überleben Kommentare *zwischen* Geschwistern nur,
+solange der Elternknoten seinen `byteRange` behält (siehe Kommentar in `xml-export.ts`) — ändert
+man ein Kind, sind sie weg. Sind Kommentare eigene Knoten, gibt es diese Lücken nicht mehr.

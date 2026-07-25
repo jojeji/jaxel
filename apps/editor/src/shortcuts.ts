@@ -7,6 +7,7 @@
  * active document). */
 export type ShortcutAction =
   | "save"
+  | "saveAs"
   | "undo"
   | "redo"
   | "renameStart"
@@ -14,6 +15,8 @@ export type ShortcutAction =
   | "delete"
   | "moveDown"
   | "moveUp"
+  | "extendDown"
+  | "extendUp"
   | "arrowRight"
   | "arrowLeft"
   | "duplicate"
@@ -44,14 +47,16 @@ export function resolveShortcut(event: ShortcutKeyInfo, context: ShortcutContext
   const ctrl = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
 
-  if (ctrl && key === "s") return "save";
+  if (ctrl && key === "s") return event.shiftKey ? "saveAs" : "save";
   if (ctrl && !event.shiftKey && key === "z") return "undo";
   if ((ctrl && event.shiftKey && key === "z") || (ctrl && key === "y")) return "redo";
   if (event.key === "F2" && context.hasSelection) return "renameStart";
   if (event.key === "Enter" && context.hasSelection && !context.selectionHasChildren) return "editValueStart";
   if ((event.key === "Delete" || event.key === "Backspace") && context.hasSelection) return "delete";
-  if (event.key === "ArrowDown") return "moveDown";
-  if (event.key === "ArrowUp") return "moveUp";
+  // Shift+Up/Down grows the multi-selection from its anchor; without Shift the selection
+  // collapses back to the single node moved to (see tree/selection.ts).
+  if (event.key === "ArrowDown") return event.shiftKey ? "extendDown" : "moveDown";
+  if (event.key === "ArrowUp") return event.shiftKey ? "extendUp" : "moveUp";
   if (event.key === "ArrowRight") return "arrowRight";
   if (event.key === "ArrowLeft") return "arrowLeft";
   if (ctrl && key === "d") return "duplicate";

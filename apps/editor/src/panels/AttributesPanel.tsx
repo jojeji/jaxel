@@ -3,7 +3,11 @@ import { looksLikeBase64, type DocNode } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
 
 interface AttributesPanelProps {
+  /** The single selected node — null when nothing OR several nodes are selected. */
   node: DocNode | null;
+  /** How many nodes are selected. Only consulted when `node` is null, to tell "nothing
+   * selected" apart from "several selected" (attributes are edited one node at a time). */
+  selectionCount: number;
   /** Value edit / remove (value: null) for the attribute named `name`. */
   onSetAttribute: (name: string, value: string | null, coalesceKey?: string) => void;
   /** Live rename of the attribute at `index` (position + value untouched). */
@@ -16,6 +20,7 @@ interface AttributesPanelProps {
 
 export function AttributesPanel({
   node,
+  selectionCount,
   onSetAttribute,
   onRenameAttribute,
   onCreateAttribute,
@@ -26,7 +31,13 @@ export function AttributesPanel({
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
 
   if (!node) {
-    return <aside className="attributes-panel attributes-panel--empty">{t("attributes.noSelection")}</aside>;
+    return (
+      <aside className="attributes-panel attributes-panel--empty">
+        {selectionCount > 1
+          ? t("attributes.multiSelection").replace("{n}", String(selectionCount))
+          : t("attributes.noSelection")}
+      </aside>
+    );
   }
   const currentNode = node;
 

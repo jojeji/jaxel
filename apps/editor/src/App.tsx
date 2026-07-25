@@ -2,13 +2,14 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
-  cloneSubtree,
   computeChanges,
   computePaths,
+  createBulkDuplicateCommand,
+  createBulkInsertCommand,
+  createBulkMoveCommand,
+  createBulkRemoveCommand,
   createInsertNodeCommand,
-  createMoveNodeCommand,
   createNode,
-  createRemoveNodeCommand,
   createRenameAttributeCommand,
   createRenameCommand,
   createReplaceAllCommand,
@@ -20,11 +21,11 @@ import {
   findNodeById,
   findSiblingSlot,
   getPathSegments,
-  parseDocument,
+  parseFragments,
   pathSegmentsOf,
   planInsertRelativeToRow,
-  planMove,
-  serializeDocument,
+  serializeFragments,
+  topmostRows,
   type DocFormat,
   type DocNode,
   type PathSegment,
@@ -42,9 +43,9 @@ import {
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
-import { toErrorMessage } from "./errors.js";
+import { conversionErrorMessage, toErrorMessage } from "./errors.js";
 import { resolveShortcut } from "./shortcuts.js";
-import { tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
+import { formatOfExtension, tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
 import {
   getLastDir,
@@ -61,6 +62,19 @@ import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.
 import { FocusBreadcrumb } from "./tree/FocusBreadcrumb.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
 import { nextSelectedRow, planArrowLeft, planArrowRight, type ArrowIntent } from "./tree/keyboard-nav.js";
+import {
+  EMPTY_SELECTION,
+  extendSelection,
+  pruneSelection,
+  selectOnly,
+  selectRange,
+  selectedRowsInOrder,
+  selectionForActionOn,
+  soleSelectedId,
+  toggle,
+  type Selection,
+  type SelectModifier,
+} from "./tree/selection.js";
 import { buildFilterKeepSet, flattenFiltered } from "./tree/filter.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
 import { RightSidebar, type SidebarTab } from "./panels/RightSidebar.js";
@@ -75,6 +89,7 @@ import { MenuBar, type MenuBarEntry, type MenuBarMenu } from "./ui/MenuBar.js";
 import { ReloadDialog } from "./ui/ReloadDialog.js";
 import { Toast } from "./ui/Toast.js";
 import { CloseConfirmDialog } from "./ui/CloseConfirmDialog.js";
+import { ConvertDialog } from "./ui/ConvertDialog.js";
 import { Base64PreviewDialog } from "./ui/Base64PreviewDialog.js";
 import { AboutDialog } from "./ui/AboutDialog.js";
 
@@ -102,6 +117,7 @@ export function App(): React.ReactElement {
     openFile,
     saveFile,
     saveFileAs,
+    convertSaveAs,
     newDocument,
     closeTab,
     activate,
@@ -114,7 +130,7 @@ export function App(): React.ReactElement {
     () => new Set(docs.filter((d) => d.isDirty).map((d) => d.filePath)),
     [docs],
   );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
   /** Per-tab memory of the `expanded` set, keyed by tab key — so returning to a tab shows it
@@ -139,6 +155,13 @@ export function App(): React.ReactElement {
   const [dragOver, setDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [reloadPrompt, setReloadPrompt] = useState<{ filePath: string } | null>(null);
+  /** Set while the user is being asked to confirm an XML<->JSON conversion triggered by the
+   * extension they picked in "Speichern unter". Nothing is written until they confirm. */
+  const [convertPrompt, setConvertPrompt] = useState<{
+    filePath: string;
+    newPath: string;
+    targetFormat: DocFormat;
+  } | null>(null);
   /** Pending "ungespeicherte Änderungen" question: a single tab close, or the whole window. */
   const [closePrompt, setClosePrompt] = useState<
     { kind: "tab"; key: string; filePath: string; focusNodeId: string | null } | { kind: "window" } | null
@@ -383,7 +406,7 @@ export function App(): React.ReactElement {
     if (previousKey) {
       tabViewStateRef.current.set(previousKey, expanded);
     }
-    setSelectedId(null);
+    setSelection(EMPTY_SELECTION);
     setEditingField(null);
     setFilterMatches(null);
     const newKey = activeTab?.key ?? null;
@@ -431,12 +454,32 @@ export function App(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates after mutations
   }, [settings.showTreeChangeMarkers, trueRoot, activeDoc, revision]);
 
-  const selectedRow = useMemo<TreeRow | null>(
-    () => rows.find((row) => row.node.id === selectedId) ?? null,
-    [rows, selectedId],
-  );
-  /** Neither a duplicate nor a delete target: the tab's own visible root has no sibling slot. */
-  const isRoot = !selectedRow || !findSiblingSlot(selectedRow);
+  /**
+   * The one selected row — null when nothing OR more than one node is selected. Every
+   * single-node-only feature (rename, edit value, add child/sibling, attributes panel, focus,
+   * breadcrumb, search scope) keeps hanging off this, so multi-selection simply switches those
+   * off instead of each of them needing its own multi-selection story.
+   */
+  const selectedRow = useMemo<TreeRow | null>(() => {
+    const soleId = soleSelectedId(selection);
+    return soleId === null ? null : (rows.find((row) => row.node.id === soleId) ?? null);
+  }, [rows, selection]);
+  /** All selected rows in visible order — what the bulk actions (delete, duplicate, copy, drag)
+   * operate on. Single selection is just its one-element case. */
+  const selectedRows = useMemo<TreeRow[]>(() => selectedRowsInOrder(selection, rows), [selection, rows]);
+
+  // Forget selected nodes that are no longer among the visible rows — collapsed away, filtered
+  // out by the search panel, or deleted. Without this a bulk action could still carry ids the
+  // user can no longer see. `pruneSelection` returns the same object when nothing changed, so
+  // this settles after one pass instead of looping.
+  useEffect(() => {
+    setSelection((current) => pruneSelection(current, rows));
+  }, [rows]);
+  /** Neither a duplicate nor a delete target: the tab's own visible root has no sibling slot.
+   * With several nodes selected, the bulk commands drop the root themselves, so the action stays
+   * available as long as ANY selected row has a sibling slot. */
+  const isRoot =
+    selectedRows.length === 0 || !selectedRows.some((row) => findSiblingSlot(row) !== null);
   const canUndo = activeDoc?.commandBus.canUndo() ?? false;
   const canRedo = activeDoc?.commandBus.canRedo() ?? false;
 
@@ -449,8 +492,14 @@ export function App(): React.ReactElement {
     });
   }
 
-  function selectRow(row: TreeRow): void {
-    setSelectedId(row.node.id);
+  /** Click on a row. Ctrl toggles that one node, Shift spans a range from the anchor, a plain
+   * click collapses back to just this node (see tree/selection.ts). */
+  function selectRow(row: TreeRow, modifier: SelectModifier = "none"): void {
+    setSelection((current) => {
+      if (modifier === "toggle") return toggle(current, row.node.id);
+      if (modifier === "range") return selectRange(current, rows, row.node.id);
+      return selectOnly(row.node.id);
+    });
   }
 
   function expandAncestorsOf(node: DocNode): void {
@@ -466,7 +515,7 @@ export function App(): React.ReactElement {
 
   function selectAndReveal(node: DocNode): void {
     expandAncestorsOf(node);
-    setSelectedId(node.id);
+    setSelection(selectOnly(node.id));
     setRevealNodeId(node.id);
   }
 
@@ -480,12 +529,17 @@ export function App(): React.ReactElement {
    * (not ids — the fresh parse assigns entirely new ids) before reloading, then resolved
    * against the new tree afterwards so the view stays as close as possible to where it was.
    */
-  async function performReload(filePath: string, onlyIfClean = false): Promise<void> {
-    setReloadPrompt(null);
-    const isActiveDoc = activeDoc?.filePath === filePath;
+  /** Captures the current selection and expanded nodes as path SEGMENTS — the only form that
+   * survives a re-parse, which assigns entirely new node ids. Empty unless `filePath` is the
+   * active tab's document (a background document has no visible view to restore). Shared by
+   * reload and format conversion, both of which replace the tree wholesale. */
+  function captureViewSegments(filePath: string): {
+    selectionSegments: PathSegment[] | null;
+    expandedSegmentsList: PathSegment[][];
+  } {
     let selectionSegments: PathSegment[] | null = null;
     const expandedSegmentsList: PathSegment[][] = [];
-    if (isActiveDoc && trueRoot) {
+    if (activeDoc?.filePath === filePath && trueRoot) {
       if (selectedRow) {
         selectionSegments = getPathSegments(selectedRow.node, selectedRow.ancestors);
       }
@@ -495,6 +549,13 @@ export function App(): React.ReactElement {
         expandedSegmentsList.push(pathSegmentsOf(trueRoot, node));
       }
     }
+    return { selectionSegments, expandedSegmentsList };
+  }
+
+  async function performReload(filePath: string, onlyIfClean = false): Promise<void> {
+    setReloadPrompt(null);
+    const isActiveDoc = activeDoc?.filePath === filePath;
+    const { selectionSegments, expandedSegmentsList } = captureViewSegments(filePath);
     const reloadResult = await reloadFile(
       filePath,
       selectionSegments,
@@ -513,7 +574,9 @@ export function App(): React.ReactElement {
     }
     const { selectedId: newSelectedId, expandedIds } = reloadResult;
     if (isActiveDoc) {
-      setSelectedId(newSelectedId);
+      // A reload re-parses into all-new node ids, so only the single re-resolved selection
+      // survives — a multi-selection is not carried across (see performReload's doc comment).
+      setSelection(newSelectedId ? selectOnly(newSelectedId) : EMPTY_SELECTION);
       setExpanded(new Set(expandedIds));
     }
     setStatus(t("reload.reloaded").replace("{name}", fileNameOf(filePath)));
@@ -591,23 +654,66 @@ export function App(): React.ReactElement {
     addRecentFile(path);
   }
 
+  /** Always shows the OS "save as" dialog — for an untitled document's first save AND for the
+   * explicit "Speichern unter" action on an already-named one. Returns the chosen path, or null
+   * if the user cancelled.
+   *
+   * Picking the OTHER format's extension converts instead of saving (docs/entscheidungen.md,
+   * "Grilling: XML/JSON-Konvertierung"). That needs a confirmation first, so this returns null
+   * in that case too — the write happens later, from `handleConvertConfirm`. Callers that read
+   * the return value (the close-tab flow) therefore treat a pending conversion like a cancel
+   * and keep the tab open, which is the safe direction. */
+  async function promptSaveAs(doc: OpenDocumentState): Promise<string | null> {
+    const extension = doc.format === "xml" ? "xml" : "json";
+    const dir = getLastDir();
+    const path = await save({
+      defaultPath: doc.isUntitled
+        ? dir
+          ? `${dir}/${doc.filePath}.${extension}`
+          : `${doc.filePath}.${extension}`
+        : doc.filePath,
+      filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
+    });
+    if (typeof path !== "string") return null; // user cancelled the dialog
+    const targetFormat = formatOfExtension(path);
+    if (targetFormat && targetFormat !== doc.format) {
+      setConvertPrompt({ filePath: doc.filePath, newPath: path, targetFormat });
+      return null;
+    }
+    await saveFileAs(doc.filePath, path);
+    rememberLastDir(path);
+    addRecentFile(path);
+    return path;
+  }
+
+  /** Runs the conversion the user just confirmed. Selection and expanded nodes are re-resolved
+   * by path, exactly like a reload — the converted tree has all-new node ids. */
+  async function handleConvertConfirm(): Promise<void> {
+    if (!convertPrompt) return;
+    const { filePath, newPath, targetFormat } = convertPrompt;
+    setConvertPrompt(null);
+    setError(null);
+    try {
+      const { selectionSegments, expandedSegmentsList } = captureViewSegments(filePath);
+      const result = await convertSaveAs(filePath, newPath, targetFormat, selectionSegments, expandedSegmentsList);
+      setSelection(result.selectedId ? selectOnly(result.selectedId) : EMPTY_SELECTION);
+      setExpanded(new Set(result.expandedIds));
+      setEditingField(null);
+      rememberLastDir(newPath);
+      addRecentFile(newPath);
+      setStatus(
+        t("convert.done").replace("{name}", fileNameOf(newPath)).replace("{target}", targetFormat.toUpperCase()),
+      );
+    } catch (err) {
+      setError(conversionErrorMessage(err, t));
+    }
+  }
+
   /** Saves one document (not necessarily the active one); an untitled document goes through
    * the OS "save as" dialog first. Returns the document's (possibly new) path, or null if
    * the user cancelled that dialog. */
   async function saveDoc(doc: OpenDocumentState): Promise<string | null> {
-    if (doc.isUntitled) {
-      const extension = doc.format === "xml" ? "xml" : "json";
-      const dir = getLastDir();
-      const path = await save({
-        defaultPath: dir ? `${dir}/${doc.filePath}.${extension}` : `${doc.filePath}.${extension}`,
-        filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
-      });
-      if (typeof path !== "string") return null; // user cancelled the dialog
-      await saveFileAs(doc.filePath, path);
-      rememberLastDir(path);
-      addRecentFile(path);
-      return path;
-    }
+    if (doc.isUntitled) return promptSaveAs(doc);
     await saveFile(doc.filePath);
     return doc.filePath;
   }
@@ -617,6 +723,18 @@ export function App(): React.ReactElement {
     setError(null);
     try {
       await saveDoc(activeDoc);
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
+  }
+
+  /** "Speichern unter" (Menü/`Strg+Shift+S`) — unlike `handleSave`, always prompts, even for an
+   * already-named document. */
+  async function handleSaveAs(): Promise<void> {
+    if (!activeDoc) return;
+    setError(null);
+    try {
+      await promptSaveAs(activeDoc);
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -665,27 +783,42 @@ export function App(): React.ReactElement {
     if (expandParentId) {
       setExpanded((prev) => new Set(prev).add(expandParentId));
     }
-    setSelectedId(nodeId);
+    setSelection(selectOnly(nodeId));
     setRevealNodeId(nodeId);
   }
 
-  /** Drag&drop move in the tree; drop-position-to-index arithmetic lives in planMove. */
+  /** Selects a whole group of just-inserted/moved nodes (bulk duplicate, bulk paste, bulk move)
+   * and scrolls the first of them into view — the multi-node counterpart of
+   * `focusInsertedNode`, so the result of a bulk action is immediately visible AND still
+   * selected for a follow-up action. */
+  function focusInsertedNodes(nodeIds: string[], expandParentId?: string): void {
+    const first = nodeIds[0];
+    if (first === undefined) return;
+    if (expandParentId) {
+      setExpanded((prev) => new Set(prev).add(expandParentId));
+    }
+    setSelection({ ids: new Set(nodeIds), anchorId: first, leadId: nodeIds[nodeIds.length - 1]! });
+    setRevealNodeId(first);
+  }
+
+  /**
+   * Drag&drop move in the tree. Dragging a row that is part of the current multi-selection
+   * moves the WHOLE selection (keeping its visible order); dragging any other row collapses the
+   * selection to that one row first — the same rule the context menu uses. All index arithmetic,
+   * including the cross-parent case, lives in createBulkMoveCommand.
+   */
   function handleMoveNode(source: TreeRow, target: TreeRow, position: DropPosition): void {
     if (!activeDoc) return;
-    const plan = planMove(source, target, position);
-    if (!plan) return;
+    const dragged = selectionForActionOn(selection, source.node.id);
+    const draggedRows = selectedRowsInOrder(dragged, rows);
+    const command = createBulkMoveCommand(draggedRows, target, position);
+    if (!command) return;
 
-    activeDoc.commandBus.execute(
-      createMoveNodeCommand(
-        plan.sourceParent,
-        plan.sourceIndex,
-        plan.sourceAncestors,
-        plan.targetParent,
-        plan.targetIndex,
-        plan.targetAncestors,
-      ),
+    activeDoc.commandBus.execute(command);
+    focusInsertedNodes(
+      draggedRows.map((row) => row.node.id),
+      position === "into" ? target.node.id : undefined,
     );
-    focusInsertedNode(source.node.id, position === "into" ? plan.targetParent.id : undefined);
   }
 
   /** Strg+Shift+Plus / toolbar: insert a child and jump straight into naming it. */
@@ -723,33 +856,36 @@ export function App(): React.ReactElement {
     activeDoc?.commandBus.redo();
   }
 
+  /** Entf: removes every selected node as ONE undo step (the root is skipped — it has no
+   * sibling slot to be removed from). */
   function handleDelete(): void {
-    if (!activeDoc || !selectedRow) return;
-    const slot = findSiblingSlot(selectedRow);
-    if (!slot) return; // can't delete the root
-    activeDoc.commandBus.execute(createRemoveNodeCommand(slot.parent, slot.index, slot.parentAncestors));
-    setSelectedId(null);
+    if (!activeDoc) return;
+    const command = createBulkRemoveCommand(selectedRows);
+    if (!command) return;
+    activeDoc.commandBus.execute(command);
+    setSelection(EMPTY_SELECTION);
     setEditingField(null);
   }
 
-  /** Strg+D: deep-copy the selected node and insert it as its next sibling. */
+  /** Strg+D: deep-copy every selected node in as its own next sibling, as ONE undo step. */
   function handleDuplicate(): void {
-    if (!activeDoc || !selectedRow) return;
-    const slot = findSiblingSlot(selectedRow);
-    if (!slot) return; // root can't be duplicated
-    const copy = cloneSubtree(selectedRow.node);
-    activeDoc.commandBus.execute(createInsertNodeCommand(slot.parent, slot.index + 1, copy, slot.parentAncestors));
-    focusInsertedNode(copy.id);
+    if (!activeDoc) return;
+    const result = createBulkDuplicateCommand(selectedRows);
+    if (!result) return;
+    activeDoc.commandBus.execute(result.command);
+    focusInsertedNodes(result.clones.map((clone) => clone.id));
   }
 
-  /** Strg+C: serialize the selected subtree (XML fragment / single-key JSON) to the system clipboard. */
+  /** Strg+C: serialize the selected subtree(s) to the system clipboard — one XML fragment /
+   * single-key JSON object for a single node, several fragments for a multi-selection (see
+   * serializeFragments). */
   function handleCopyNode(): void {
-    if (!activeDoc || !selectedRow) return;
-    const text = serializeDocument({
-      format: activeDoc.format,
-      root: selectedRow.node,
-      indent: activeDoc.document.indent,
-    }).trimEnd();
+    if (!activeDoc || selectedRows.length === 0) return;
+    const text = serializeFragments(
+      activeDoc.format,
+      topmostRows(selectedRows).map((row) => row.node),
+      activeDoc.document.indent,
+    ).trimEnd();
     void navigator.clipboard.writeText(text).then(
       () => setStatus(t("clipboard.nodeCopied")),
       (err) => setError(toErrorMessage(err)),
@@ -757,12 +893,16 @@ export function App(): React.ReactElement {
   }
 
   /**
-   * Strg+V: parse the clipboard as a fragment of the document's own format and insert
-   * it as the selection's next sibling (root selected: appended as last child instead,
-   * the root can't have siblings). Fresh ids / no byteRanges via cloneSubtree.
+   * Strg+V: parse the clipboard as one or several fragments of the document's own format and
+   * insert them after the selection (root selected: appended as last children instead, the root
+   * can't have siblings) as ONE undo step. Fresh ids / no byteRanges come from parseFragments.
+   *
+   * Pastes relative to the LAST selected row, so pasting with several nodes selected has an
+   * unambiguous insertion point instead of scattering copies across the selection.
    */
   async function handlePasteNode(): Promise<void> {
-    if (!activeDoc || !selectedRow || !root) return;
+    const anchorRow = selectedRows[selectedRows.length - 1];
+    if (!activeDoc || !anchorRow || !root) return;
     setError(null);
     let text: string;
     try {
@@ -771,31 +911,44 @@ export function App(): React.ReactElement {
       setError(t("clipboard.readFailed"));
       return;
     }
-    let fragmentRoot: DocNode;
+    let fragments: DocNode[];
     try {
-      fragmentRoot = parseDocument(activeDoc.format, text).root;
+      fragments = parseFragments(activeDoc.format, text);
     } catch {
       setError(t("clipboard.invalidFragment"));
       return;
     }
-    if (fragmentRoot.synthetic) {
-      // A bare JSON array/primitive/multi-key object has no name to insert under.
+    // A bare JSON array/primitive has no name to insert under; an empty payload has nothing.
+    if (fragments.length === 0 || fragments.some((fragment) => fragment.synthetic)) {
       setError(t("clipboard.invalidFragment"));
       return;
     }
-    const plan = planInsertRelativeToRow(selectedRow);
+    const plan = planInsertRelativeToRow(anchorRow);
     if (!plan) return;
-    const pasted = cloneSubtree(fragmentRoot);
-    activeDoc.commandBus.execute(createInsertNodeCommand(plan.parent, plan.index, pasted, plan.parentAncestors));
-    focusInsertedNode(pasted.id, plan.insertedAsChild ? plan.parent.id : undefined);
+    const command = createBulkInsertCommand(plan.parent, plan.index, fragments, plan.parentAncestors);
+    if (!command) return;
+    activeDoc.commandBus.execute(command);
+    focusInsertedNodes(
+      fragments.map((fragment) => fragment.id),
+      plan.insertedAsChild ? plan.parent.id : undefined,
+    );
   }
 
+  /** Arrow up/down WITHOUT Shift: collapses any multi-selection back to the single node one
+   * step away, measured from the lead end of the current range. */
   function moveSelection(delta: number): void {
-    const next = nextSelectedRow(rows, selectedRow?.node.id ?? null, delta);
+    const next = nextSelectedRow(rows, selection.leadId, delta);
     if (next) {
-      setSelectedId(next.node.id);
+      setSelection(selectOnly(next.node.id));
       setRevealNodeId(next.node.id);
     }
+  }
+
+  /** Shift+arrow up/down: grows or shrinks the range instead of moving it. */
+  function extendSelectionBy(delta: number): void {
+    const next = extendSelection(selection, rows, delta);
+    setSelection(next);
+    if (next.leadId) setRevealNodeId(next.leadId);
   }
 
   function applyArrowIntent(intent: ArrowIntent): void {
@@ -808,7 +961,7 @@ export function App(): React.ReactElement {
         return next;
       });
     } else if (intent.type === "select") {
-      setSelectedId(intent.nodeId);
+      setSelection(selectOnly(intent.nodeId));
       setRevealNodeId(intent.nodeId);
     }
   }
@@ -856,7 +1009,9 @@ export function App(): React.ReactElement {
       if (!activeDoc) return;
 
       const action = resolveShortcut(event, {
-        hasSelection: selectedRow !== null,
+        // Bulk-capable actions (delete, duplicate, copy, paste) must stay reachable with several
+        // nodes selected, where `selectedRow` is deliberately null.
+        hasSelection: selectedRows.length > 0,
         selectionHasChildren: selectedRow?.hasChildren ?? false,
       });
       if (!action) return;
@@ -864,6 +1019,9 @@ export function App(): React.ReactElement {
       switch (action) {
         case "save":
           void handleSave();
+          break;
+        case "saveAs":
+          void handleSaveAs();
           break;
         case "undo":
           handleUndo();
@@ -885,6 +1043,12 @@ export function App(): React.ReactElement {
           break;
         case "moveUp":
           moveSelection(-1);
+          break;
+        case "extendDown":
+          extendSelectionBy(1);
+          break;
+        case "extendUp":
+          extendSelectionBy(-1);
           break;
         case "arrowRight":
           handleArrowRight();
@@ -1182,6 +1346,12 @@ export function App(): React.ReactElement {
           ...recentEntries,
           "separator",
           { label: t("welcome.save"), shortcut: `${ctrl}+S`, disabled: !activeDoc, onClick: () => void handleSave() },
+          {
+            label: t("menuBar.saveAs"),
+            shortcut: `${ctrl}+Shift+S`,
+            disabled: !activeDoc,
+            onClick: () => void handleSaveAs(),
+          },
         ],
       },
       {
@@ -1255,6 +1425,7 @@ export function App(): React.ReactElement {
   const attributesPanelEl = (
     <AttributesPanel
       node={selectedRow?.node ?? null}
+      selectionCount={selectedRows.length}
       onSetAttribute={handleSetAttribute}
       onRenameAttribute={handleRenameAttribute}
       onCreateAttribute={handleCreateAttribute}
@@ -1378,7 +1549,7 @@ export function App(): React.ReactElement {
               <TreeView
                 rows={rows}
                 expanded={expanded}
-                selectedId={selectedId}
+                selectedIds={selection.ids}
                 onToggle={toggleRow}
                 onSelect={selectRow}
                 editingField={editingField}
@@ -1387,7 +1558,9 @@ export function App(): React.ReactElement {
                 onCommitEdit={handleCommitEdit}
                 onCancelEdit={() => setEditingField(null)}
                 onRowContextMenu={(row, x, y) => {
-                  setSelectedId(row.node.id);
+                  // Right-clicking inside the multi-selection keeps it (the menu then acts on
+                  // all of it); right-clicking anywhere else collapses to that one row first.
+                  setSelection((current) => selectionForActionOn(current, row.node.id));
                   setContextMenu({ x, y });
                 }}
                 onMoveNode={handleMoveNode}
@@ -1462,6 +1635,14 @@ export function App(): React.ReactElement {
           onSave={() => void handleClosePromptSave()}
           onDiscard={handleClosePromptDiscard}
           onCancel={() => setClosePrompt(null)}
+        />
+      )}
+      {convertPrompt && (
+        <ConvertDialog
+          fileName={fileNameOf(convertPrompt.filePath)}
+          targetFormat={convertPrompt.targetFormat}
+          onConfirm={() => void handleConvertConfirm()}
+          onCancel={() => setConvertPrompt(null)}
         />
       )}
     </div>

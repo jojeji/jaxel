@@ -26,12 +26,23 @@ export type { ReplaceAllResult } from "./commands/replace-all.js";
 export { createReplaceAllCommand } from "./commands/replace-all.js";
 export type { SiblingSlot, InsertPlan } from "./commands/sibling-slot.js";
 export { findSiblingSlot, planInsertRelativeToRow } from "./commands/sibling-slot.js";
+export type { BulkRow } from "./commands/bulk.js";
+export {
+  createBulkDuplicateCommand,
+  createBulkInsertCommand,
+  createBulkMoveCommand,
+  createBulkRemoveCommand,
+  topmostRows,
+} from "./commands/bulk.js";
 
 export type { ParseXmlResult } from "./format/xml-import.js";
 export { parseXml } from "./format/xml-import.js";
 export { serializeXml, serializeXmlMinimal } from "./format/xml-export.js";
 export type { ParsedDocument } from "./format/document.js";
 export { parseDocument, serializeDocument } from "./format/document.js";
+export { parseFragments, serializeFragments } from "./format/fragments.js";
+export type { ConvertParams } from "./format/convert.js";
+export { convertDocument, isValidXmlName, InvalidXmlNameError } from "./format/convert.js";
 export type { DecodedBase64, DecodedContentKind } from "./format/base64.js";
 export { decodeBase64, looksLikeBase64 } from "./format/base64.js";
 export { parseJson } from "./format/json-import.js";

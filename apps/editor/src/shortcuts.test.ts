@@ -14,6 +14,10 @@ describe("resolveShortcut", () => {
     expect(resolveShortcut(key({ key: "s", ctrlKey: true }), noSelection)).toBe("save");
   });
 
+  it("Ctrl+Shift+S is 'save as', not 'save'", () => {
+    expect(resolveShortcut(key({ key: "s", ctrlKey: true, shiftKey: true }), noSelection)).toBe("saveAs");
+  });
+
   it("Ctrl+Z undoes, Ctrl+Shift+Z and Ctrl+Y both redo", () => {
     expect(resolveShortcut(key({ key: "z", ctrlKey: true }), noSelection)).toBe("undo");
     expect(resolveShortcut(key({ key: "z", ctrlKey: true, shiftKey: true }), noSelection)).toBe("redo");
@@ -46,6 +50,11 @@ describe("resolveShortcut", () => {
     expect(resolveShortcut(key({ key: "ArrowUp" }), noSelection)).toBe("moveUp");
     expect(resolveShortcut(key({ key: "ArrowRight" }), noSelection)).toBe("arrowRight");
     expect(resolveShortcut(key({ key: "ArrowLeft" }), noSelection)).toBe("arrowLeft");
+  });
+
+  it("Shift+Up/Down extends the selection instead of moving it", () => {
+    expect(resolveShortcut(key({ key: "ArrowDown", shiftKey: true }), leafSelected)).toBe("extendDown");
+    expect(resolveShortcut(key({ key: "ArrowUp", shiftKey: true }), leafSelected)).toBe("extendUp");
   });
 
   it("Ctrl+D duplicates regardless of selection (handler itself no-ops on the root)", () => {
