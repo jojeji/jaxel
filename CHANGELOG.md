@@ -30,7 +30,11 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
   **auskommentieren** und wieder **einkommentieren**; bei mehreren markierten Knoten wirkt das
   auf alle, als ein Rückgängig-Schritt. Knoten, die selbst schon einen Kommentar oder ein „--"
   enthalten, lassen sich nicht auskommentieren (XML erlaubt das nicht) — der Menüeintrag ist
-  dann ausgegraut und nennt beim Darüberfahren den Grund.
+  dann ausgegraut und nennt beim Darüberfahren den Grund. Über das Kontextmenü lassen sich auch
+  **neue Kommentare einfügen** (als Geschwister oder als Kind). Innerhalb eines auskommentierten
+  Bereichs ist Bearbeiten gesperrt, solange er nicht wieder eingeschaltet ist — sonst gingen die
+  Änderungen beim Speichern verloren. Die Suche findet Treffer auch in auskommentierten
+  Bereichen; „Alle ersetzen" lässt sie unangetastet und sagt hinterher, wie viele es waren.
 - **Mehrfachauswahl im Baum:** `Strg`+Klick wählt einzelne Knoten zusätzlich aus, `Shift`+Klick
   einen ganzen Bereich, `Shift`+`↑`/`↓` erweitert die Auswahl zeilenweise. Die Auswahl darf über
   verschiedene Ebenen hinweg gehen. **Löschen**, **Duplizieren**, **Kopieren** und **Verschieben

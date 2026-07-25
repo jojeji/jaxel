@@ -6,6 +6,7 @@ import {
   computePaths,
   commentOutBlocker,
   createBulkDuplicateCommand,
+  createCommentNode,
   createCommentOutCommand,
   createCompositeCommand,
   createUncommentCommand,
@@ -485,6 +486,13 @@ export function App(): React.ReactElement {
    * available as long as ANY selected row has a sibling slot. */
   const isRoot =
     selectedRows.length === 0 || !selectedRows.some((row) => findSiblingSlot(row) !== null);
+  /** True when anything selected sits INSIDE a commented-out subtree. Such rows stay visible
+   * and searchable but must not be mutated: the file holds the comment's raw text, so any edit
+   * to its parsed view would be silently dropped on the next save (CONTEXT.md,
+   * "Auskommentierter Teilbaum"). The comment node ITSELF is editable — only its contents are not. */
+  const selectionInsideComment = selectedRows.some((row) =>
+    row.ancestors.some((ancestor) => ancestor.kind === "comment"),
+  );
   const canUndo = activeDoc?.commandBus.canUndo() ?? false;
   const canRedo = activeDoc?.commandBus.canRedo() ?? false;
 
@@ -753,24 +761,33 @@ export function App(): React.ReactElement {
   function handleCommitEdit(row: TreeRow, field: "name" | "value", newText: string): void {
     if (!activeDoc) return;
     setEditingField(null);
+    // Last line of defence for a row inside a commented-out subtree — the UI already refuses to
+    // open an editor there, but an edit that slipped through would vanish on the next save.
+    if (row.ancestors.some((ancestor) => ancestor.kind === "comment")) return;
     if (field === "name") {
       if (newText === row.node.name || newText.trim() === "") return;
       activeDoc.commandBus.execute(createRenameCommand(row.node, newText, row.ancestors));
     } else {
       if (newText === (row.node.value ?? "")) return;
+      // A comment's text becomes `<!--…-->` verbatim, so "--" in it would produce a file that
+      // no longer parses. Rejected rather than escaped: XML resolves no entities in comments.
+      if (row.node.kind === "comment" && newText.includes("--")) {
+        setError(t("comment.doubleHyphenRejected"));
+        return;
+      }
       activeDoc.commandBus.execute(createSetValueCommand(row.node, newText, row.node.jsonType, row.ancestors));
     }
   }
 
   function handleSetAttribute(name: string, value: string | null, coalesceKey?: string): void {
-    if (!activeDoc || !selectedRow) return;
+    if (!activeDoc || !selectedRow || selectionInsideComment) return;
     activeDoc.commandBus.execute(
       createSetAttributeCommand(selectedRow.node, name, value, selectedRow.ancestors, coalesceKey),
     );
   }
 
   function handleRenameAttribute(index: number, newName: string, coalesceKey: string): void {
-    if (!activeDoc || !selectedRow) return;
+    if (!activeDoc || !selectedRow || selectionInsideComment) return;
     activeDoc.commandBus.execute(
       createRenameAttributeCommand(selectedRow.node, index, newName, selectedRow.ancestors, coalesceKey),
     );
@@ -814,6 +831,11 @@ export function App(): React.ReactElement {
    */
   function handleMoveNode(source: TreeRow, target: TreeRow, position: DropPosition): void {
     if (!activeDoc) return;
+    // Neither out of a commented-out subtree nor into one: the comment's raw text is what gets
+    // saved, so a node dropped in there would simply disappear on the next save.
+    const inComment = (row: TreeRow): boolean =>
+      row.node.kind === "comment" || row.ancestors.some((a) => a.kind === "comment");
+    if (inComment(source) || inComment(target)) return;
     const dragged = selectionForActionOn(selection, source.node.id);
     const draggedRows = selectedRowsInOrder(dragged, rows);
     const command = createBulkMoveCommand(draggedRows, target, position);
@@ -828,7 +850,7 @@ export function App(): React.ReactElement {
 
   /** Strg+Shift+Plus / toolbar: insert a child and jump straight into naming it. */
   function handleAddChild(): void {
-    if (!activeDoc || !selectedRow) return;
+    if (!activeDoc || !selectedRow || selectionInsideComment) return;
     const child = createNode({ name: "node" });
     activeDoc.commandBus.execute(
       createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, child, selectedRow.ancestors),
@@ -844,7 +866,7 @@ export function App(): React.ReactElement {
    * same as Strg+Shift+Plus.
    */
   function handleAddSibling(): void {
-    if (!activeDoc || !selectedRow) return;
+    if (!activeDoc || !selectedRow || selectionInsideComment) return;
     const plan = planInsertRelativeToRow(selectedRow);
     if (!plan) return;
     const sibling = createNode({ name: "node" });
@@ -864,7 +886,7 @@ export function App(): React.ReactElement {
   /** Entf: removes every selected node as ONE undo step (the root is skipped — it has no
    * sibling slot to be removed from). */
   function handleDelete(): void {
-    if (!activeDoc) return;
+    if (!activeDoc || selectionInsideComment) return;
     const command = createBulkRemoveCommand(selectedRows);
     if (!command) return;
     activeDoc.commandBus.execute(command);
@@ -874,11 +896,31 @@ export function App(): React.ReactElement {
 
   /** Strg+D: deep-copy every selected node in as its own next sibling, as ONE undo step. */
   function handleDuplicate(): void {
-    if (!activeDoc) return;
+    if (!activeDoc || selectionInsideComment) return;
     const result = createBulkDuplicateCommand(selectedRows);
     if (!result) return;
     activeDoc.commandBus.execute(result.command);
     focusInsertedNodes(result.clones.map((clone) => clone.id));
+  }
+
+  /** Inserts a fresh, empty comment next to (or under) the selected node and opens its text for
+   * editing straight away — same pattern as adding a node. */
+  function handleAddComment(asChild: boolean): void {
+    if (!activeDoc || !selectedRow || selectionInsideComment || activeDoc.format !== "xml") return;
+    const comment = createCommentNode({ text: " " });
+    if (asChild) {
+      activeDoc.commandBus.execute(
+        createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, comment, selectedRow.ancestors),
+      );
+      focusInsertedNode(comment.id, selectedRow.node.id);
+    } else {
+      const plan = planInsertRelativeToRow(selectedRow);
+      if (!plan) return;
+      activeDoc.commandBus.execute(createInsertNodeCommand(plan.parent, plan.index, comment, plan.parentAncestors));
+      focusInsertedNode(comment.id, plan.insertedAsChild ? plan.parent.id : undefined);
+    }
+    // A comment has no name, so editing starts on its text.
+    setEditingField({ nodeId: comment.id, field: "value" });
   }
 
   /** Why the selection cannot be commented out, or null if it can. Also drives the greyed-out
@@ -1213,14 +1255,23 @@ export function App(): React.ReactElement {
    * visible root, e.g. the focused subtree — see docs/entscheidungen.md 2026-07-18 #1).
    * The undoable-command choreography lives in packages/core (createReplaceAllCommand).
    */
-  function handleReplaceAllInternal(options: SearchOptions, replacement: string, subtreeOnly: boolean): number {
-    if (!activeDoc || !trueRoot || !root) return 0;
+  function handleReplaceAllInternal(
+    options: SearchOptions,
+    replacement: string,
+    subtreeOnly: boolean,
+  ): { replaced: number; skippedInComments: number } {
+    if (!activeDoc || !trueRoot || !root) return { replaced: 0, skippedInComments: 0 };
     const searchRoot = resolveSearchRoot(root, subtreeOnly);
-    const { command, replacementCount } = createReplaceAllCommand(trueRoot, searchRoot, options, replacement);
+    const { command, replacementCount, skippedInComments } = createReplaceAllCommand(
+      trueRoot,
+      searchRoot,
+      options,
+      replacement,
+    );
     if (command) {
       activeDoc.commandBus.execute(command);
     }
-    return replacementCount;
+    return { replaced: replacementCount, skippedInComments };
   }
 
   function copyPath(node: DocNode, kind: "indexed" | "static" | "full"): void {
@@ -1385,6 +1436,16 @@ export function App(): React.ReactElement {
         disabled: !canUncommentSelection(),
         onClick: handleUncomment,
       },
+      {
+        label: t("menu.addComment"),
+        disabled: !selectedRow || selectionInsideComment || activeDoc?.format !== "xml",
+        onClick: () => handleAddComment(false),
+      },
+      {
+        label: t("menu.addCommentChild"),
+        disabled: !selectedRow || selectionInsideComment || activeDoc?.format !== "xml",
+        onClick: () => handleAddComment(true),
+      },
     ];
   }
 
@@ -1410,15 +1471,15 @@ export function App(): React.ReactElement {
         },
       },
       "separator",
-      { label: t("toolbar.addChild"), shortcut: `${ctrl}+Shift++`, onClick: handleAddChild },
-      { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
+      { label: t("toolbar.addChild"), shortcut: `${ctrl}+Shift++`, disabled: selectionInsideComment, onClick: handleAddChild },
+      { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot || selectionInsideComment, onClick: handleDuplicate },
       "separator",
       ...commentMenuEntries(),
       "separator",
       { label: t("menu.copyNode"), shortcut: `${ctrl}+C`, onClick: handleCopyNode },
       { label: t("menu.pasteNode"), shortcut: `${ctrl}+V`, onClick: () => void handlePasteNode() },
       "separator",
-      { label: t("toolbar.delete"), shortcut: t("key.delete"), disabled: isRoot, onClick: handleDelete },
+      { label: t("toolbar.delete"), shortcut: t("key.delete"), disabled: isRoot || selectionInsideComment, onClick: handleDelete },
     ];
   }
 
@@ -1470,8 +1531,8 @@ export function App(): React.ReactElement {
             disabled: !selectedRow,
             onClick: handleAddSibling,
           },
-          { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
-          { label: t("toolbar.delete"), shortcut: t("key.delete"), disabled: isRoot, onClick: handleDelete },
+          { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot || selectionInsideComment, onClick: handleDuplicate },
+          { label: t("toolbar.delete"), shortcut: t("key.delete"), disabled: isRoot || selectionInsideComment, onClick: handleDelete },
           "separator",
           {
             label: t("toolbar.copyPathFull"),

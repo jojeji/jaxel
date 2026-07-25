@@ -154,5 +154,9 @@
   "menu.commentOut": "Auskommentieren",
   "menu.uncomment": "Einkommentieren",
   "menu.commentOut.containsComment": "Enthält einen Kommentar — XML erlaubt keine verschachtelten Kommentare.",
-  "menu.commentOut.containsDoubleHyphen": "Enthält „--“ — das ist innerhalb eines XML-Kommentars nicht erlaubt."
+  "menu.commentOut.containsDoubleHyphen": "Enthält „--“ — das ist innerhalb eines XML-Kommentars nicht erlaubt.",
+  "comment.doubleHyphenRejected": "Ein XML-Kommentar darf kein „--“ enthalten — die Änderung wurde verworfen.",
+  "search.skippedInComments": "{n} Treffer in auskommentierten Bereichen übersprungen.",
+  "menu.addComment": "Kommentar einfügen",
+  "menu.addCommentChild": "Kommentar als Kind einfügen"
 }

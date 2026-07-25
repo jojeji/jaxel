@@ -34,7 +34,13 @@ type CopyPathKind = "indexed" | "static" | "full";
 interface SearchPanelProps {
   onSearch: (options: SearchOptions, subtreeOnly: boolean) => SearchMatch[];
   onNavigate: (match: SearchMatch) => void;
-  onReplaceAll: (options: SearchOptions, replacement: string, subtreeOnly: boolean) => number;
+  /** Returns how many replacements were made and how many matches were left untouched because
+   * they sit in a commented-out subtree (or would break a comment) — reported, not swallowed. */
+  onReplaceAll: (
+    options: SearchOptions,
+    replacement: string,
+    subtreeOnly: boolean,
+  ) => { replaced: number; skippedInComments: number };
   /** null = filter off; otherwise the matches the tree should be reduced to. */
   onFilterChange: (matches: SearchMatch[] | null) => void;
   /** Renderable path segments (root dropped) for one match — SearchPanel formats these
@@ -219,11 +225,16 @@ export function SearchPanel({
   function handleReplaceAll(): void {
     setMessage(null);
     try {
-      const count = onReplaceAll(options, replacement, subtreeOnly && hasSelection);
+      const { replaced, skippedInComments } = onReplaceAll(options, replacement, subtreeOnly && hasSelection);
       setMatches([]);
       setCurrentIndex(-1);
       onFilterChange(null);
-      setMessage(t("search.replacedCount").replace("{n}", String(count)));
+      const done = t("search.replacedCount").replace("{n}", String(replaced));
+      setMessage(
+        skippedInComments > 0
+          ? `${done} ${t("search.skippedInComments").replace("{n}", String(skippedInComments))}`
+          : done,
+      );
     } catch (err) {
       setMessage(toErrorMessage(err));
     }

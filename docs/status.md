@@ -44,19 +44,31 @@ Theme abgestimmt), Kursivschrift, `<!--`-Marker statt des Namens und ein linker 
 auskommentierten Teilbäumen. Bewusst NICHT die Tombstone-Optik — der PO hat beim Grilling
 darauf hingewiesen, dass "auskommentiert" sonst nicht von "gelöscht" zu unterscheiden wäre.
 
-**Was noch fehlt (nicht Teil dieses Commits):**
+**Nachgezogen im Folge-Commit (Schritt 2 damit vollständig):**
 
-- **"Kommentar einfügen"** (neu anlegen) aus Grilling-Punkt 5 ist noch nicht gebaut. Löschen,
-  Verschieben, Duplizieren und Text-Ändern funktionieren bereits, weil die bestehenden Commands
-  auf Indizes arbeiten bzw. auf `value` gehen.
-- **Die `--`-Prüfung beim Bearbeiten eines Kommentartexts** fehlt noch: F2 auf einem Kommentar
-  erlaubt derzeit, "--" einzutippen und damit ungültiges XML zu erzeugen.
-- **Schreibschutz innerhalb auskommentierter Teilbäume** ist noch nicht erzwungen — die Zeilen
-  sind sichtbar und als solche markiert, aber ein Doppelklick kann sie noch bearbeiten.
-- **Suche/Ersetzen** (Grilling-Punkt 6: beide finden, nur Prosa ersetzen) ist noch nicht
-  umgesetzt; die Suche läuft aktuell ungefiltert über alle Knoten.
+- **Schreibschutz erzwungen.** Innerhalb eines auskommentierten Teilbaums sind Umbenennen, Wert
+  und Attribute ändern, Kind/Geschwister anlegen, Löschen, Duplizieren und Drag&Drop gesperrt —
+  in der UI ausgegraut UND in den Handlern selbst, weil Tastenkürzel die Menüs umgehen. Ohne das
+  wäre jede Änderung dort beim nächsten Speichern stillschweigend verschwunden: geschrieben wird
+  der Rohtext des Kommentars, nicht seine geparste Ansicht.
+- **`--`-Prüfung beim Bearbeiten** eines Kommentartexts (Toast statt ungültiger Datei).
+- **"Kommentar einfügen"** und "Kommentar als Kind einfügen" im Kontextmenü; der neue Kommentar
+  geht sofort in den Bearbeiten-Modus (Feld `value`, denn ein Kommentar hat keinen Namen).
+- **Suche/Ersetzen nach Grilling-Punkt 6:** gefunden wird in beidem, ersetzt nur, was auch von
+  Hand editierbar ist. Übersprungene Treffer werden gezählt und in der Suchmeldung genannt.
 
-**Verifiziert:** Core 255/255 (30 neue Tests), Editor 236/236 (6 neue Integrationstests), beide
+**Zwei Befunde aus dem Nachziehen:**
+
+- **Auskommentierte Inhalte wurden doppelt gefunden** — einmal im Rohtext des Kommentarknotens
+  und einmal in der geparsten Ansicht. Aus Nutzersicht derselbe Treffer, einmal an seinem echten
+  Pfad und einmal als unlesbarer Einzeiler. Die Suche überspringt den Rohtext jetzt, sobald ein
+  Kommentar geparste Kinder hat; ein Prosa-Kommentar hat keine und bleibt durchsuchbar.
+- **Der Rohtext selbst war nicht geschützt.** "Alle ersetzen" hätte ihn umgeschrieben, obwohl
+  ein auskommentierter Teilbaum laut Grilling-Punkt 2 schreibgeschützt ist. Jetzt gilt der
+  Schutz für den Kommentarknoten UND seine Inhalte; nur Prosa-Kommentare sind ersetzbar — und
+  auch die nur, solange die Ersetzung kein `--` hineinschreibt.
+
+**Verifiziert:** Core 259/259 (34 neue Tests), Editor 240/240 (10 neue Integrationstests), beide
 Typechecks und der Produktionsbuild sauber. Der Sichttest im laufenden Fenster steht aus.
 
 ## Nachtrag 2026-07-25 — Prolog und Epilog gehen nicht mehr verloren

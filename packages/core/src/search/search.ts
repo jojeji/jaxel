@@ -95,6 +95,17 @@ function compileMatcher(options: SearchOptions): CompiledMatcher {
   };
 }
 
+/**
+ * The value a search should look at. For a commented-out subtree that is NOT its raw text:
+ * the same content is already visible as parsed child nodes, and searching both would report
+ * every match twice — once against an unreadable one-line blob, once at its real path.
+ * A prose comment has no children, so its text stays searchable (grilling #6).
+ */
+function searchableValueOf(node: DocNode): string | null {
+  if (node.kind === "comment" && node.children.length > 0) return null;
+  return node.value;
+}
+
 function includesName(scope: SearchScope): boolean {
   return scope === "name" || scope === "all";
 }
@@ -126,7 +137,7 @@ export function findAll(root: DocNode, options: SearchOptions): SearchMatch[] {
     if (includesName(options.scope) && matcher.test(node.name)) {
       matches.push({ node, matchedIn: "name" });
     }
-    if (includesValue(options.scope) && node.value !== null && matcher.test(node.value)) {
+    if (includesValue(options.scope) && searchableValueOf(node) !== null && matcher.test(searchableValueOf(node)!)) {
       matches.push({ node, matchedIn: "value" });
     }
     if (includesAttribute(options.scope)) {
@@ -168,10 +179,11 @@ export function planReplacements(root: DocNode, options: SearchOptions, replacem
         plans.push({ node, kind: "name", before: node.name, after: result, count });
       }
     }
-    if (includesValue(options.scope) && node.value !== null) {
-      const { result, count } = matcher.replace(node.value, replacement);
+    const searchableValue = includesValue(options.scope) ? searchableValueOf(node) : null;
+    if (searchableValue !== null) {
+      const { result, count } = matcher.replace(searchableValue, replacement);
       if (count > 0) {
-        plans.push({ node, kind: "value", before: node.value, after: result, count });
+        plans.push({ node, kind: "value", before: searchableValue, after: result, count });
       }
     }
     if (includesAttribute(options.scope)) {

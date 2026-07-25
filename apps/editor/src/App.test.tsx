@@ -2542,6 +2542,59 @@ describe("Kommentare im Baum", () => {
     expect(revived.some((row) => row && !row.classList.contains("tree-row--in-comment"))).toBe(true);
   });
 
+  it("sperrt das Bearbeiten innerhalb eines auskommentierten Teilbaums", async () => {
+    const user = await openCommentedFile();
+    const commentRow = rowOf('<person id="P-9"><name>Zoe</name></person>');
+    await user.click(commentRow);
+    const inner = await screen.findByText("person", { selector: ".tree-row--in-comment .tree-row__name" });
+
+    await user.dblClick(inner);
+
+    // Kein Editor: die Änderung ginge beim Speichern verloren, weil der Rohtext geschrieben wird.
+    expect(screen.queryByDisplayValue("person")).not.toBeInTheDocument();
+  });
+
+  it("graut Löschen und Duplizieren innerhalb eines Kommentars aus", async () => {
+    const user = await openCommentedFile();
+    const commentRow = rowOf('<person id="P-9"><name>Zoe</name></person>');
+    await user.click(commentRow);
+    const inner = await screen.findByText("person", { selector: ".tree-row--in-comment .tree-row__name" });
+    await user.click(inner.closest(".tree-row") as HTMLElement);
+    await openContextMenuOn(user, inner.closest(".tree-row") as HTMLElement);
+
+    expect(screen.getByRole("menuitem", { name: "Löschen Entf" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Duplizieren Strg+D" })).toBeDisabled();
+  });
+
+  it("weist ein -- beim Bearbeiten eines Kommentartexts zurück", async () => {
+    const user = await openCommentedFile();
+    const proseRow = rowOf("die erste Person");
+    const text = within(proseRow).getByText("die erste Person");
+
+    await user.dblClick(text);
+    const input = await screen.findByDisplayValue("die erste Person");
+    await user.clear(input);
+    await user.type(input, "A--B");
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText(/„--“|"--"|--/, { selector: ".toast__message" })).toBeInTheDocument();
+    // Der Kommentar bleibt unverändert.
+    expect(screen.getByText("die erste Person")).toBeInTheDocument();
+  });
+
+  it("legt über das Kontextmenü einen neuen Kommentar an", async () => {
+    const user = await openCommentedFile();
+    const personRow = rowOf("person");
+    await user.click(personRow);
+    await openContextMenuOn(user, personRow);
+
+    await user.click(screen.getByRole("menuitem", { name: "Kommentar einfügen" }));
+
+    // Der neue Kommentar ist sofort im Bearbeiten-Modus (die Attribut-Felder rechts sind
+    // ebenfalls Textboxen, deshalb gezielt auf den Inline-Editor im Baum prüfen).
+    await waitFor(() => expect(document.querySelector(".tree-row__editor")).not.toBeNull());
+  });
+
   it("graut Einkommentieren bei einem Prosa-Kommentar aus", async () => {
     const user = await openCommentedFile();
     const proseRow = rowOf("die erste Person");

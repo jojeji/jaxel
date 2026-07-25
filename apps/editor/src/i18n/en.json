@@ -154,5 +154,9 @@
   "menu.commentOut": "Comment out",
   "menu.uncomment": "Uncomment",
   "menu.commentOut.containsComment": "Contains a comment — XML does not allow nested comments.",
-  "menu.commentOut.containsDoubleHyphen": "Contains “--”, which is not allowed inside an XML comment."
+  "menu.commentOut.containsDoubleHyphen": "Contains “--”, which is not allowed inside an XML comment.",
+  "comment.doubleHyphenRejected": "An XML comment may not contain “--” — the change was discarded.",
+  "search.skippedInComments": "{n} match(es) skipped inside commented-out sections.",
+  "menu.addComment": "Insert comment",
+  "menu.addCommentChild": "Insert comment as child"
 }

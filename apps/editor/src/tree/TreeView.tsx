@@ -404,6 +404,9 @@ function TreeRowView({
         <span
           className="tree-row__name"
           onDoubleClick={(event) => {
+            // Inside a commented-out subtree nothing is editable: the file holds the comment's
+            // raw text, so an edit here would be silently dropped on save.
+            if (insideComment) return;
             event.stopPropagation();
             onSelect("none"); // editing acts on this one node — collapse any multi-selection
             onStartEditName();
@@ -430,7 +433,8 @@ function TreeRowView({
           <span
             className="tree-row__preview"
             onDoubleClick={(event) => {
-              if (hasChildren) return; // only leaf values are directly editable
+              if (hasChildren && !isCommentRow) return; // only leaf values are directly editable
+              if (insideComment) return; // read-only, see the name handler above
               event.stopPropagation();
               onSelect("none"); // editing acts on this one node — collapse any multi-selection
               onStartEditValue();
