@@ -9,7 +9,7 @@ Gepflegt wird GROB (Nutzersicht, kein technisches Bug-Protokoll — Details steh
 `docs/status.md` und der Git-Historie). Laufende Arbeit sammelt sich unter *Unreleased*;
 eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
-## [Unreleased]
+## [0.6.0] - 2026-07-25
 
 ### Behoben
 

@@ -1,6 +1,6 @@
 [package]
 name = "jaxel"
-version = "0.5.0"
+version = "0.6.0"
 description = "Jaxel — plattformunabhängiger XML/JSON-Editor"
 authors = ["profiforms"]
 license = ""
