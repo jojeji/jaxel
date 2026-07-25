@@ -11,6 +11,17 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+### Behoben
+
+- **Kritisch: DOCTYPE und Kommentare über der Wurzel gingen beim Speichern verloren.** Eine
+  XML-Datei nur zu öffnen und zu speichern — ohne jede Bearbeitung — entfernte die
+  `<!DOCTYPE …>`-Zeile, alle Kommentare vor dem Wurzel-Element und alles nach dem schließenden
+  Wurzel-Tag. Bei Dateien mit DTD-Referenz konnte das dazu führen, dass sie von anderen
+  Programmen nicht mehr korrekt verarbeitet wurden. Betrifft nur künftige Speichervorgänge —
+  bereits gespeicherte Dateien sollten geprüft werden. (Gleicher Fehlertyp wie der in 0.3.2
+  behobene Verlust der XML-Deklaration.)
+- Eine Datei ohne abschließende Zeilenschaltung bekommt beim Speichern keine mehr aufgezwungen.
+
 ### Hinzugefügt
 
 - **Mehrfachauswahl im Baum:** `Strg`+Klick wählt einzelne Knoten zusätzlich aus, `Shift`+Klick

@@ -19,9 +19,14 @@
  *   whitespace between child elements is dropped too (not treated as content).
  * - Comments, processing instructions (other than the leading XML declaration) and
  *   the CDATA *markers* are not represented as tree nodes — the model has no slot
- *   for them. They are parsed (so they can't crash the parser or corrupt byte
- *   offsets) and then discarded, except CDATA *content*, which is kept as raw,
- *   non-entity-decoded text.
+ *   for them. Inside the root element they are parsed (so they can't crash the parser
+ *   or corrupt byte offsets) and then discarded, except CDATA *content*, which is kept
+ *   as raw, non-entity-decoded text. Such content survives a save only indirectly, via
+ *   the minimal-invasive path's verbatim byte copy of unchanged nodes.
+ *   OUTSIDE the root element (prolog/epilog) the same content is kept verbatim as raw
+ *   text instead, because there is no enclosing node whose byte range could carry it —
+ *   discarding it meant a plain open-and-save silently dropped the DOCTYPE and every
+ *   comment above the root.
  * - Namespace prefixes are treated as plain text within `name`/attribute `name`;
  *   there is no prefix-to-`xmlns`-URI resolution (per docs/entscheidungen.md #6).
  * - Unknown named entities (i.e. anything beyond the five XML-predefined entities
@@ -34,6 +39,11 @@ import { createNode, type DocAttribute, type DocNode } from "../model/node.js";
 export interface ParseXmlResult {
   root: DocNode;
   xmlDeclaration?: string;
+  /** Raw text between the XML declaration and the root tag (DOCTYPE, comments, processing
+   * instructions, and the whitespace around them), kept verbatim so saving can restore it. */
+  prolog?: string;
+  /** Raw text after the closing root tag, same deal — including the file's final newline. */
+  epilog?: string;
 }
 
 // Permissive Unicode allowance beyond the ASCII XML Name grammar (covers accented
@@ -312,10 +322,19 @@ export function parseXml(source: string): ParseXmlResult {
     }
   }
 
+  // Everything between the declaration and the root tag — DOCTYPE, comments, processing
+  // instructions — is kept VERBATIM (whitespace and line breaks included) rather than modeled.
+  // `skipMisc` used to discard it, which meant merely opening and saving a file dropped its
+  // DOCTYPE and any leading comments. Keeping the raw span makes saving give it back unchanged
+  // without the tree needing a node type for any of it.
+  const prologStart = pos;
   pos = skipMisc(pos);
+  const prolog = source.slice(prologStart, pos);
   if (pos >= len || source.charAt(pos) !== "<") {
     fail("expected root element", pos);
   }
-  const { node: root } = parseElement(pos);
-  return { root, xmlDeclaration };
+  const { node: root, end: rootEnd } = parseElement(pos);
+  // Same for anything after the closing root tag (trailing comments, the final newline).
+  const epilog = source.slice(rootEnd);
+  return { root, xmlDeclaration, prolog, epilog };
 }

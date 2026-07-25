@@ -3,6 +3,50 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-25 — Prolog und Epilog gehen nicht mehr verloren
+
+Schritt 1 des Kommentar-Themas (siehe `docs/entscheidungen.md`, „Grilling: Kommentare in XML",
+Punkt 9): bewusst als eigenes, kleines Paket vor dem eigentlichen Feature, weil es ein
+Datenverlust in der ausgelieferten 0.5.0 ist und kein Komfortthema.
+
+**Der Fehler:** `skipMisc` in `xml-import.ts` übersprang alles zwischen XML-Deklaration und
+Wurzel-Tag (DOCTYPE, Kommentare, Verarbeitungsanweisungen) und verwarf es; `serializeXmlMinimal`
+stellte beim Speichern nur die Deklaration wieder voran. Öffnen und Speichern ohne jede
+Bearbeitung entfernte damit den DOCTYPE, jeden Kommentar über der Wurzel und alles nach dem
+schließenden Wurzel-Tag. Gefunden beim Grilling zum Kommentar-Feature, nicht durch einen
+Fehlerbericht. Derselbe Fehlertyp wie der in 0.3.2 behobene Verlust der XML-Deklaration — was
+dafür spricht, dass „alles, was kein Knoten ist" die strukturell schwache Stelle des
+Speicherpfads ist.
+
+**Die Lösung:** `parseXml` liefert die beiden Spannen jetzt wörtlich mit (`prolog`, `epilog`,
+inklusive ihres Whitespace), `serializeXml`/`serializeXmlMinimal` legen sie unverändert wieder
+um den Rumpf. Kein neuer Knotentyp, keine Änderung am Baum — der Rahmen ist reiner Rohtext.
+
+**Ein Typ statt drei loser Felder:** `XmlFraming` (in `model/document.ts`) bündelt
+`xmlDeclaration`, `prolog` und `epilog`. Sie werden immer gemeinsam erfasst und wiederhergestellt;
+als Einzelfelder hätten sie an den rund zehn Durchreichstellen weiterverfolgt werden müssen, und
+eine vergessene Stelle wäre genau der Fehler, den dieses Paket behebt. Die Aufrufstellen reichen
+das Parse-Ergebnis jetzt als Ganzes weiter (`...parsed`) statt einzelne Felder herauszugreifen.
+
+**Bewusste Verhaltensänderungen:**
+
+- **Eine Datei ohne abschließende Zeilenschaltung behält das so.** Vorher hängte der
+  Speicherpfad bedingungslos ein `\n` an. Jetzt ist der Epilog maßgeblich — treuer, aber eine
+  sichtbare Änderung für solche Dateien.
+- **Das Skelett für neue XML-Dokumente endet jetzt auf `\n`.** Sonst hätte ein neu angelegtes
+  Dokument einen leeren Epilog und wäre ohne Schluss-Zeilenschaltung gespeichert worden.
+- **`prolog: undefined` und `prolog: ""` bedeuten Verschiedenes** — „nie geparst, nimm die alte
+  Formatierung" gegenüber „geparst, da stand wirklich nichts". Bäume ohne geparste Herkunft
+  (Fragmente, Zwischenablage) verhalten sich deshalb unverändert.
+
+**Was das NICHT löst:** Kommentare *innerhalb* der Wurzel bleiben unmodelliert und überleben
+weiterhin nur über die Byte-Kopie unveränderter Knoten — ändert man einen Vorfahren, sind die
+Kommentare in dessen Lücken weg. Das behebt erst Schritt 2 (Kommentarknoten).
+
+**Verifiziert:** Core 225/225 (12 neue Tests, darunter DOCTYPE mit internem Subset und der volle
+Ablauf ändern→speichern→anders ändern→speichern), Editor 230/230 unverändert, beide Typechecks
+und der Produktionsbuild sauber.
+
 ## Nachtrag 2026-07-25 — XML↔JSON-Konvertierung über „Speichern unter"
 
 Letztes der drei vom PO angestoßenen Features. Design vorab geklärt — siehe den neuen Eintrag

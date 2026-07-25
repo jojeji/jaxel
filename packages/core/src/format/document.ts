@@ -1,14 +1,14 @@
-import type { DocFormat } from "../model/document.js";
+import type { DocFormat, XmlFraming } from "../model/document.js";
 import type { DocNode } from "../model/node.js";
 import { parseXml } from "./xml-import.js";
 import { parseJson } from "./json-import.js";
 import { serializeXml } from "./xml-export.js";
 import { serializeJson } from "./json-export.js";
 
-export interface ParsedDocument {
+/** XML-origin documents carry their framing (declaration, prolog, epilog) along; a JSON-origin
+ * document leaves all of it undefined. */
+export interface ParsedDocument extends XmlFraming {
   root: DocNode;
-  /** XML only — a JSON-origin document never has one. */
-  xmlDeclaration?: string;
 }
 
 /**
@@ -18,8 +18,8 @@ export interface ParsedDocument {
  */
 export function parseDocument(format: DocFormat, text: string): ParsedDocument {
   if (format === "xml") {
-    const parsed = parseXml(text);
-    return { root: parsed.root, xmlDeclaration: parsed.xmlDeclaration };
+    const { root, xmlDeclaration, prolog, epilog } = parseXml(text);
+    return { root, xmlDeclaration, prolog, epilog };
   }
   return { root: parseJson(text).root };
 }
@@ -30,13 +30,20 @@ export function parseDocument(format: DocFormat, text: string): ParsedDocument {
  * clipboard). The save path's minimal-invasive XML serialization stays separate (it needs a
  * `source` string this shape has no room for) — see document-store.ts's `serializeForSave`.
  */
-export function serializeDocument(doc: {
-  format: DocFormat;
-  root: DocNode;
-  xmlDeclaration?: string;
-  indent: string;
-}): string {
+export function serializeDocument(
+  doc: {
+    format: DocFormat;
+    root: DocNode;
+    indent: string;
+  } & XmlFraming,
+): string {
   return doc.format === "xml"
-    ? serializeXml({ root: doc.root, xmlDeclaration: doc.xmlDeclaration, indent: doc.indent })
+    ? serializeXml({
+        root: doc.root,
+        indent: doc.indent,
+        xmlDeclaration: doc.xmlDeclaration,
+        prolog: doc.prolog,
+        epilog: doc.epilog,
+      })
     : serializeJson({ root: doc.root, indent: doc.indent });
 }

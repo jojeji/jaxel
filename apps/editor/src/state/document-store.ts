@@ -20,6 +20,7 @@ import {
   type DocNode,
   type JaxelDocument,
   type PathSegment,
+  type XmlFraming,
 } from "@jaxel/core";
 
 export interface OpenDocumentState {
@@ -79,7 +80,9 @@ interface DocsState {
 /** Skeleton content for a brand-new document, keyed by format — see docs/entscheidungen.md
  * 2026-07-18 #3: XML starts with an empty <root></root>, JSON with an empty object. */
 const NEW_DOCUMENT_SKELETON: Record<DocFormat, string> = {
-  xml: '<?xml version="1.0" encoding="UTF-8"?>\n<root></root>',
+  // The trailing newline is load-bearing: it becomes the document's `epilog` (see XmlFraming),
+  // and saving now reproduces that span verbatim instead of always appending one.
+  xml: '<?xml version="1.0" encoding="UTF-8"?>\n<root></root>\n',
   json: "{}",
 };
 
@@ -115,8 +118,10 @@ function serializeForSave(target: OpenDocumentState): string {
   return target.format === "xml"
     ? serializeXmlMinimal(target.sourceText, {
         root: target.document.root,
-        xmlDeclaration: target.document.xmlDeclaration,
         indent: target.document.indent,
+        xmlDeclaration: target.document.xmlDeclaration,
+        prolog: target.document.prolog,
+        epilog: target.document.epilog,
       })
     : serializeJson({ root: target.document.root, indent: target.document.indent });
 }
@@ -249,15 +254,16 @@ export function useJaxelDocuments(): {
    * the document's EXISTING ones instead of replacing them, so folding those in here would
    * force it to pass back values it never actually wants to change.
    */
-  function createDocumentCore(params: {
-    format: DocFormat;
-    root: DocNode;
-    xmlDeclaration?: string;
-    encoding: string;
-    sourceText: string;
-    mtimeMs: number;
-    size: number;
-  }): {
+  function createDocumentCore(
+    params: {
+      format: DocFormat;
+      root: DocNode;
+      encoding: string;
+      sourceText: string;
+      mtimeMs: number;
+      size: number;
+    } & XmlFraming,
+  ): {
     core: Pick<
       OpenDocumentState,
       "document" | "commandBus" | "sourceText" | "encoding" | "isDirty" | "changeBaseline" | "lastKnownMtimeMs" | "lastKnownSize"
@@ -269,6 +275,8 @@ export function useJaxelDocuments(): {
       root: params.root,
       encoding: params.encoding,
       xmlDeclaration: params.xmlDeclaration,
+      prolog: params.prolog,
+      epilog: params.epilog,
     });
     const { commandBus, unsubscribe } = attachDocument(doc);
     return {
@@ -299,12 +307,11 @@ export function useJaxelDocuments(): {
     );
     logInfo("breadcrumb", `Datei geöffnet: ${path}`);
     const format = detectFormat(path, result.content);
-    const { root, xmlDeclaration } = parseDocument(format, result.content);
+    const parsed = parseDocument(format, result.content);
 
     const { core, unsubscribe } = createDocumentCore({
+      ...parsed,
       format,
-      root,
-      xmlDeclaration,
       encoding: result.encoding,
       sourceText: result.content,
       mtimeMs: result.mtimeMs,
@@ -380,12 +387,11 @@ export function useJaxelDocuments(): {
 
   const newDocument = useCallback((format: DocFormat, content?: string) => {
     const skeletonText = content ?? NEW_DOCUMENT_SKELETON[format];
-    const { root, xmlDeclaration } = parseDocument(format, skeletonText);
+    const parsed = parseDocument(format, skeletonText);
 
     const { core, unsubscribe } = createDocumentCore({
+      ...parsed,
       format,
-      root,
-      xmlDeclaration,
       encoding: "UTF-8",
       sourceText: skeletonText,
       mtimeMs: 0,
@@ -488,19 +494,20 @@ export function useJaxelDocuments(): {
    * `newFilePath`/`newFormat` are the conversion's extra move — it also changes the document's
    * identity and format, which a reload never does.
    */
-  function swapDocument(params: {
-    filePath: string;
-    newFilePath?: string;
-    newFormat?: DocFormat;
-    newRoot: DocNode;
-    xmlDeclaration?: string;
-    encoding: string;
-    sourceText: string;
-    mtimeMs: number;
-    size: number;
-    selectionSegments: PathSegment[] | null;
-    expandedSegmentsList: PathSegment[][];
-  }): { selectedId: string | null; expandedIds: string[] } {
+  function swapDocument(
+    params: {
+      filePath: string;
+      newFilePath?: string;
+      newFormat?: DocFormat;
+      newRoot: DocNode;
+      encoding: string;
+      sourceText: string;
+      mtimeMs: number;
+      size: number;
+      selectionSegments: PathSegment[] | null;
+      expandedSegmentsList: PathSegment[][];
+    } & XmlFraming,
+  ): { selectedId: string | null; expandedIds: string[] } {
     const { filePath, newRoot } = params;
     const newPath = params.newFilePath ?? filePath;
     const target = stateRef.current.docs.find((d) => d.filePath === filePath);
@@ -539,6 +546,8 @@ export function useJaxelDocuments(): {
       format: params.newFormat ?? target?.format ?? "xml",
       root: newRoot,
       xmlDeclaration: params.xmlDeclaration,
+      prolog: params.prolog,
+      epilog: params.epilog,
       encoding: params.encoding,
       sourceText: params.sourceText,
       mtimeMs: params.mtimeMs,
@@ -600,16 +609,16 @@ export function useJaxelDocuments(): {
         "read_text_file",
         { path: filePath },
       );
-      const { root: newRoot, xmlDeclaration } = parseDocument(target.format, result.content);
+      const parsed = parseDocument(target.format, result.content);
       // No asynchronous boundary follows before the store replacement. This closes the window
       // in which an automatic reload could discard a command executed while read_text_file ran.
       if (canCommit && !canCommit()) return null;
       logInfo("breadcrumb", `Datei neu geladen: ${filePath}`);
 
       return swapDocument({
+        ...parsed,
         filePath,
-        newRoot,
-        xmlDeclaration,
+        newRoot: parsed.root,
         encoding: result.encoding,
         sourceText: result.content,
         mtimeMs: result.mtimeMs,
@@ -654,13 +663,13 @@ export function useJaxelDocuments(): {
       });
       logInfo("breadcrumb", `Datei konvertiert nach ${targetFormat} und gespeichert: ${newPath}`);
 
-      const { root: newRoot, xmlDeclaration } = parseDocument(targetFormat, text);
+      const parsed = parseDocument(targetFormat, text);
       return swapDocument({
+        ...parsed,
         filePath: currentPath,
         newFilePath: newPath,
         newFormat: targetFormat,
-        newRoot,
-        xmlDeclaration,
+        newRoot: parsed.root,
         encoding: target.encoding,
         sourceText: text,
         mtimeMs: stat.mtimeMs,

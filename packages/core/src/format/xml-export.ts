@@ -21,6 +21,7 @@
  *   only if the shared ancestor's own `byteRange` is left untouched too.
  */
 
+import type { XmlFraming } from "../model/document.js";
 import type { DocNode } from "../model/node.js";
 
 function escapeText(value: string): string {
@@ -60,16 +61,29 @@ function serializeNode(node: DocNode, indent: string, depth: number, byteSource?
   return `${pad}<${node.name}${attrs}>${escapeText(text)}</${node.name}>`;
 }
 
-export function serializeXml(doc: { root: DocNode; xmlDeclaration?: string; indent: string }): string {
-  const body = serializeNode(doc.root, doc.indent, 0);
-  return doc.xmlDeclaration ? `${doc.xmlDeclaration}\n${body}\n` : `${body}\n`;
+/** Puts the verbatim prolog/epilog captured by `parseXml` back around the serialized body.
+ * Those spans already carry their own whitespace, so they replace the newlines this module
+ * would otherwise invent; a tree that never came from parsed source has neither and falls back
+ * to the previous plain layout. */
+function wrap(body: string, doc: XmlFraming): string {
+  const head = doc.xmlDeclaration ?? "";
+  // `prolog` is undefined only when there was no parse to capture it; an empty string is a
+  // real answer ("declaration sits directly against the root tag") and must be honored.
+  const lead = doc.prolog ?? (doc.xmlDeclaration ? "\n" : "");
+  const tail = doc.epilog ?? "\n";
+  return `${head}${lead}${body}${tail}`;
+}
+
+export function serializeXml(
+  doc: { root: DocNode; indent: string } & XmlFraming,
+): string {
+  return wrap(serializeNode(doc.root, doc.indent, 0), doc);
 }
 
 export function serializeXmlMinimal(
   source: string,
-  doc: { root: DocNode; xmlDeclaration?: string; indent: string },
+  doc: { root: DocNode; indent: string } & XmlFraming,
 ): string {
   const byteSource: ByteSource = { bytes: new TextEncoder().encode(source), decoder: new TextDecoder() };
-  const body = `${serializeNode(doc.root, doc.indent, 0, byteSource)}\n`;
-  return doc.xmlDeclaration ? `${doc.xmlDeclaration}\n${body}` : body;
+  return wrap(serializeNode(doc.root, doc.indent, 0, byteSource), doc);
 }

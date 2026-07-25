@@ -3,7 +3,7 @@
 export type { DocAttribute, DocNode, JsonPrimitiveType } from "./model/node.js";
 export { cloneSubtree, createNode, createNodeId } from "./model/node.js";
 
-export type { DocFormat, JaxelDocument } from "./model/document.js";
+export type { DocFormat, JaxelDocument, XmlFraming } from "./model/document.js";
 export { createDocument } from "./model/document.js";
 
 export type { Command } from "./commands/command.js";
