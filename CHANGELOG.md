@@ -11,6 +11,16 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-25
+
+### Hinzugefügt
+
+- **Klassische Menüleiste** (Datei/Bearbeiten/Ansicht/Extras/Hilfe) oberhalb der Toolbar —
+  seltenere Aktionen (Kind hinzufügen, Duplizieren, Löschen, alle Pfad-kopieren-Varianten,
+  Einfügen, Über Jaxel) sind jetzt dort statt als Icon zu finden. Die Toolbar bleibt für die
+  häufigsten Aktionen (Neu, Öffnen, Speichern, Suchen, Einstellungen) und hat neu
+  **Rückgängig/Wiederholen** als eigene Buttons.
+
 ### Behoben
 
 - **Kritisch: zweites Speichern konnte die XML zerstören.** Ein Feld ändern und speichern, dann
