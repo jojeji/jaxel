@@ -7,6 +7,7 @@ import {
   formatIndexedPath,
   formatStaticPath,
   getPathSegments,
+  pathSegmentsOf,
   resolveNodeBySegments,
   truncatePathLabels,
 } from "../src/format/path.js";
@@ -114,6 +115,32 @@ describe("path", () => {
     const segments = getPathSegments(leaf, ancestors);
     expect(formatIndexedPath(segments)).toBe(indexed);
     expect(formatStaticPath(segments)).toBe(staticPath);
+  });
+});
+
+describe("pathSegmentsOf", () => {
+  it("matches getPathSegments called with the ancestor chain found separately", () => {
+    const { root, person1Name } = buildCatalogTree();
+    const ancestors = findAncestors(root, person1Name);
+
+    expect(pathSegmentsOf(root, person1Name)).toEqual(getPathSegments(person1Name, ancestors));
+  });
+
+  it("returns just the node's own segment for the root itself", () => {
+    const { root } = buildCatalogTree();
+
+    expect(pathSegmentsOf(root, root)).toEqual([
+      { name: "catalog", indexAmongSameName: 0, hasSiblingsWithSameName: false },
+    ]);
+  });
+
+  it("falls back to just the node's own segment when it isn't found under root", () => {
+    const { root } = buildCatalogTree();
+    const stranger = createNode({ name: "stranger" });
+
+    expect(pathSegmentsOf(root, stranger)).toEqual([
+      { name: "stranger", indexAmongSameName: 0, hasSiblingsWithSameName: false },
+    ]);
   });
 });
 

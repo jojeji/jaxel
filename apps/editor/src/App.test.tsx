@@ -141,6 +141,17 @@ function stubClipboard(): void {
   });
 }
 
+/** Opens a MenuBar dropdown ("Bearbeiten", "Hilfe", …) and clicks one of its entries — the
+ * actions that moved from toolbar icon buttons into the classic menu bar. */
+async function clickMenuItem(
+  user: ReturnType<typeof userEvent.setup>,
+  menu: string,
+  item: string,
+): Promise<void> {
+  await user.click(screen.getByRole("menuitem", { name: menu }));
+  await user.click(screen.getByRole("menuitem", { name: item }));
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -394,7 +405,7 @@ describe("Knoten einfuegen/loeschen/duplizieren", () => {
   it("'Kind hinzufuegen' springt direkt in die Namens-Eingabe; 'Loeschen' entfernt den Knoten", async () => {
     const user = await openSampleFile();
     await user.click(screen.getByText("catalog"));
-    await user.click(screen.getByRole("button", { name: "Kind hinzufügen" }));
+    await clickMenuItem(user, "Bearbeiten", "Kind hinzufügen Strg+Shift++");
 
     // Der neue Knoten steht sofort im Namens-Editor (vorbelegt mit "node").
     const input = screen.getByDisplayValue("node");
@@ -404,7 +415,7 @@ describe("Knoten einfuegen/loeschen/duplizieren", () => {
     const created = await screen.findByText("extra", { selector: ".tree-row__name" });
 
     await user.click(created);
-    await user.click(screen.getByRole("button", { name: "Löschen" }));
+    await clickMenuItem(user, "Bearbeiten", "Löschen Entf");
     expect(screen.queryByText("extra")).not.toBeInTheDocument();
   });
 
@@ -890,11 +901,11 @@ describe("Pfad kopieren", () => {
     const cityValue = await screen.findByText("Hamburg");
     await user.click(cityValue); // selektiert die "city"-Zeile
 
-    await user.click(screen.getByRole("button", { name: "Pfad kopieren" }));
+    await clickMenuItem(user, "Bearbeiten", "Pfad kopieren");
     expect(writeText).toHaveBeenCalledWith("person[1].city");
     expect(await screen.findByText("Pfad kopiert")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Pfad kopieren (statisch)" }));
+    await clickMenuItem(user, "Bearbeiten", "Pfad kopieren (statisch)");
     expect(writeText).toHaveBeenCalledWith("person.city");
   });
 });
@@ -1140,7 +1151,7 @@ describe("Über Jaxel", () => {
   it("zeigt Titel, Entwickler und einen Versions-Platzhalter (kein echtes Tauri-Fenster im Test)", async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole("button", { name: "Über Jaxel" }));
+    await clickMenuItem(user, "Hilfe", "Über Jaxel");
 
     expect(screen.getByText("Jaxel", { selector: "h2" })).toBeInTheDocument();
     expect(screen.getByText("Joey Lauterbach")).toBeInTheDocument();
@@ -1153,7 +1164,7 @@ describe("Über Jaxel", () => {
   it("„Logdatei öffnen“ ruft open_log auf und zeigt den Pfad als Status", async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(screen.getByRole("button", { name: "Über Jaxel" }));
+    await clickMenuItem(user, "Hilfe", "Über Jaxel");
     await user.click(screen.getByRole("button", { name: "Logdatei öffnen" }));
 
     await waitFor(() =>
@@ -1252,7 +1263,7 @@ describe("Schwebende Status- und Fehlermeldungen", () => {
     expect(await screen.findByText("Dialog-Fehler")).toBeInTheDocument();
 
     await user.click(screen.getAllByText("person")[0]!);
-    await user.click(screen.getByRole("button", { name: "Pfad kopieren" }));
+    await clickMenuItem(user, "Bearbeiten", "Pfad kopieren");
     expect(await screen.findByText("Pfad kopiert")).toBeInTheDocument();
 
     const viewport = document.querySelector(".toast-viewport")!;
@@ -1374,7 +1385,7 @@ describe("Baum-Änderungsmarker (Settings: default aus)", () => {
     await enableChangeMarkers(user);
 
     await user.click(screen.getByText("catalog"));
-    await user.click(screen.getByRole("button", { name: "Kind hinzufügen" }));
+    await clickMenuItem(user, "Bearbeiten", "Kind hinzufügen Strg+Shift++");
     const input = screen.getByDisplayValue("node");
     await user.clear(input);
     await user.type(input, "extra");
@@ -1391,7 +1402,7 @@ describe("Baum-Änderungsmarker (Settings: default aus)", () => {
     await user.click(screen.getAllByText("person")[0]!);
     const cityValue = await screen.findByText("Berlin");
     await user.click(cityValue.closest(".tree-row")!);
-    await user.click(screen.getByRole("button", { name: "Löschen" }));
+    await clickMenuItem(user, "Bearbeiten", "Löschen Entf");
 
     const tombstone = await screen.findByText("city", { selector: ".tree-row--tombstone .tree-row__name" });
     expect(tombstone.closest(".tree-row--tombstone")).toBeInTheDocument();

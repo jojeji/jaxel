@@ -43,6 +43,14 @@ fn take_pending_open_paths(state: tauri::State<PendingOpenPaths>) -> Vec<String>
     std::mem::take(&mut *state.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
 }
 
+/// Logs `error` (with `command`/`path` for context) and converts it into an `InvokeError` for
+/// the frontend — shared by the three plain file-I/O commands, which all just pass an `io::*`
+/// error straight through after logging it.
+fn log_io_error(command: &str, path: &str, error: String) -> InvokeError {
+    log::error!("{command} fehlgeschlagen ({path}): {error}");
+    InvokeError::from(error)
+}
+
 #[tauri::command]
 fn read_text_file(path: String) -> Result<FileContent, InvokeError> {
     io::read_text_file(&PathBuf::from(&path))
@@ -52,30 +60,21 @@ fn read_text_file(path: String) -> Result<FileContent, InvokeError> {
             mtime_ms: decoded.stat.mtime_ms,
             size: decoded.stat.size,
         })
-        .map_err(|error| {
-            log::error!("read_text_file fehlgeschlagen ({path}): {error}");
-            InvokeError::from(error)
-        })
+        .map_err(|error| log_io_error("read_text_file", &path, error))
 }
 
 #[tauri::command]
 fn write_text_file(path: String, content: String, encoding: String) -> Result<FileStatResult, InvokeError> {
     io::write_text_file(&PathBuf::from(&path), &content, &encoding)
         .map(FileStatResult::from)
-        .map_err(|error| {
-            log::error!("write_text_file fehlgeschlagen ({path}): {error}");
-            InvokeError::from(error)
-        })
+        .map_err(|error| log_io_error("write_text_file", &path, error))
 }
 
 #[tauri::command]
 fn stat_file(path: String) -> Result<FileStatResult, InvokeError> {
     io::stat_file(&PathBuf::from(&path))
         .map(FileStatResult::from)
-        .map_err(|error| {
-            log::error!("stat_file fehlgeschlagen ({path}): {error}");
-            InvokeError::from(error)
-        })
+        .map_err(|error| log_io_error("stat_file", &path, error))
 }
 
 /// Base64-Decode-Ansicht (docs/entscheidungen.md 2026-07-18): writes decoded binary content

@@ -129,5 +129,12 @@
   "menu.copyNode": "Knoten kopieren",
   "menu.pasteNode": "Einfügen",
   "errorPage.title": "Etwas ist schiefgelaufen",
-  "errorPage.hint": "Öffne die Logdatei über „Über Jaxel“ → „Logdatei öffnen“, um Details zu sehen."
+  "errorPage.hint": "Öffne die Logdatei über „Über Jaxel“ → „Logdatei öffnen“, um Details zu sehen.",
+  "menuBar.file": "Datei",
+  "menuBar.edit": "Bearbeiten",
+  "menuBar.view": "Ansicht",
+  "menuBar.tools": "Extras",
+  "menuBar.help": "Hilfe",
+  "menuBar.undo": "Rückgängig",
+  "menuBar.redo": "Wiederholen"
 }

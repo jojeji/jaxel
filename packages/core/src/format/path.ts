@@ -66,6 +66,18 @@ export function getPathSegments(target: DocNode, ancestors: DocNode[]): PathSegm
 }
 
 /**
+ * `getPathSegments(node, ...)` needs `node`'s ancestor chain, which callers otherwise have to
+ * fetch themselves via `findAncestorChain` — used wherever a node's position must be captured
+ * for later re-resolution against a different tree (e.g. a reload's "restore selection/expand
+ * state" pass, see `resolveNodeBySegments`). Returns `[]` (just the node's own segment) if
+ * `node` isn't actually found under `root` — same defensive fallback `findAncestorChain` ??
+ * `[]` callers already used inline.
+ */
+export function pathSegmentsOf(root: DocNode, node: DocNode): PathSegment[] {
+  return getPathSegments(node, findAncestorChain(root, node) ?? []);
+}
+
+/**
  * The root's own segment (segments[0]) is never rendered as a "rootname." prefix in
  * either path flavor — a path is relative to the document root by convention. The sole
  * exception is a path *to* the root itself (a single-element segment chain), where the

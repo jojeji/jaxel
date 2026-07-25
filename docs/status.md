@@ -3,6 +3,174 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-25 — Klassische Menüleiste (Vorschlag B der UI-Skizze) umgesetzt
+
+Auf PO-Wunsch zunächst 3 UI-Vorschläge für Titelleiste/Menü als Artifact skizziert (nichts
+Code-seitiges), danach "setze b um": die bisherige einzeilige Icon-Toolbar (13 Icons in
+`app-titlebar__actions`) ist einer echten Menüleiste (Datei/Bearbeiten/Ansicht/Extras/Hilfe)
+plus einer schlanken 8-Icon-Toolbar gewichen — Idee: seltene Aktionen ins Menü, häufige bleiben
+als Icon sichtbar. Reine UI-Umstrukturierung, keine neue Fachlogik.
+
+- **Neu:** `apps/editor/src/ui/MenuBar.tsx` — Menüleisten-Komponente, teilt sich die
+  Dropdown-Optik (`context-menu__entry`/`__separator`) mit dem bestehenden Rechtsklick-
+  Kontextmenü (`ContextMenu.tsx`); bewusst ohne Pfeiltasten-Navigation im Dropdown, um keine
+  zum Kontextmenü inkonsistente Tastaturbedienung einzuführen (nur Klick/Escape/Klick-
+  außerhalb schließen, wie beim Kontextmenü auch).
+- **Menüleiste** (oben, immer sichtbar): Datei (Neu/Öffnen/Zuletzt geöffnet/Speichern),
+  Bearbeiten (Rückgängig/Wiederholen — **neu, gab es als Button bisher gar nicht** — Kind/
+  Geschwister hinzufügen, Duplizieren, Löschen, alle 3 Pfad-kopieren-Varianten, Knoten
+  kopieren/Einfügen — Einfügen war bislang nur per Tastenkürzel/Kontextmenü erreichbar),
+  Ansicht (Suchen), Extras (Einstellungen, Logdatei öffnen), Hilfe (Über Jaxel).
+- **Kompakte Toolbar** (zweite Zeile): Neu/Öffnen/Speichern, Rückgängig/Wiederholen, Suchen,
+  Einstellungen — alles andere (Kind hinzufügen, Duplizieren, Löschen, alle Pfad-kopieren-
+  Icons, Über Jaxel) ist aus der Toolbar raus und nur noch über Menü/Kontextmenü/Tastenkürzel
+  erreichbar.
+- **`handleUndo`/`handleRedo`** neu in `App.tsx` (`activeDoc?.commandBus.undo()/redo()`),
+  ersetzen die bisher inline im Keydown-Handler stehenden Aufrufe — jetzt eine Stelle für
+  Toolbar-Button, Menüpunkt UND Tastenkürzel. `commandBus.canUndo()/canRedo()` steuern die
+  Disabled-States (Bus existierte schon, wurde bisher nirgends abgefragt).
+  Ebenso `handleOpenLog()` neu (vorher nur inline in der `AboutDialog`-Prop) — jetzt von
+  Über-Dialog UND Extras-Menü genutzt.
+- **`isRoot`** (`!selectedRow || !findSiblingSlot(selectedRow)`) ist jetzt eine einzige
+  Komponenten-Variable statt an drei Stellen wortgleich inline dupliziert (Kontextmenü,
+  Bearbeiten-Menü, vorher auch die alten Toolbar-Buttons).
+- **Bewusst NICHT umgesetzt:** "Speichern unter" als eigener Menüpunkt (es gibt keine
+  Fachlogik dafür jenseits des bereits bestehenden automatischen Save-Dialogs bei unbenannten
+  Dokumenten — hätte neue Funktionalität statt nur eines neuen Einstiegspunkts bedeutet).
+  Kein verschachteltes Untermenü für "Zuletzt geöffnet" — die Pfade stehen flach im
+  Datei-Menü unter einer Abschnitts-Überschrift, spart eine Flyout-Komponente.
+  Keine Pfeiltasten-Navigation innerhalb der Dropdowns (siehe oben).
+- **Tests:** 9 Stellen in `App.test.tsx` mussten von direktem Toolbar-Button-Klick auf
+  "Menü öffnen → Menüpunkt klicken" umgestellt werden (`clickMenuItem`-Helfer neu); betraf
+  nur Aktionen, die aus der Toolbar entfernt wurden (Kind hinzufügen, Löschen, Pfad kopieren,
+  Über Jaxel) — Suchen/Einstellungen/Neu/Öffnen/Speichern blieben Toolbar-Buttons und damit
+  unverändert testbar.
+- `npm test` (core 137/137, editor 189/189) und `tsc --noEmit` (beide Pakete) grün;
+  `npm run dev` im Wurzelverzeichnis gestartet und lief fehlerfrei (Session-Restore griff),
+  optische Prüfung durch den PO direkt im Anschluss.
+
+## Nachtrag 2026-07-25 — Architektur-Review Runde 6: erstmals der Rust-Code (src-tauri)
+
+Alle bisherigen fünf Runden liefen ausschließlich gegen TypeScript/React; diesmal auf
+PO-Wunsch erstmals `apps/editor/src-tauri/src/` (lib.rs, io.rs, main.rs — zusammen ~310
+Zeilen, der komplette Rust-Code des Projekts) durchgesehen. Reine Qualitätsarbeit ohne
+beabsichtigte Verhaltensänderung, kein CHANGELOG-Eintrag. Deutlich weniger Substanz als auf
+der TS-Seite (passend zur Größe) — zwei Funde umgesetzt:
+
+1. **`log_io_error(command, path, error)`** in `lib.rs` — `read_text_file`/`write_text_file`/
+   `stat_file` wiederholten dieselbe `map_err`-Closure (Log + `InvokeError::from`) dreifach
+   wortgleich, nur der Kommando-Name im Log-String unterschied sich. Die fünf `map_err`-Stellen
+   in `open_decoded_file`/`open_log` bewusst NICHT mit reingezogen — andere Nachricht je
+   Stelle (Base64 ungültig, Temp-Datei, Öffnen fehlgeschlagen), ein gemeinsamer Helfer bräuchte
+   einen Format-String-Parameter und würde eher verkomplizieren als vereinfachen.
+2. **10 neue Tests** (`#[cfg(test)] mod tests` in `io.rs`, Standard-Toolchain, keine neue
+   Dependency) für `detect_encoding`/`sniff_xml_declared_encoding` — bislang **kein einziger**
+   Rust-Test im ganzen Projekt, obwohl diese Funktion echte Verzweigungslogik mit Randfällen
+   enthält (BOM- vs. Deklarations-Vorrang, Anführungszeichen-Matching, ISO-8859-1→
+   windows-1252-Alias, Scan-Fenster von 200 Bytes). Deckt beide BOM-Varianten, einfache/doppelte
+   Anführungszeichen, alle Fallback-Fälle (kein `encoding=`, unquoted Wert, unbekanntes Label,
+   Deklaration außerhalb des 200-Byte-Fensters) sowie den Vorrang eines BOM vor einer
+   widersprüchlichen Deklaration ab.
+- **Geprüft, kein Fund:** `io::FileStat`/`lib.rs::FileStatResult` sehen wie Duplikate aus, sind
+  aber eine bewusste Trennung (`io.rs` bleibt frei von `serde`/Tauri-Typen, unabhängig
+  testbar) — nicht zusammengelegt.
+- `cargo test`: 10/10 grün. `cargo check`: sauber.
+
+## Nachtrag 2026-07-25 — Architektur-Review Runde 5: acht Deepening-Kandidaten umgesetzt
+
+Fünfter Durchlauf von `/improve-codebase-architecture`, diesmal mit PO-Vorgabe "mehr Treffer,
+Fokus Strong" — der Report fand 9 Kandidaten (3 Strong, 5 Worth exploring, 1 Speculative), der
+PO bat darum, alle Strong- und Worth-exploring-Kandidaten ohne weitere Rückfrage umzusetzen
+("ich kann gerade keine Entscheidungen treffen"). Reine Qualitätsarbeit ohne beabsichtigte
+Verhaltensänderung, kein CHANGELOG-Eintrag. **Annahme:** da keine Grilling-Runde stattfand,
+wurden alle Designentscheidungen eigenständig getroffen (dokumentiert je Punkt unten); jeder
+Schritt wurde durch die volle Testsuite (inkl. der 128 App.tsx-Integrationstests) abgesichert.
+
+**Strong:**
+1. **UI-Checks auf `findSiblingSlot` vereinheitlicht** (`App.tsx`: Kontextmenü `isRoot`, Toolbar
+   Duplizieren/Löschen). Alle drei nutzten `selectedRow.ancestors.length === 0` statt der
+   kanonischen, bereits getesteten `findSiblingSlot` — deckten den defensiven Stale-Row-Fall
+   nicht ab (ein Button hätte klickbar bleiben können, ohne dass die Aktion etwas bewirkt).
+2. **`resolveShortcut` in neuer Datei `apps/editor/src/shortcuts.ts`.** Die ~90-Zeilen-
+   Entscheidungstabelle im `onKeyDown`-Handler (Ctrl+S bis zur Plus-Familie, 15 Zweige) ist
+   jetzt eine reine Funktion `(event, context) => ShortcutAction`, headless mit 14 Tests
+   abgesichert (inkl. dem QWERTZ/NumpadAdd-Sonderfall). Bewusst NICHT einbezogen: Ctrl+F
+   (feuert abweichend auch in Textfeldern, docs/entscheidungen.md 2026-07-21) sowie Ctrl+O/N
+   (feuern ohne aktives Dokument) — beide haben andere Vorbedingungen als der Rest und blieben
+   daher im `useEffect`.
+3. **`tree/dnd.ts`** (`positionFromRatio`, `computeDropAllowed`). `TreeView.tsx`s handgerollte
+   `isInSubtree`-Tiefensuche entfällt zugunsten von `findAncestorChain` aus Core (identische
+   Traversierung, vorher zweimal im Repo implementiert). Die komplette Drop-Zulässigkeit ist
+   jetzt mit reinen `DocNode`/`TreeRow`-Fixtures testbar (7 neue Tests) statt nur über simulierte
+   DragEvents.
+
+**Worth exploring:**
+4. **`tree/scroll-math.ts`** (`computeAnchoredScrollTop`, `computeRevealScrollTop`) — die Pixel-
+   Arithmetik aus zwei `useLayoutEffect`/`useEffect`-Callbacks in `TreeView.tsx`, jetzt mit
+   5 Tests für die Grenzfälle (Zeile bereits sichtbar, ober-/unterhalb des Viewports).
+5. **`focusInsertedNode(nodeId, expandParentId?)`** in `App.tsx` — löst das viermal (plus
+   `handleDuplicate` als fünfte, beim Umsetzen passend gefundene Stelle) wiederholte
+   "aufklappen + selektieren + reveal"-Nachbereitungsmuster nach Insert/Move ab.
+6. **`wrapIndex(index, offset, length)`** lokal in `SearchPanel.tsx` — ersetzt die zweifach
+   duplizierte Modulo-Vorzeichenkorrektur in `moveCursor`/`goToOffset`.
+7. **`resolveSearchRoot(documentRoot, subtreeOnly)`** lokal in `App.tsx` — die "Unterbaum-Suche
+   folgt der aktuellen Selektion, sonst der sichtbaren Wurzel"-Regel (docs/entscheidungen.md
+   2026-07-18 #2) war in `handleSearch` und `handleReplaceAllInternal` unabhängig kodiert.
+8. **`pathSegmentsOf(root, node)`** in `packages/core/src/format/path.ts` — kapselt
+   `getPathSegments(node, findAncestorChain(root, node) ?? [])`, bisher unabhängig in
+   `App.tsx::performReload` und `document-store.ts::remapTab` für dasselbe Reload-Feature
+   dupliziert. 3 neue Tests.
+- Kandidat 9 (Speculative, Change-Marker-Priorität inline im JSX) sowie die weiterhin
+  zurückgestellte `basename()`/`dirname()`-Duplikation wurden NICHT umgesetzt (PO-Vorgabe
+  betraf nur Strong + Worth exploring).
+- 137 Core-Tests (3 neue: pathSegmentsOf), 189 Editor-Tests (26 neue: shortcuts 14, dnd 7,
+  scroll-math 5), Typecheck beider Pakete und `cargo check` sauber.
+
+## Nachtrag 2026-07-24 — Architektur-Review Runde 4: vier Deepening-Kandidaten umgesetzt
+
+Vierter Durchlauf von `/improve-codebase-architecture` (Report: HTML-Datei im OS-Temp-Ordner,
+nicht Teil des Repos). Reine Qualitätsarbeit ohne beabsichtigte Verhaltensänderung, kein
+CHANGELOG-Eintrag. Alle vier Kandidaten aus dem Report umgesetzt (Kandidat 5, `TreeView`-Edit-
+Callback-Zusammenführung, als "Speculative" eingestuft und nicht ausgewählt):
+
+1. **`planInsertRelativeToRow` in `packages/core/src/commands/sibling-slot.ts`.**
+   `handleAddSibling` prüfte den Wurzelfall bisher per Identitätsvergleich
+   (`selectedRow.node === root`), `handlePasteNode` per strukturellem Check
+   (`!findSiblingSlot(...)`) — zwei verschiedene Ausdrücke derselben Regel, exakt das Muster,
+   das schon einmal den byteRangeChain-Bug verursacht hat (siehe "Save-Epoche"-Eintrag).
+   `planInsertRelativeToRow` vereinheitlicht auf den strukturellen Check
+   (`row.ancestors.length === 0`) und liefert eine Kind-Einfügung am sichtbaren Wurzelknoten,
+   sonst eine Geschwister-Einfügung über `findSiblingSlot`; `null` nur noch im echten,
+   defensiven Stale-Row-Fall (Knoten nicht mehr unter seinem Parent auffindbar). **Bewusste
+   Verhaltensänderung in diesem seltenen Randfall:** `handlePasteNode` fiel dort vorher still
+   auf eine Kind-Einfügung zurück, macht jetzt (wie `handleAddSibling` es schon immer tat)
+   gar nichts — Grilling-Entscheidung, da der Randfall rein defensiv ist und beide Aufrufer
+   jetzt exakt dieselbe Regel teilen sollen statt zwei leicht verschiedene. 4 neue Tests
+   (`plan-insert.test.ts`).
+2. **`keyboard-nav.ts` in `apps/editor/src/tree/`.** `moveSelection`/`handleArrowRight`/
+   `handleArrowLeft` in `App.tsx` waren reine Arithmetik über `rows`/`expanded`, aber nur über
+   den vollen Keydown-Handler + gemountete App testbar. Jetzt `nextSelectedRow(rows,
+   selectedNodeId, delta)` sowie `planArrowRight`/`planArrowLeft(row, expanded)`, die einen
+   beschreibenden Intent (`{type: "expand"|"select"|"collapse"|"none", nodeId}`) statt fertiger
+   State-Werte liefern (analog zu `planMove`) — `App.tsx` wendet den Intent nur noch über ein
+   neues `applyArrowIntent` an. 9 neue Tests (`keyboard-nav.test.ts`).
+3. **`createDocumentCore` + `makeFullViewTab` in `document-store.ts`.** `openFile`/
+   `newDocument`/`reloadFile` bauten den Kern von `OpenDocumentState` (document, commandBus,
+   sourceText, encoding, isDirty, changeBaseline, lastKnownMtimeMs/Size — inkl.
+   `createDocument`+`attachDocument`+`captureChangeBaseline`) sowie das Tab-Literal jeweils von
+   Hand nach, obwohl `reloadFile` nur einen Teil patcht statt ein komplett neues Objekt zu
+   bauen. `createDocumentCore` deckt bewusst NUR die acht wirklich überall identischen Felder
+   ab; Identitätsfelder (`filePath`/`format`/`isUntitled`) bleiben bei den drei Aufrufern, die
+   sie unterschiedlich handhaben (`reloadFile` behält seine bestehenden bei, statt sie
+   entgegenzunehmen und zurückzuschreiben).
+4. **`toErrorMessage` in neuer Datei `apps/editor/src/errors.ts`.** 11 identische Stellen
+   (`err instanceof Error ? err.message : String(err)`, 9× `App.tsx`, 2× `SearchPanel.tsx`)
+   auf eine Funktion zusammengezogen. Bewusst NICHT neben `logging.ts`s `describeError`
+   platziert — dieselbe Grundfrage (unknown → Text), aber anderer Zweck (Stacktrace fürs
+   Log-Backend vs. reine Message für Toasts) und andere Konsumenten. 2 neue Tests.
+- 134 Core-Tests (4 neue), 163 Editor-Tests (11 neue), Typecheck beider Pakete und
+  `cargo check` sauber.
+
 ## Nachtrag 2026-07-24 — Architektur-Review Runde 3: zwei weitere Deepening-Kandidaten umgesetzt
 
 Dritter Durchlauf von `/improve-codebase-architecture`. Reine Qualitätsarbeit ohne

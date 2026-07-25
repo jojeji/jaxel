@@ -21,6 +21,8 @@ import {
   findSiblingSlot,
   getPathSegments,
   parseDocument,
+  pathSegmentsOf,
+  planInsertRelativeToRow,
   planMove,
   serializeDocument,
   type DocFormat,
@@ -30,27 +32,25 @@ import {
   type SearchOptions,
 } from "@jaxel/core";
 import {
-  ClipboardText,
-  CopySimple,
+  ArrowClockwise,
+  ArrowCounterClockwise,
   FilePlus,
   FloppyDisk,
   FolderOpen,
   Gear,
-  Info,
-  ListNumbers,
   MagnifyingGlass,
-  Plus,
-  TextAa,
-  Trash,
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
+import { toErrorMessage } from "./errors.js";
+import { resolveShortcut } from "./shortcuts.js";
 import { tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
 import {
   getLastDir,
   rememberLastDir,
   addRecentFile,
+  getRecentFiles,
   getStoredSession,
   storeSession,
   getSearchDockSide,
@@ -60,6 +60,7 @@ import {
 import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
 import { FocusBreadcrumb } from "./tree/FocusBreadcrumb.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
+import { nextSelectedRow, planArrowLeft, planArrowRight, type ArrowIntent } from "./tree/keyboard-nav.js";
 import { buildFilterKeepSet, flattenFiltered } from "./tree/filter.js";
 import { AttributesPanel } from "./panels/AttributesPanel.js";
 import { RightSidebar, type SidebarTab } from "./panels/RightSidebar.js";
@@ -70,6 +71,7 @@ import { WelcomeScreen } from "./welcome/WelcomeScreen.js";
 import { NewDocumentDialog } from "./welcome/NewDocumentDialog.js";
 import { IconButton } from "./ui/IconButton.js";
 import { ContextMenu, type ContextMenuItem } from "./ui/ContextMenu.js";
+import { MenuBar, type MenuBarEntry, type MenuBarMenu } from "./ui/MenuBar.js";
 import { ReloadDialog } from "./ui/ReloadDialog.js";
 import { Toast } from "./ui/Toast.js";
 import { CloseConfirmDialog } from "./ui/CloseConfirmDialog.js";
@@ -433,6 +435,10 @@ export function App(): React.ReactElement {
     () => rows.find((row) => row.node.id === selectedId) ?? null,
     [rows, selectedId],
   );
+  /** Neither a duplicate nor a delete target: the tab's own visible root has no sibling slot. */
+  const isRoot = !selectedRow || !findSiblingSlot(selectedRow);
+  const canUndo = activeDoc?.commandBus.canUndo() ?? false;
+  const canRedo = activeDoc?.commandBus.canRedo() ?? false;
 
   function toggleRow(row: TreeRow): void {
     setExpanded((prev) => {
@@ -486,7 +492,7 @@ export function App(): React.ReactElement {
       for (const id of expanded) {
         const node = findNodeById(trueRoot, id);
         if (!node) continue;
-        expandedSegmentsList.push(getPathSegments(node, findAncestorChain(trueRoot, node) ?? []));
+        expandedSegmentsList.push(pathSegmentsOf(trueRoot, node));
       }
     }
     const reloadResult = await reloadFile(
@@ -575,7 +581,7 @@ export function App(): React.ReactElement {
         await openPath(path);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
     }
   }
 
@@ -612,7 +618,7 @@ export function App(): React.ReactElement {
     try {
       await saveDoc(activeDoc);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
     }
   }
 
@@ -652,6 +658,17 @@ export function App(): React.ReactElement {
     handleSetAttribute(name, "", coalesceKey);
   }
 
+  /** Selects and scrolls a just-inserted/moved node into view, expanding `expandParentId`
+   * first if the node landed as a new child rather than a sibling — the common tail of every
+   * insert/move handler below. */
+  function focusInsertedNode(nodeId: string, expandParentId?: string): void {
+    if (expandParentId) {
+      setExpanded((prev) => new Set(prev).add(expandParentId));
+    }
+    setSelectedId(nodeId);
+    setRevealNodeId(nodeId);
+  }
+
   /** Drag&drop move in the tree; drop-position-to-index arithmetic lives in planMove. */
   function handleMoveNode(source: TreeRow, target: TreeRow, position: DropPosition): void {
     if (!activeDoc) return;
@@ -668,11 +685,7 @@ export function App(): React.ReactElement {
         plan.targetAncestors,
       ),
     );
-    if (position === "into") {
-      setExpanded((prev) => new Set(prev).add(plan.targetParent.id));
-    }
-    setSelectedId(source.node.id);
-    setRevealNodeId(source.node.id);
+    focusInsertedNode(source.node.id, position === "into" ? plan.targetParent.id : undefined);
   }
 
   /** Strg+Shift+Plus / toolbar: insert a child and jump straight into naming it. */
@@ -682,9 +695,7 @@ export function App(): React.ReactElement {
     activeDoc.commandBus.execute(
       createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, child, selectedRow.ancestors),
     );
-    setExpanded((prev) => new Set(prev).add(selectedRow.node.id));
-    setSelectedId(child.id);
-    setRevealNodeId(child.id);
+    focusInsertedNode(child.id, selectedRow.node.id);
     setEditingField({ nodeId: child.id, field: "name" });
   }
 
@@ -696,17 +707,20 @@ export function App(): React.ReactElement {
    */
   function handleAddSibling(): void {
     if (!activeDoc || !selectedRow) return;
-    if (selectedRow.node === root) {
-      handleAddChild();
-      return;
-    }
-    const slot = findSiblingSlot(selectedRow);
-    if (!slot) return;
+    const plan = planInsertRelativeToRow(selectedRow);
+    if (!plan) return;
     const sibling = createNode({ name: "node" });
-    activeDoc.commandBus.execute(createInsertNodeCommand(slot.parent, slot.index + 1, sibling, slot.parentAncestors));
-    setSelectedId(sibling.id);
-    setRevealNodeId(sibling.id);
+    activeDoc.commandBus.execute(createInsertNodeCommand(plan.parent, plan.index, sibling, plan.parentAncestors));
+    focusInsertedNode(sibling.id, plan.insertedAsChild ? plan.parent.id : undefined);
     setEditingField({ nodeId: sibling.id, field: "name" });
+  }
+
+  function handleUndo(): void {
+    activeDoc?.commandBus.undo();
+  }
+
+  function handleRedo(): void {
+    activeDoc?.commandBus.redo();
   }
 
   function handleDelete(): void {
@@ -725,8 +739,7 @@ export function App(): React.ReactElement {
     if (!slot) return; // root can't be duplicated
     const copy = cloneSubtree(selectedRow.node);
     activeDoc.commandBus.execute(createInsertNodeCommand(slot.parent, slot.index + 1, copy, slot.parentAncestors));
-    setSelectedId(copy.id);
-    setRevealNodeId(copy.id);
+    focusInsertedNode(copy.id);
   }
 
   /** Strg+C: serialize the selected subtree (XML fragment / single-key JSON) to the system clipboard. */
@@ -739,7 +752,7 @@ export function App(): React.ReactElement {
     }).trimEnd();
     void navigator.clipboard.writeText(text).then(
       () => setStatus(t("clipboard.nodeCopied")),
-      (err) => setError(err instanceof Error ? err.message : String(err)),
+      (err) => setError(toErrorMessage(err)),
     );
   }
 
@@ -770,66 +783,44 @@ export function App(): React.ReactElement {
       setError(t("clipboard.invalidFragment"));
       return;
     }
+    const plan = planInsertRelativeToRow(selectedRow);
+    if (!plan) return;
     const pasted = cloneSubtree(fragmentRoot);
-    const slot = findSiblingSlot(selectedRow);
-    if (!slot) {
-      // Root selected — no sibling level, append as its last child instead.
-      activeDoc.commandBus.execute(
-        createInsertNodeCommand(selectedRow.node, selectedRow.node.children.length, pasted, selectedRow.ancestors),
-      );
-      setExpanded((prev) => new Set(prev).add(selectedRow.node.id));
-    } else {
-      activeDoc.commandBus.execute(createInsertNodeCommand(slot.parent, slot.index + 1, pasted, slot.parentAncestors));
-    }
-    setSelectedId(pasted.id);
-    setRevealNodeId(pasted.id);
+    activeDoc.commandBus.execute(createInsertNodeCommand(plan.parent, plan.index, pasted, plan.parentAncestors));
+    focusInsertedNode(pasted.id, plan.insertedAsChild ? plan.parent.id : undefined);
   }
 
   function moveSelection(delta: number): void {
-    if (rows.length === 0) return;
-    const currentIndex = selectedRow ? rows.findIndex((row) => row.node.id === selectedRow.node.id) : -1;
-    const nextIndex =
-      currentIndex === -1
-        ? delta > 0
-          ? 0
-          : rows.length - 1
-        : Math.min(rows.length - 1, Math.max(0, currentIndex + delta));
-    const next = rows[nextIndex];
+    const next = nextSelectedRow(rows, selectedRow?.node.id ?? null, delta);
     if (next) {
       setSelectedId(next.node.id);
       setRevealNodeId(next.node.id);
     }
   }
 
+  function applyArrowIntent(intent: ArrowIntent): void {
+    if (intent.type === "expand") {
+      setExpanded((prev) => new Set(prev).add(intent.nodeId));
+    } else if (intent.type === "collapse") {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        next.delete(intent.nodeId);
+        return next;
+      });
+    } else if (intent.type === "select") {
+      setSelectedId(intent.nodeId);
+      setRevealNodeId(intent.nodeId);
+    }
+  }
+
   function handleArrowRight(): void {
     if (!selectedRow) return;
-    if (!selectedRow.hasChildren) return;
-    if (!expanded.has(selectedRow.node.id)) {
-      setExpanded((prev) => new Set(prev).add(selectedRow.node.id));
-    } else {
-      const firstChild = selectedRow.node.children[0];
-      if (firstChild) {
-        setSelectedId(firstChild.id);
-        setRevealNodeId(firstChild.id);
-      }
-    }
+    applyArrowIntent(planArrowRight(selectedRow, expanded));
   }
 
   function handleArrowLeft(): void {
     if (!selectedRow) return;
-    if (selectedRow.hasChildren && expanded.has(selectedRow.node.id)) {
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        next.delete(selectedRow.node.id);
-        return next;
-      });
-      return;
-    }
-    const parent = selectedRow.ancestors[selectedRow.ancestors.length - 1];
-    if (parent) {
-      setSelectedId(parent.id);
-      setRevealNodeId(parent.id);
-    }
+    applyArrowIntent(planArrowLeft(selectedRow, expanded));
   }
 
   useEffect(() => {
@@ -864,73 +855,77 @@ export function App(): React.ReactElement {
       }
       if (!activeDoc) return;
 
-      if (ctrl && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        void handleSave();
-      } else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        activeDoc.commandBus.undo();
-      } else if (
-        (ctrl && event.shiftKey && event.key.toLowerCase() === "z") ||
-        (ctrl && event.key.toLowerCase() === "y")
-      ) {
-        event.preventDefault();
-        activeDoc.commandBus.redo();
-      } else if (event.key === "F2" && selectedRow) {
-        event.preventDefault();
-        setEditingField({ nodeId: selectedRow.node.id, field: "name" });
-      } else if (event.key === "Enter" && selectedRow && !selectedRow.hasChildren) {
-        event.preventDefault();
-        setEditingField({ nodeId: selectedRow.node.id, field: "value" });
-      } else if ((event.key === "Delete" || event.key === "Backspace") && selectedRow) {
-        event.preventDefault();
-        handleDelete();
-      } else if (event.key === "ArrowDown") {
-        event.preventDefault();
-        moveSelection(1);
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        moveSelection(-1);
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        handleArrowRight();
-      } else if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        handleArrowLeft();
-      } else if (ctrl && event.key.toLowerCase() === "d") {
-        event.preventDefault();
-        handleDuplicate();
-      } else if (ctrl && event.shiftKey && event.key.toLowerCase() === "c" && selectedRow) {
-        event.preventDefault();
-        handleCopyPath("full");
-      } else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "c" && selectedRow) {
-        event.preventDefault();
-        handleCopyNode();
-      } else if (ctrl && event.key.toLowerCase() === "v" && selectedRow) {
-        event.preventDefault();
-        void handlePasteNode();
-      } else if (ctrl && (event.key === "+" || event.key === "*" || event.code === "NumpadAdd")) {
-        // "+" auf Nummernblock ist Shift-unabhängig; auf der Hauptreihe erzeugt Shift+Plus
-        // je nach Tastaturlayout ein anderes Zeichen (z. B. "*" auf QWERTZ) — deshalb wird
-        // hier über event.shiftKey verzweigt statt über das erzeugte Zeichen.
-        event.preventDefault();
-        if (event.shiftKey) {
+      const action = resolveShortcut(event, {
+        hasSelection: selectedRow !== null,
+        selectionHasChildren: selectedRow?.hasChildren ?? false,
+      });
+      if (!action) return;
+      event.preventDefault();
+      switch (action) {
+        case "save":
+          void handleSave();
+          break;
+        case "undo":
+          handleUndo();
+          break;
+        case "redo":
+          handleRedo();
+          break;
+        case "renameStart":
+          if (selectedRow) setEditingField({ nodeId: selectedRow.node.id, field: "name" });
+          break;
+        case "editValueStart":
+          if (selectedRow) setEditingField({ nodeId: selectedRow.node.id, field: "value" });
+          break;
+        case "delete":
+          handleDelete();
+          break;
+        case "moveDown":
+          moveSelection(1);
+          break;
+        case "moveUp":
+          moveSelection(-1);
+          break;
+        case "arrowRight":
+          handleArrowRight();
+          break;
+        case "arrowLeft":
+          handleArrowLeft();
+          break;
+        case "duplicate":
+          handleDuplicate();
+          break;
+        case "copyPathFull":
+          handleCopyPath("full");
+          break;
+        case "copyNode":
+          handleCopyNode();
+          break;
+        case "pasteNode":
+          void handlePasteNode();
+          break;
+        case "addChild":
           handleAddChild();
-        } else {
+          break;
+        case "addSibling":
           handleAddSibling();
-        }
+          break;
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+  /** "Whole document" defaults to the tab's own visible root — in a focus tab that's the
+   * focused subtree, not the real document root (see docs/entscheidungen.md 2026-07-18 #1).
+   * "Subtree only" follows the CURRENT tree selection live (same rule for search and replace). */
+  function resolveSearchRoot(documentRoot: DocNode, subtreeOnly: boolean): DocNode {
+    return subtreeOnly && selectedRow ? selectedRow.node : documentRoot;
+  }
+
   function handleSearch(options: SearchOptions, subtreeOnly: boolean): SearchMatch[] {
     if (!activeDoc || !root) return [];
-    // "Whole document" defaults to the tab's own visible root — in a focus tab that's the
-    // focused subtree, not the real document root (see docs/entscheidungen.md 2026-07-18 #1).
-    const searchRoot = subtreeOnly && selectedRow ? selectedRow.node : root;
-    return findAll(searchRoot, options);
+    return findAll(resolveSearchRoot(root, subtreeOnly), options);
   }
 
   function handleNavigate(match: SearchMatch): void {
@@ -984,7 +979,7 @@ export function App(): React.ReactElement {
    */
   function handleReplaceAllInternal(options: SearchOptions, replacement: string, subtreeOnly: boolean): number {
     if (!activeDoc || !trueRoot || !root) return 0;
-    const searchRoot = subtreeOnly && selectedRow ? selectedRow.node : root;
+    const searchRoot = resolveSearchRoot(root, subtreeOnly);
     const { command, replacementCount } = createReplaceAllCommand(trueRoot, searchRoot, options, replacement);
     if (command) {
       activeDoc.commandBus.execute(command);
@@ -997,7 +992,7 @@ export function App(): React.ReactElement {
     const paths = computePaths(root, node);
     void navigator.clipboard.writeText(paths[kind]).then(
       () => setStatus(t("toolbar.pathCopied")),
-      (err) => setError(err instanceof Error ? err.message : String(err)),
+      (err) => setError(toErrorMessage(err)),
     );
   }
 
@@ -1034,7 +1029,7 @@ export function App(): React.ReactElement {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().destroy();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
     }
   }
 
@@ -1061,7 +1056,7 @@ export function App(): React.ReactElement {
         await destroyWindow();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
     }
   }
 
@@ -1089,7 +1084,7 @@ export function App(): React.ReactElement {
     }
     invoke<string>("open_decoded_file", { dataBase64: value, extension: decoded.extension }).then(
       (path) => setStatus(t("base64.openedExternally").replace("{path}", path)),
-      (err) => setError(err instanceof Error ? err.message : String(err)),
+      (err) => setError(toErrorMessage(err)),
     );
   }
 
@@ -1101,7 +1096,7 @@ export function App(): React.ReactElement {
       newDocument(base64Preview.format, base64Preview.text);
       setBase64Preview(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
     }
   }
 
@@ -1125,9 +1120,16 @@ export function App(): React.ReactElement {
     retargetFocusTab(activeTab.key, node.id, node.name, ancestorIds);
   }
 
+  /** "Logdatei öffnen": im Über-Dialog UND im Extras-Menü — eine Stelle für Aufruf + Toast. */
+  function handleOpenLog(): void {
+    invoke<string>("open_log").then(
+      (path) => setStatus(t("about.logOpened").replace("{path}", path)),
+      (err) => setError(toErrorMessage(err)),
+    );
+  }
+
   function buildContextMenuItems(): ContextMenuItem[] {
     const ctrl = t("key.ctrl");
-    const isRoot = !selectedRow || selectedRow.ancestors.length === 0;
     const isVisibleRoot = !selectedRow || (root !== null && selectedRow.node === root);
     return [
       {
@@ -1155,6 +1157,98 @@ export function App(): React.ReactElement {
       { label: t("menu.pasteNode"), shortcut: `${ctrl}+V`, onClick: () => void handlePasteNode() },
       "separator",
       { label: t("toolbar.delete"), shortcut: t("key.delete"), disabled: isRoot, onClick: handleDelete },
+    ];
+  }
+
+  /** Klassische Menüleiste (Vorschlag B der UI-Skizze): dieselben Aktionen wie die kompakte
+   * Toolbar und das Kontextmenü, nur über einen anderen Einstiegspunkt — keine eigene Logik. */
+  function buildMenuBarMenus(): MenuBarMenu[] {
+    const ctrl = t("key.ctrl");
+    const recentFiles = getRecentFiles();
+    const recentEntries: MenuBarEntry[] =
+      recentFiles.length > 0
+        ? [
+            "separator",
+            { heading: t("welcome.recent") },
+            ...recentFiles.map((path) => ({ label: fileNameOf(path), onClick: () => void openPath(path) })),
+          ]
+        : [];
+    return [
+      {
+        label: t("menuBar.file"),
+        items: [
+          { label: t("welcome.newDocument"), shortcut: `${ctrl}+N`, onClick: () => setNewDocOpen(true) },
+          { label: t("welcome.openFile"), shortcut: `${ctrl}+O`, onClick: () => void handleOpen() },
+          ...recentEntries,
+          "separator",
+          { label: t("welcome.save"), shortcut: `${ctrl}+S`, disabled: !activeDoc, onClick: () => void handleSave() },
+        ],
+      },
+      {
+        label: t("menuBar.edit"),
+        items: [
+          { label: t("menuBar.undo"), shortcut: `${ctrl}+Z`, disabled: !canUndo, onClick: handleUndo },
+          { label: t("menuBar.redo"), shortcut: `${ctrl}+Y`, disabled: !canRedo, onClick: handleRedo },
+          "separator",
+          {
+            label: t("toolbar.addChild"),
+            shortcut: `${ctrl}+Shift++`,
+            disabled: !selectedRow,
+            onClick: handleAddChild,
+          },
+          {
+            label: t("shortcut.addSibling"),
+            shortcut: `${ctrl}++`,
+            disabled: !selectedRow,
+            onClick: handleAddSibling,
+          },
+          { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
+          { label: t("toolbar.delete"), shortcut: t("key.delete"), disabled: isRoot, onClick: handleDelete },
+          "separator",
+          {
+            label: t("toolbar.copyPathFull"),
+            shortcut: `${ctrl}+Shift+C`,
+            disabled: !selectedRow,
+            onClick: () => handleCopyPath("full"),
+          },
+          { label: t("toolbar.copyPath"), disabled: !selectedRow, onClick: () => handleCopyPath("indexed") },
+          {
+            label: t("toolbar.copyPathStatic"),
+            disabled: !selectedRow,
+            onClick: () => handleCopyPath("static"),
+          },
+          "separator",
+          { label: t("menu.copyNode"), shortcut: `${ctrl}+C`, disabled: !selectedRow, onClick: handleCopyNode },
+          {
+            label: t("menu.pasteNode"),
+            shortcut: `${ctrl}+V`,
+            disabled: !selectedRow,
+            onClick: () => void handlePasteNode(),
+          },
+        ],
+      },
+      {
+        label: t("menuBar.view"),
+        items: [
+          {
+            label: t("toolbar.search"),
+            shortcut: `${ctrl}+F`,
+            disabled: !activeDoc,
+            onClick: () => setSearchOpen((prevOpen) => !prevOpen),
+          },
+        ],
+      },
+      {
+        label: t("menuBar.tools"),
+        items: [
+          { label: t("toolbar.settings"), onClick: () => setSettingsOpen(true) },
+          { label: t("about.openLog"), onClick: handleOpenLog },
+        ],
+      },
+      {
+        label: t("menuBar.help"),
+        items: [{ label: t("toolbar.about"), onClick: () => setAboutOpen(true) }],
+      },
     ];
   }
 
@@ -1194,12 +1288,13 @@ export function App(): React.ReactElement {
 
   return (
     <div className="app-shell">
-      <header className="app-titlebar">
-        <div className="app-titlebar__brand">
-          <strong>{t("app.title")}</strong>
-          <span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>
-        </div>
-        <div className="app-titlebar__actions">
+      <header className="app-chrome">
+        <MenuBar
+          menus={buildMenuBarMenus()}
+          brand={<strong>{t("app.title")}</strong>}
+          trailing={<span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>}
+        />
+        <div className="app-toolbar">
           <IconButton
             icon={FilePlus}
             label={t("welcome.newDocument")}
@@ -1214,6 +1309,22 @@ export function App(): React.ReactElement {
             disabled={!activeDoc}
             onClick={() => void handleSave()}
           />
+          <span className="app-toolbar__sep" />
+          <IconButton
+            icon={ArrowCounterClockwise}
+            label={t("menuBar.undo")}
+            shortcut={`${t("key.ctrl")}+Z`}
+            disabled={!canUndo}
+            onClick={handleUndo}
+          />
+          <IconButton
+            icon={ArrowClockwise}
+            label={t("menuBar.redo")}
+            shortcut={`${t("key.ctrl")}+Y`}
+            disabled={!canRedo}
+            onClick={handleRedo}
+          />
+          <span className="app-toolbar__sep" />
           <IconButton
             icon={MagnifyingGlass}
             label={t("toolbar.search")}
@@ -1221,51 +1332,8 @@ export function App(): React.ReactElement {
             disabled={!activeDoc}
             onClick={() => setSearchOpen((prevOpen) => !prevOpen)}
           />
-          <span className="app-titlebar__sep" />
-          <IconButton
-            icon={Plus}
-            label={t("toolbar.addChild")}
-            shortcut={`${t("key.ctrl")}+Shift++`}
-            disabled={!selectedRow}
-            onClick={handleAddChild}
-          />
-          <IconButton
-            icon={CopySimple}
-            label={t("toolbar.duplicate")}
-            shortcut={`${t("key.ctrl")}+D`}
-            disabled={!selectedRow || selectedRow.ancestors.length === 0}
-            onClick={handleDuplicate}
-          />
-          <IconButton
-            icon={Trash}
-            label={t("toolbar.delete")}
-            shortcut={t("key.delete")}
-            disabled={!selectedRow || selectedRow.ancestors.length === 0}
-            onClick={handleDelete}
-          />
-          <span className="app-titlebar__sep" />
-          <IconButton
-            icon={ListNumbers}
-            label={t("toolbar.copyPath")}
-            disabled={!selectedRow}
-            onClick={() => handleCopyPath("indexed")}
-          />
-          <IconButton
-            icon={TextAa}
-            label={t("toolbar.copyPathStatic")}
-            disabled={!selectedRow}
-            onClick={() => handleCopyPath("static")}
-          />
-          <IconButton
-            icon={ClipboardText}
-            label={t("toolbar.copyPathFull")}
-            shortcut={`${t("key.ctrl")}+Shift+C`}
-            disabled={!selectedRow}
-            onClick={() => handleCopyPath("full")}
-          />
-          <span className="app-titlebar__sep" />
+          <div className="app-toolbar__spacer" />
           <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
-          <IconButton icon={Info} label={t("toolbar.about")} onClick={() => setAboutOpen(true)} />
         </div>
       </header>
       <TabBar
@@ -1366,16 +1434,7 @@ export function App(): React.ReactElement {
       )}
       {newDocOpen && <NewDocumentDialog onChoose={handleNew} onClose={() => setNewDocOpen(false)} />}
       {aboutOpen && (
-        <AboutDialog
-          version={appVersion}
-          onOpenLog={() => {
-            invoke<string>("open_log").then(
-              (path) => setStatus(t("about.logOpened").replace("{path}", path)),
-              (err) => setError(err instanceof Error ? err.message : String(err)),
-            );
-          }}
-          onClose={() => setAboutOpen(false)}
-        />
+        <AboutDialog version={appVersion} onOpenLog={handleOpenLog} onClose={() => setAboutOpen(false)} />
       )}
       {reloadPrompt && reloadPromptDoc && !otherDialogOpen && (
         <ReloadDialog

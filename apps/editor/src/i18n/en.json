@@ -129,5 +129,12 @@
   "menu.copyNode": "Copy node",
   "menu.pasteNode": "Paste",
   "errorPage.title": "Something went wrong",
-  "errorPage.hint": "Open the log file via \"About Jaxel\" → \"Open log file\" for details."
+  "errorPage.hint": "Open the log file via \"About Jaxel\" → \"Open log file\" for details.",
+  "menuBar.file": "File",
+  "menuBar.edit": "Edit",
+  "menuBar.view": "View",
+  "menuBar.tools": "Tools",
+  "menuBar.help": "Help",
+  "menuBar.undo": "Undo",
+  "menuBar.redo": "Redo"
 }

@@ -102,15 +102,17 @@ Standardmäßig ausgeschaltet, in den Einstellungen unter „Baum" aktivierbar:
 
 - **Name ändern**: Doppelklick auf den Namen oder `F2`.
 - **Wert ändern**: Doppelklick auf den Wert oder `Enter` (bei Blattknoten).
-- **Kind anlegen**: `Strg` + `+` oder Toolbar-Plus — der neue Knoten steht sofort im
-  Namens-Editor, einfach lostippen und mit `Enter` bestätigen.
-- **Duplizieren**: `Strg+D` — kopiert den Knoten samt Unterbaum direkt darunter.
-- **Löschen**: `Entf` (die Wurzel ist nicht löschbar).
+- **Kind anlegen**: `Strg` + `+` oder Menü „Bearbeiten" → „Kind hinzufügen" — der neue Knoten
+  steht sofort im Namens-Editor, einfach lostippen und mit `Enter` bestätigen.
+- **Duplizieren**: `Strg+D` oder Menü „Bearbeiten" → „Duplizieren" — kopiert den Knoten samt
+  Unterbaum direkt darunter.
+- **Löschen**: `Entf` oder Menü „Bearbeiten" → „Löschen" (die Wurzel ist nicht löschbar).
 - **Kopieren/Einfügen**: `Strg+C` legt den Knoten als XML-/JSON-Text in die System-Zwischenablage
   (auch in andere Programme einfügbar); `Strg+V` fügt Zwischenablage-Inhalt als nächstes
-  Geschwister unter der Auswahl ein (bei ausgewählter Wurzel: als letztes Kind).
-- **Rückgängig/Wiederholen**: `Strg+Z` / `Strg+Y` — jede sichtbare Aktion ist genau ein Schritt,
-  auch „Alle ersetzen".
+  Geschwister unter der Auswahl ein (bei ausgewählter Wurzel: als letztes Kind). Beides auch
+  über Menü „Bearbeiten".
+- **Rückgängig/Wiederholen**: `Strg+Z` / `Strg+Y`, Toolbar-Buttons oder Menü „Bearbeiten" — jede
+  sichtbare Aktion ist genau ein Schritt, auch „Alle ersetzen".
 
 ## Suchen, Ersetzen, Filtern
 
@@ -182,7 +184,7 @@ an der Baumzeile bzw. neben dem Attributwert im Attribute-Panel:
 
 ## Pfad kopieren
 
-Für den ausgewählten Knoten über Toolbar oder Kontextmenü:
+Für den ausgewählten Knoten über Menü „Bearbeiten" oder Kontextmenü:
 
 - **Vollständiger Pfad** (`Strg+Shift+C`): `catalog.person.name` — ALLE Ebenen inklusive
   Wurzel, ohne Indizes, Namespace-Präfixe (`ns:`) werden abgeschnitten.
@@ -191,17 +193,18 @@ Für den ausgewählten Knoten über Toolbar oder Kontextmenü:
 
 ## Einstellungen
 
-Zahnrad-Button oben rechts: **Theme** (Hell ist Standard, dazu sechs weitere: Dunkel, Nordlicht,
-Tanne, Terrakotta, Kobalt, Kontrast — jeweils EIN Akzentton, kontrastgeprüft), **Sprache**
-(Deutsch/Englisch), Such-Filter-Verhalten, **Baum** (Änderungsmarker im Baum, siehe oben,
-Standard aus), **externe Änderungen** (automatisches Neuladen ein-/ausschalten) und der
-Fenster-Modus („eigene Fenster pro Dokument" ist angekündigt, aber noch nicht verfügbar).
+Zahnrad-Button in der Toolbar oder Menü „Extras" → „Einstellungen": **Theme** (Hell ist
+Standard, dazu sechs weitere: Dunkel, Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast — jeweils
+EIN Akzentton, kontrastgeprüft), **Sprache** (Deutsch/Englisch), Such-Filter-Verhalten, **Baum**
+(Änderungsmarker im Baum, siehe oben, Standard aus), **externe Änderungen** (automatisches
+Neuladen ein-/ausschalten) und der Fenster-Modus („eigene Fenster pro Dokument" ist
+angekündigt, aber noch nicht verfügbar).
 
 ## Über Jaxel
 
-Info-Symbol (ⓘ) oben rechts in der Toolbar: Versionsnummer und die Entwickler des Projekts.
-Dazu **„Logdatei öffnen"** — nützlich für Fehlerberichte: Die Datei enthält das technische
-Protokoll der laufenden Sitzung.
+Menü „Hilfe" → „Über Jaxel": Versionsnummer und die Entwickler des Projekts. Dazu
+**„Logdatei öffnen"** — auch direkt über Menü „Extras" erreichbar — nützlich für
+Fehlerberichte: Die Datei enthält das technische Protokoll der laufenden Sitzung.
 
 Jaxel schreibt seit AP15 laufend in diese Logdatei (begrenzt auf 5 MB, eine Vorgängerdatei
 bleibt erhalten): Programmstart mit Version und Plattform, welche Dateien geöffnet/gespeichert/

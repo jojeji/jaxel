@@ -7,9 +7,9 @@ import {
   createDocument,
   findAncestorChain,
   findNodeById,
-  getPathSegments,
   parseDocument,
   parseXml,
+  pathSegmentsOf,
   resolveNodeBySegments,
   serializeJson,
   serializeXmlMinimal,
@@ -224,6 +224,57 @@ export function useJaxelDocuments(): {
     return { commandBus, unsubscribe };
   }
 
+  /**
+   * Builds the fields shared by every document (re)creation path — open, new, reload:
+   * wires the document into the store via `attachDocument`, and computes the change-diff
+   * baseline and file-identity snapshot from the same `root`/stat. Identity fields
+   * (`filePath`/`format`/`isUntitled`) deliberately stay with each caller — `reloadFile` keeps
+   * the document's EXISTING ones instead of replacing them, so folding those in here would
+   * force it to pass back values it never actually wants to change.
+   */
+  function createDocumentCore(params: {
+    format: DocFormat;
+    root: DocNode;
+    xmlDeclaration?: string;
+    encoding: string;
+    sourceText: string;
+    mtimeMs: number;
+    size: number;
+  }): {
+    core: Pick<
+      OpenDocumentState,
+      "document" | "commandBus" | "sourceText" | "encoding" | "isDirty" | "changeBaseline" | "lastKnownMtimeMs" | "lastKnownSize"
+    >;
+    unsubscribe: () => void;
+  } {
+    const doc = createDocument({
+      format: params.format,
+      root: params.root,
+      encoding: params.encoding,
+      xmlDeclaration: params.xmlDeclaration,
+    });
+    const { commandBus, unsubscribe } = attachDocument(doc);
+    return {
+      core: {
+        document: doc,
+        commandBus,
+        sourceText: params.sourceText,
+        encoding: params.encoding,
+        isDirty: false,
+        changeBaseline: captureChangeBaseline(params.root),
+        lastKnownMtimeMs: params.mtimeMs,
+        lastKnownSize: params.size,
+      },
+      unsubscribe,
+    };
+  }
+
+  /** The tab literal for a document's full view (no focus node) — shared by every place a
+   * document is (re)created. */
+  function makeFullViewTab(filePath: string): TabState {
+    return { key: tabKey(filePath, null), filePath, focusNodeId: null, focusLabel: null, focusAncestorIds: [] };
+  }
+
   const openFile = useCallback(async (path: string) => {
     const result = await invoke<{ content: string; encoding: string; mtimeMs: number; size: number }>(
       "read_text_file",
@@ -233,38 +284,26 @@ export function useJaxelDocuments(): {
     const format = detectFormat(path, result.content);
     const { root, xmlDeclaration } = parseDocument(format, result.content);
 
-    const doc = createDocument({ format, root, encoding: result.encoding, xmlDeclaration });
-    const { commandBus, unsubscribe } = attachDocument(doc);
+    const { core, unsubscribe } = createDocumentCore({
+      format,
+      root,
+      xmlDeclaration,
+      encoding: result.encoding,
+      sourceText: result.content,
+      mtimeMs: result.mtimeMs,
+      size: result.size,
+    });
 
     setState((prev) => {
       const key = tabKey(path, null);
       if (prev.docs.some((d) => d.filePath === path)) {
         unsubscribe(); // already loaded — discard this duplicate parse/subscription
         if (prev.tabs.some((t) => t.key === key)) return { ...prev, activeKey: key };
-        return {
-          ...prev,
-          tabs: [...prev.tabs, { key, filePath: path, focusNodeId: null, focusLabel: null, focusAncestorIds: [] }],
-          activeKey: key,
-        };
+        return { ...prev, tabs: [...prev.tabs, makeFullViewTab(path)], activeKey: key };
       }
       unsubscribersRef.current.set(path, unsubscribe);
-      const newDoc: OpenDocumentState = {
-        filePath: path,
-        format,
-        document: doc,
-        commandBus,
-        sourceText: result.content,
-        encoding: result.encoding,
-        isDirty: false,
-        changeBaseline: captureChangeBaseline(root),
-        lastKnownMtimeMs: result.mtimeMs,
-        lastKnownSize: result.size,
-      };
-      return {
-        docs: [...prev.docs, newDoc],
-        tabs: [...prev.tabs, { key, filePath: path, focusNodeId: null, focusLabel: null, focusAncestorIds: [] }],
-        activeKey: key,
-      };
+      const newDoc: OpenDocumentState = { filePath: path, format, ...core };
+      return { docs: [...prev.docs, newDoc], tabs: [...prev.tabs, makeFullViewTab(path)], activeKey: key };
     });
     setRevision((r) => r + 1);
   }, []);
@@ -326,31 +365,21 @@ export function useJaxelDocuments(): {
     const skeletonText = content ?? NEW_DOCUMENT_SKELETON[format];
     const { root, xmlDeclaration } = parseDocument(format, skeletonText);
 
-    const doc = createDocument({ format, root, encoding: "UTF-8", xmlDeclaration });
-    const { commandBus, unsubscribe } = attachDocument(doc);
+    const { core, unsubscribe } = createDocumentCore({
+      format,
+      root,
+      xmlDeclaration,
+      encoding: "UTF-8",
+      sourceText: skeletonText,
+      mtimeMs: 0,
+      size: 0,
+    });
 
     setState((prev) => {
       const path = nextUntitledPath(prev.docs);
       unsubscribersRef.current.set(path, unsubscribe);
-      const newDoc: OpenDocumentState = {
-        filePath: path,
-        format,
-        document: doc,
-        commandBus,
-        sourceText: skeletonText,
-        encoding: "UTF-8",
-        isUntitled: true,
-        isDirty: false,
-        changeBaseline: captureChangeBaseline(root),
-        lastKnownMtimeMs: 0,
-        lastKnownSize: 0,
-      };
-      const key = tabKey(path, null);
-      return {
-        docs: [...prev.docs, newDoc],
-        tabs: [...prev.tabs, { key, filePath: path, focusNodeId: null, focusLabel: null, focusAncestorIds: [] }],
-        activeKey: key,
-      };
+      const newDoc: OpenDocumentState = { filePath: path, format, isUntitled: true, ...core };
+      return { docs: [...prev.docs, newDoc], tabs: [...prev.tabs, makeFullViewTab(path)], activeKey: tabKey(path, null) };
     });
     setRevision((r) => r + 1);
   }, []);
@@ -417,7 +446,7 @@ export function useJaxelDocuments(): {
    * Re-reads `filePath` from disk after an external change (docs/entscheidungen.md 2026-07-18
    * #4) and rebuilds its document from scratch — undo history necessarily resets, since the
    * new tree has an entirely new set of node ids. `selectionSegments`/`expandedSegmentsList`
-   * (captured by the CALLER against the OLD tree, via `getPathSegments`) are resolved against
+   * (captured by the CALLER against the OLD tree, via `pathSegmentsOf`) are resolved against
    * the fresh tree and returned as ids, so App.tsx can restore the view as closely as
    * possible. Every tab pointing at this document (full view + any foci) is updated too: a
    * focus tab whose node no longer resolves falls back to the nearest still-resolvable
@@ -470,7 +499,7 @@ export function useJaxelDocuments(): {
       function remapTab(tab: TabState): TabState {
         if (!tab.focusNodeId) return tab; // full-view tab: no node reference to remap
         const oldNode = findNodeById(oldRoot, tab.focusNodeId);
-        const segments = oldNode ? getPathSegments(oldNode, findAncestorChain(oldRoot, oldNode) ?? []) : null;
+        const segments = oldNode ? pathSegmentsOf(oldRoot, oldNode) : null;
         const resolved = segments ? resolveDeepest(segments) : newRoot;
         const isTrueRoot = resolved === newRoot;
         return {
@@ -482,27 +511,20 @@ export function useJaxelDocuments(): {
         };
       }
 
-      const doc = createDocument({ format: target.format, root: newRoot, encoding: result.encoding, xmlDeclaration });
-      const { commandBus, unsubscribe } = attachDocument(doc);
+      const { core, unsubscribe } = createDocumentCore({
+        format: target.format,
+        root: newRoot,
+        xmlDeclaration,
+        encoding: result.encoding,
+        sourceText: result.content,
+        mtimeMs: result.mtimeMs,
+        size: result.size,
+      });
       unsubscribersRef.current.get(filePath)?.(); // drop the pre-reload subscription
       unsubscribersRef.current.set(filePath, unsubscribe);
 
       setState((prev) => {
-        const docs = prev.docs.map((d) =>
-          d.filePath === filePath
-            ? {
-                ...d,
-                document: doc,
-                commandBus,
-                sourceText: result.content,
-                encoding: result.encoding,
-                isDirty: false,
-                changeBaseline: captureChangeBaseline(newRoot),
-                lastKnownMtimeMs: result.mtimeMs,
-                lastKnownSize: result.size,
-              }
-            : d,
-        );
+        const docs = prev.docs.map((d) => (d.filePath === filePath ? { ...d, ...core } : d));
         const remapped = prev.tabs.map((tab) => (tab.filePath === filePath ? remapTab(tab) : tab));
         // Two foci can fall back to the same ancestor (or to the full view) and collide —
         // keep the first, drop later duplicates, same rule as retargetFocusTab's merge.

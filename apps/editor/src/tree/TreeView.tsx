@@ -1,7 +1,9 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { looksLikeBase64, type ChangeSet, type DocNode, type DropPosition, type Tombstone } from "@jaxel/core";
+import { looksLikeBase64, type ChangeSet, type DropPosition, type Tombstone } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
 import { withTombstones, type DisplayRow, type TreeRow } from "./flatten.js";
+import { computeDropAllowed, positionFromRatio } from "./dnd.js";
+import { computeAnchoredScrollTop, computeRevealScrollTop } from "./scroll-math.js";
 
 const ROW_HEIGHT = 22;
 const OVERSCAN = 8;
@@ -12,11 +14,6 @@ export type EditingField = { nodeId: string; field: "name" | "value" };
 interface DropTarget {
   rowId: string;
   position: DropPosition;
-}
-
-function isInSubtree(root: DocNode, candidate: DocNode): boolean {
-  if (root === candidate) return true;
-  return root.children.some((child) => isInSubtree(child, candidate));
 }
 
 /** Ghost opacity while dragging a row — the native browser/WebKitGTK drag image is often
@@ -134,7 +131,7 @@ export function TreeView({
     scrollAnchorRef.current = null;
     const newIndex = displayRows.findIndex((item) => item.kind === "node" && item.row.node.id === anchor.nodeId);
     if (newIndex === -1) return; // toggled row itself no longer visible (e.g. an ancestor collapsed too)
-    const newScrollTop = Math.max(0, newIndex * ROW_HEIGHT - anchor.offsetInViewport);
+    const newScrollTop = computeAnchoredScrollTop(newIndex, anchor.offsetInViewport, ROW_HEIGHT);
     if (containerRef.current) containerRef.current.scrollTop = newScrollTop;
     setScrollTop(newScrollTop);
   }, [displayRows]);
@@ -145,12 +142,9 @@ export function TreeView({
     const index = displayRows.findIndex((item) => item.kind === "node" && item.row.node.id === revealNodeId);
     if (index === -1) return; // ancestors not expanded yet in this pass; the next effect run will catch it
     handledRevealNodeIdRef.current = revealNodeId; // don't re-center again on later, unrelated rows changes
-    const target = index * ROW_HEIGHT;
     setScrollTop((current) => {
-      const viewBottom = current + viewportHeight;
-      if (target >= current && target + ROW_HEIGHT <= viewBottom) return current;
-      const next = Math.max(0, target - viewportHeight / 2);
-      if (containerRef.current) containerRef.current.scrollTop = next;
+      const next = computeRevealScrollTop(index, ROW_HEIGHT, current, viewportHeight);
+      if (next !== current && containerRef.current) containerRef.current.scrollTop = next;
       return next;
     });
   }, [revealNodeId, displayRows, viewportHeight]);
@@ -163,18 +157,14 @@ export function TreeView({
   const dragRow = dragRowId ? (rows.find((row) => row.node.id === dragRowId) ?? null) : null;
 
   function dropAllowed(target: TreeRow, position: DropPosition): boolean {
-    if (!dragRow) return false;
-    if (target.node.id === dragRow.node.id) return false;
-    if (isInSubtree(dragRow.node, target.node)) return false; // can't move into own subtree
-    if (position !== "into" && target.ancestors.length === 0) return false; // no siblings of the root
-    return true;
+    return dragRow !== null && computeDropAllowed(dragRow.node, target, position);
   }
 
   function handleDragOver(row: TreeRow, event: React.DragEvent): void {
     if (!dragRow) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const ratio = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
-    const position: DropPosition = ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "into";
+    const position: DropPosition = positionFromRatio(ratio);
     if (!dropAllowed(row, position)) {
       setDropTarget(null);
       return;

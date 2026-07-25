@@ -3,6 +3,7 @@ import { ArrowLineDown, ArrowLineRight } from "@phosphor-icons/react";
 import type { DocNode, PathSegment, SearchMatch, SearchOptions, SearchScope } from "@jaxel/core";
 import { truncatePathLabels } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
+import { toErrorMessage } from "../errors.js";
 import { IconButton } from "../ui/IconButton.js";
 import { ResizeHandle } from "../ui/ResizeHandle.js";
 import { ContextMenu } from "../ui/ContextMenu.js";
@@ -63,6 +64,12 @@ function stripNamespace(name: string): string {
 function segmentLabel(segment: PathSegment, showNamespaces: boolean): string {
   const name = showNamespaces ? segment.name : stripNamespace(segment.name);
   return segment.hasSiblingsWithSameName ? `${name}[${segment.indexAmongSameName}]` : name;
+}
+
+/** `index + offset`, wrapped into `[0, length)` — JS's `%` can return a negative result for a
+ * negative left-hand side, so a plain `% length` isn't enough on its own. */
+function wrapIndex(index: number, offset: number, length: number): number {
+  return ((index + offset) % length + length) % length;
 }
 
 /**
@@ -161,7 +168,7 @@ export function SearchPanel({
       }
       return found;
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err));
+      setMessage(toErrorMessage(err));
       setMatches([]);
       setCurrentIndex(-1);
       onFilterChange(null);
@@ -186,14 +193,13 @@ export function SearchPanel({
    * the tree is untouched until Enter confirms the jump. */
   function moveCursor(offset: number): void {
     if (matches.length === 0) return;
-    const next = (((currentIndex + offset) % matches.length) + matches.length) % matches.length;
-    setCurrentIndex(next);
+    setCurrentIndex(wrapIndex(currentIndex, offset, matches.length));
   }
 
   function goToOffset(offset: number): void {
     const found = matches.length > 0 ? matches : runSearch(false);
     if (found.length === 0) return;
-    const next = (((currentIndex + offset) % found.length) + found.length) % found.length;
+    const next = wrapIndex(currentIndex, offset, found.length);
     setCurrentIndex(next);
     onNavigate(found[next]!);
   }
@@ -219,7 +225,7 @@ export function SearchPanel({
       onFilterChange(null);
       setMessage(t("search.replacedCount").replace("{n}", String(count)));
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err));
+      setMessage(toErrorMessage(err));
     }
   }
 

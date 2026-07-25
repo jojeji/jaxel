@@ -177,35 +177,79 @@ body {
   height: 100%;
 }
 
-/* ---------- Titelleiste / Toolbar ---------- */
+/* ---------- Menüleiste + Toolbar ---------- */
 
-.app-titlebar {
+.app-chrome {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 12px;
-  height: 44px;
-  background: var(--bg-1);
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
   flex-shrink: 0;
 }
 
-.app-titlebar__brand {
+/* Menüleiste (Datei/Bearbeiten/…) — Dropdown-Optik teilt sich mit .context-menu, siehe unten. */
+.menu-bar {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  height: 30px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
 }
 
-.app-titlebar__brand strong {
+.menu-bar__brand {
   color: var(--accent);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 650;
   letter-spacing: -0.01em;
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 
-.app-titlebar__brand span {
+.menu-bar__item {
+  position: relative;
+}
+
+.menu-bar__trigger {
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-1);
+  padding: 5px 10px;
+}
+
+.menu-bar__trigger:hover,
+.menu-bar__trigger[aria-expanded='true'] {
+  background: var(--bg-2);
+  color: var(--text-0);
+}
+
+.menu-bar__dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 15;
+  min-width: 230px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-bar__section-label {
+  padding: 5px 10px 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+
+.menu-bar__trailing {
+  margin-left: auto;
   color: var(--text-2);
   font-size: 12px;
   overflow: hidden;
@@ -213,18 +257,27 @@ body {
   white-space: nowrap;
 }
 
-.app-titlebar__actions {
+/* Kompakte Toolbar unter der Menüleiste — nur die häufigsten Aktionen, Rest im Menü. */
+.app-toolbar {
   display: flex;
   align-items: center;
   gap: 2px;
+  padding: 0 8px;
+  height: 38px;
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.app-titlebar__sep {
+.app-toolbar__sep {
   width: 1px;
   height: 18px;
   background: var(--border);
   margin: 0 6px;
+}
+
+.app-toolbar__spacer {
+  flex: 1;
 }
 
 /* ---------- Buttons ---------- */

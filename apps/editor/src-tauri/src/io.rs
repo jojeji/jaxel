@@ -82,3 +82,75 @@ pub fn write_text_file(path: &Path, content: &str, encoding_name: &str) -> Resul
 pub fn stat_file(path: &Path) -> Result<FileStat, String> {
     stat_of(path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_utf8_bom_regardless_of_content() {
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend_from_slice(b"<root/>");
+        assert_eq!(detect_encoding(&bytes).name(), "UTF-8");
+    }
+
+    #[test]
+    fn detects_utf16le_bom() {
+        let bytes = [0xFF, 0xFE, b'<', 0, b'a', 0];
+        assert_eq!(detect_encoding(&bytes).name(), "UTF-16LE");
+    }
+
+    #[test]
+    fn sniffs_declared_encoding_from_xml_prolog() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><root/>";
+        assert_eq!(detect_encoding(bytes).name(), "windows-1252"); // encoding_rs' ISO-8859-1 alias
+    }
+
+    #[test]
+    fn accepts_single_quotes_around_the_declared_encoding() {
+        let bytes = b"<?xml version='1.0' encoding='UTF-16'?><root/>";
+        assert!(sniff_xml_declared_encoding(bytes).is_some());
+    }
+
+    #[test]
+    fn falls_back_to_utf8_without_a_bom_or_declaration() {
+        let bytes = b"<root/>";
+        assert_eq!(detect_encoding(bytes).name(), "UTF-8");
+    }
+
+    #[test]
+    fn falls_back_to_utf8_when_the_declaration_has_no_encoding_attribute() {
+        let bytes = b"<?xml version=\"1.0\"?><root/>";
+        assert_eq!(detect_encoding(bytes).name(), "UTF-8");
+    }
+
+    #[test]
+    fn falls_back_to_utf8_when_the_encoding_value_is_unquoted() {
+        // Malformed prolog (no opening quote after "encoding=") — must not panic, must not
+        // misparse; sniffing simply finds nothing usable.
+        let bytes = b"<?xml version=\"1.0\" encoding=UTF-16?><root/>";
+        assert!(sniff_xml_declared_encoding(bytes).is_none());
+    }
+
+    #[test]
+    fn falls_back_to_utf8_when_the_declared_label_is_unknown() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"not-a-real-encoding\"?><root/>";
+        assert_eq!(detect_encoding(bytes).name(), "UTF-8");
+    }
+
+    #[test]
+    fn only_scans_the_first_200_bytes() {
+        // A declaration starting past byte 200 must not be found — matches the doc comment's
+        // "reicht ein Scan der ersten 200 Bytes" assumption for where the XML declaration lives.
+        let padding = " ".repeat(250);
+        let bytes = format!("<!--{padding}--><?xml version=\"1.0\" encoding=\"UTF-16\"?><root/>");
+        assert!(sniff_xml_declared_encoding(bytes.as_bytes()).is_none());
+    }
+
+    #[test]
+    fn a_bom_wins_over_a_conflicting_xml_declaration() {
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend_from_slice(b"<?xml version=\"1.0\" encoding=\"UTF-16\"?><root/>");
+        assert_eq!(detect_encoding(&bytes).name(), "UTF-8");
+    }
+}

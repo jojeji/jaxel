@@ -24,8 +24,8 @@ export type { DropPosition, MovePlan } from "./commands/move-node.js";
 export { createMoveNodeCommand, planMove } from "./commands/move-node.js";
 export type { ReplaceAllResult } from "./commands/replace-all.js";
 export { createReplaceAllCommand } from "./commands/replace-all.js";
-export type { SiblingSlot } from "./commands/sibling-slot.js";
-export { findSiblingSlot } from "./commands/sibling-slot.js";
+export type { SiblingSlot, InsertPlan } from "./commands/sibling-slot.js";
+export { findSiblingSlot, planInsertRelativeToRow } from "./commands/sibling-slot.js";
 
 export type { ParseXmlResult } from "./format/xml-import.js";
 export { parseXml } from "./format/xml-import.js";
@@ -46,6 +46,7 @@ export {
   formatIndexedPath,
   formatStaticPath,
   getPathSegments,
+  pathSegmentsOf,
   resolveNodeBySegments,
   truncatePathLabels,
 } from "./format/path.js";
