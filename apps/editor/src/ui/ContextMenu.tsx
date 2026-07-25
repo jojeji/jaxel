@@ -4,6 +4,9 @@ export interface ContextMenuEntry {
   label: string;
   shortcut?: string;
   disabled?: boolean;
+  /** Hover explanation — used to say WHY an entry is greyed out, so a disabled action is not
+   * just silently dead (e.g. "Auskommentieren" on a node that already contains a comment). */
+  title?: string;
   onClick: () => void;
 }
 
@@ -56,15 +59,15 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.R
         role="menu"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        {items.map((item, index) =>
-          item === "separator" ? (
-            <div key={`sep-${index}`} className="context-menu__separator" />
-          ) : (
+        {items.map((item, index) => {
+          if (item === "separator") return <div key={`sep-${index}`} className="context-menu__separator" />;
+          const entry = (
             <button
               key={item.label}
               role="menuitem"
               className="context-menu__entry"
               disabled={item.disabled}
+              title={item.disabled ? undefined : item.title}
               onClick={() => {
                 onClose();
                 item.onClick();
@@ -73,8 +76,17 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.R
               <span>{item.label}</span>
               {item.shortcut && <kbd>{item.shortcut}</kbd>}
             </button>
-          ),
-        )}
+          );
+          // A disabled button fires no mouse events, so its own `title` never shows. Wrapping
+          // is the only way to still explain WHY an entry is greyed out.
+          return item.disabled && item.title ? (
+            <span key={item.label} className="context-menu__reason" title={item.title}>
+              {entry}
+            </span>
+          ) : (
+            entry
+          );
+        })}
       </div>
     </div>
   );

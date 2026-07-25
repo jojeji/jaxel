@@ -4,7 +4,12 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   computeChanges,
   computePaths,
+  commentOutBlocker,
   createBulkDuplicateCommand,
+  createCommentOutCommand,
+  createCompositeCommand,
+  createUncommentCommand,
+  type CommentOutBlocker,
   createBulkInsertCommand,
   createBulkMoveCommand,
   createBulkRemoveCommand,
@@ -876,6 +881,73 @@ export function App(): React.ReactElement {
     focusInsertedNodes(result.clones.map((clone) => clone.id));
   }
 
+  /** Why the selection cannot be commented out, or null if it can. Also drives the greyed-out
+   * entry's tooltip — a dead menu item without a reason is worse than no menu item. */
+  function commentOutBlockerForSelection(): CommentOutBlocker | "not-applicable" | null {
+    if (!activeDoc || activeDoc.format !== "xml") return "not-applicable";
+    const targets = topmostRows(selectedRows);
+    if (targets.length === 0) return "not-applicable";
+    // A node that is already a comment, or that sits inside one, has nothing to comment out.
+    if (targets.some((row) => row.node.kind === "comment")) return "not-applicable";
+    if (targets.some((row) => row.ancestors.some((a) => a.kind === "comment"))) return "not-applicable";
+    if (targets.some((row) => findSiblingSlot(row) === null)) return "not-applicable"; // the root
+    for (const row of targets) {
+      const blocker = commentOutBlocker(row.node);
+      if (blocker) return blocker;
+    }
+    return null;
+  }
+
+  /** Comments every selected node out, each wrapped on its own (grilling decision #7) and all
+   * as a single undo step. */
+  function handleCommentOut(): void {
+    if (!activeDoc || commentOutBlockerForSelection() !== null) return;
+    const targets = topmostRows(selectedRows);
+    // Descending by index so earlier replacements cannot shift the ones still to come.
+    const slots = targets
+      .map((row) => findSiblingSlot(row))
+      .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
+      .sort((a, b) => b.index - a.index);
+    const commands = slots
+      .map((slot) =>
+        createCommentOutCommand(slot.parent, slot.index, slot.parentAncestors, activeDoc.document.indent),
+      )
+      .filter((command): command is NonNullable<typeof command> => command !== null);
+    if (commands.length === 0) return;
+    activeDoc.commandBus.execute(
+      commands.length === 1 ? commands[0]! : createCompositeCommand("comment-out", commands),
+    );
+    setSelection(EMPTY_SELECTION);
+    setEditingField(null);
+  }
+
+  /** True when every selected node is a commented-out subtree that can be brought back. */
+  function canUncommentSelection(): boolean {
+    const targets = topmostRows(selectedRows);
+    return (
+      activeDoc !== null &&
+      targets.length > 0 &&
+      targets.every((row) => row.node.kind === "comment" && row.node.children.length > 0)
+    );
+  }
+
+  function handleUncomment(): void {
+    if (!activeDoc || !canUncommentSelection()) return;
+    const slots = topmostRows(selectedRows)
+      .map((row) => findSiblingSlot(row))
+      .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
+      .sort((a, b) => b.index - a.index);
+    const commands = slots
+      .map((slot) => createUncommentCommand(slot.parent, slot.index, slot.parentAncestors))
+      .filter((command): command is NonNullable<typeof command> => command !== null);
+    if (commands.length === 0) return;
+    activeDoc.commandBus.execute(
+      commands.length === 1 ? commands[0]! : createCompositeCommand("uncomment", commands),
+    );
+    setSelection(EMPTY_SELECTION);
+    setEditingField(null);
+  }
+
   /** Strg+C: serialize the selected subtree(s) to the system clipboard — one XML fragment /
    * single-key JSON object for a single node, several fragments for a multi-selection (see
    * serializeFragments). */
@@ -1292,6 +1364,30 @@ export function App(): React.ReactElement {
     );
   }
 
+  /** The two comment actions. Only ever one of them applies to a given selection, but both stay
+   * visible (greyed out) so the pair is discoverable — with a tooltip saying why. */
+  function commentMenuEntries(): ContextMenuItem[] {
+    const blocker = commentOutBlockerForSelection();
+    return [
+      {
+        label: t("menu.commentOut"),
+        disabled: blocker !== null,
+        title:
+          blocker === "contains-comment"
+            ? t("menu.commentOut.containsComment")
+            : blocker === "contains-double-hyphen"
+              ? t("menu.commentOut.containsDoubleHyphen")
+              : undefined,
+        onClick: handleCommentOut,
+      },
+      {
+        label: t("menu.uncomment"),
+        disabled: !canUncommentSelection(),
+        onClick: handleUncomment,
+      },
+    ];
+  }
+
   function buildContextMenuItems(): ContextMenuItem[] {
     const ctrl = t("key.ctrl");
     const isVisibleRoot = !selectedRow || (root !== null && selectedRow.node === root);
@@ -1316,6 +1412,8 @@ export function App(): React.ReactElement {
       "separator",
       { label: t("toolbar.addChild"), shortcut: `${ctrl}+Shift++`, onClick: handleAddChild },
       { label: t("toolbar.duplicate"), shortcut: `${ctrl}+D`, disabled: isRoot, onClick: handleDuplicate },
+      "separator",
+      ...commentMenuEntries(),
       "separator",
       { label: t("menu.copyNode"), shortcut: `${ctrl}+C`, onClick: handleCopyNode },
       { label: t("menu.pasteNode"), shortcut: `${ctrl}+V`, onClick: () => void handlePasteNode() },

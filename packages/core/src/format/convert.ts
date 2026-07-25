@@ -14,15 +14,15 @@
  *   XML has no type information to derive anything else from.
  * - JSON -> XML: the reverse. Number/boolean/null types collapse to text, since XML has no way
  *   to carry them.
- * - Neither direction: comments, processing instructions and CDATA markers, which
- *   `xml-import.ts` never puts in the tree in the first place.
+ * - Neither direction: comments (dropped on the way to JSON, which has no notion of them),
+ *   processing instructions and CDATA markers.
  *
  * Not every JSON document has an XML counterpart: JSON keys are arbitrary strings, XML element
  * names are not. Rather than silently renaming (which produces a file that looks right and
  * isn't), that case throws `InvalidXmlNameError` and the conversion is abandoned.
  */
 
-import { createNode, type DocNode } from "../model/node.js";
+import { createNode, elementChildren, type DocNode } from "../model/node.js";
 import { serializeJson } from "./json-export.js";
 import { serializeXml } from "./xml-export.js";
 
@@ -100,6 +100,9 @@ export function convertDocument(params: ConvertParams): string {
  * ("42" -> number) would change data the user never asked to change.
  */
 function toJsonShape(node: DocNode): DocNode {
+  // JSON has no comments, so they are dropped here rather than smuggled in as a "#comment"
+  // property — which is also what the confirmation dialog promises the user.
+  const contentChildren = elementChildren(node);
   const attributeNodes = node.attributes.map((attribute) =>
     createNode({
       name: ATTRIBUTE_PREFIX + attribute.name,
@@ -113,7 +116,7 @@ function toJsonShape(node: DocNode): DocNode {
       name: node.name,
       value: node.value,
       jsonType: node.value === null ? undefined : "string",
-      children: node.children.map(toJsonShape),
+      children: contentChildren.map(toJsonShape),
       synthetic: node.synthetic,
     });
   }
@@ -128,7 +131,7 @@ function toJsonShape(node: DocNode): DocNode {
       : [createNode({ name: TEXT_PROPERTY, value: node.value, jsonType: "string" })];
   return createNode({
     name: node.name,
-    children: [...attributeNodes, ...textNodes, ...node.children.map(toJsonShape)],
+    children: [...attributeNodes, ...textNodes, ...contentChildren.map(toJsonShape)],
     synthetic: node.synthetic,
   });
 }

@@ -312,7 +312,17 @@ function TreeRowView({
 }: TreeRowViewProps): React.ReactElement {
   const { t } = useI18n();
   const { node, depth, hasChildren } = row;
-  const preview = hasChildren ? `(${node.children.length})` : (node.value ?? "");
+  const isCommentRow = node.kind === "comment";
+  // Rows sitting INSIDE a commented-out subtree — they carry the same muted styling and the
+  // left rail that shows how far the stilllegung reaches (CONTEXT.md, "Auskommentierter Teilbaum").
+  const insideComment = row.ancestors.some((ancestor) => ancestor.kind === "comment");
+  // A commented-out subtree shows its markup, not a child count: the count would describe the
+  // parsed view, which is not what the file contains.
+  const preview = isCommentRow
+    ? (node.value ?? "").trim()
+    : hasChildren
+      ? `(${node.children.length})`
+      : (node.value ?? "");
   const dropClass =
     dropPosition === "into"
       ? " tree-row--drop-into"
@@ -334,7 +344,9 @@ function TreeRowView({
 
   return (
     <div
-      className={`tree-row${selected ? " tree-row--selected" : ""}${dropClass}`}
+      className={`tree-row${selected ? " tree-row--selected" : ""}${
+        isCommentRow ? " tree-row--comment" : ""
+      }${insideComment ? " tree-row--in-comment" : ""}${dropClass}`}
       style={{ top, height: ROW_HEIGHT, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
       onClick={handleRowClick}
       onContextMenu={(event) => {
@@ -374,6 +386,20 @@ function TreeRowView({
           onCommit={(text) => onCommitEdit("name", text)}
           onCancel={onCancelEdit}
         />
+      ) : isCommentRow ? (
+        // The stored name is "#comment" (it exists so paths read like the DOM convention);
+        // showing the XML marker instead is what a reader actually recognizes. A double-click
+        // edits the comment TEXT — a comment has no name to rename.
+        <span
+          className="tree-row__comment-marker"
+          onDoubleClick={(event) => {
+            event.stopPropagation();
+            onSelect("none");
+            onStartEditValue();
+          }}
+        >
+          &lt;!--
+        </span>
       ) : (
         <span
           className="tree-row__name"

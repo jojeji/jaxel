@@ -19,6 +19,7 @@
   --accent-strong: #016968;
   --accent-dim: #e0edec; /* Auswahl-/Treffer-Hintergrund */
   --warn: #8a6116;
+  --comment: #4e7a3e; /* XML-Kommentare (Standard hell) */
   --danger: #b3392b;
   --danger-dim: #f7e5e2;
   --shadow: 0 2px 8px rgb(0 0 0 / 0.05);
@@ -40,6 +41,7 @@
   --accent-strong: #45c5c3;
   --accent-dim: #15393c;
   --warn: #d0a24f;
+  --comment: #7aa86a; /* XML-Kommentare (dunkel) */
   --danger: #e06c5b;
   --danger-dim: #45211c;
   --shadow: 0 2px 10px rgb(0 0 0 / 0.35);
@@ -61,6 +63,7 @@
   --accent-strong: #a8c5e2;
   --accent-dim: #1f2b36;
   --warn: #d3a34f;
+  --comment: #82a878; /* XML-Kommentare (Nordlicht) */
   --danger: #e0685a;
   --danger-dim: #3a2019;
   --shadow: 0 2px 10px rgb(0 0 0 / 0.4);
@@ -81,6 +84,7 @@
   --accent-strong: #dba055;
   --accent-dim: #2e2314;
   --warn: #d6b04a;
+  --comment: #8fae6a; /* XML-Kommentare (Tanne) */
   --danger: #d9695a;
   --danger-dim: #3a1f19;
   --shadow: 0 2px 10px rgb(0 0 0 / 0.4);
@@ -102,6 +106,7 @@
   --accent-strong: #963a1e;
   --accent-dim: #f6e3da;
   --warn: #9c6e17;
+  --comment: #5d7a35; /* XML-Kommentare (Terrakotta) */
   --danger: #b3392b;
   --danger-dim: #f7e5e2;
   --shadow: 0 2px 8px rgb(0 0 0 / 0.06);
@@ -122,6 +127,7 @@
   --accent-strong: #6a98e2;
   --accent-dim: #16233a;
   --warn: #d0a24f;
+  --comment: #7fa96f; /* XML-Kommentare (Kobalt) */
   --danger: #e0685a;
   --danger-dim: #3a201c;
   --shadow: 0 2px 10px rgb(0 0 0 / 0.4);
@@ -143,6 +149,7 @@
   --accent-strong: #6fe0bd;
   --accent-dim: #16332a;
   --warn: #e0b23f;
+  --comment: #8bd67a; /* XML-Kommentare (Kontrast) */
   --danger: #ff5470;
   --danger-dim: #3a1620;
   --shadow: 0 2px 12px rgb(0 0 0 / 0.5);
@@ -825,6 +832,37 @@ kbd {
 
 .tree-row__change-marker--contains {
   background: var(--text-2);
+}
+
+/* XML-Kommentare. Bewusst eine EIGENE Farbe statt der Tombstone-Optik: beides sind gedämpfte
+   Zeilen, und in derselben Farbe wäre "auskommentiert" nicht von "gelöscht" zu unterscheiden
+   (docs/entscheidungen.md, "Grilling: Kommentare in XML" #8). Grün für Kommentare ist die
+   Konvention aus jedem Code-Editor und wird ohne Legende verstanden. */
+.tree-row--comment,
+.tree-row--in-comment {
+  color: var(--comment);
+  font-style: italic;
+}
+
+.tree-row--comment .tree-row__preview,
+.tree-row--in-comment .tree-row__name,
+.tree-row--in-comment .tree-row__preview,
+.tree-row--in-comment .tree-row__attrs {
+  color: var(--comment);
+}
+
+.tree-row__comment-marker {
+  color: var(--comment);
+  opacity: 0.7;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* Linker Randstreifen an einem auskommentierten Teilbaum — zeigt, wie weit die Stilllegung
+   reicht. Sitzt am Einzug der Zeile, damit er der Baumtiefe folgt. */
+.tree-row--comment,
+.tree-row--in-comment {
+  box-shadow: inset 2px 0 0 var(--comment);
 }
 
 .tree-row--tombstone {

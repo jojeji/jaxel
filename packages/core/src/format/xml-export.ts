@@ -49,6 +49,11 @@ function serializeNode(node: DocNode, indent: string, depth: number, byteSource?
     const [start, end] = node.byteRange;
     return pad + byteSource.decoder.decode(byteSource.bytes.subarray(start, end));
   }
+  if (node.kind === "comment") {
+    // `value` is the source of truth even for an auskommentierter Teilbaum — its children are
+    // a read-only view (see DocNode.kind), so they are never serialized from.
+    return `${pad}<!--${node.value ?? ""}-->`;
+  }
   const attrs = serializeAttributes(node);
   if (node.children.length > 0) {
     const inner = node.children.map((c) => serializeNode(c, indent, depth + 1, byteSource)).join("\n");

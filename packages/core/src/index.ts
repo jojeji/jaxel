@@ -1,7 +1,16 @@
 // Public API of @jaxel/core. See docs/architektur.md for the layering this package sits in.
 
-export type { DocAttribute, DocNode, JsonPrimitiveType } from "./model/node.js";
-export { cloneSubtree, createNode, createNodeId } from "./model/node.js";
+export type { DocAttribute, DocNode, DocNodeKind, JsonPrimitiveType } from "./model/node.js";
+export {
+  COMMENT_NAME,
+  cloneSubtree,
+  createCommentNode,
+  createNode,
+  createNodeId,
+  elementChildren,
+  isComment,
+  isCommentedOutSubtree,
+} from "./model/node.js";
 
 export type { DocFormat, JaxelDocument, XmlFraming } from "./model/document.js";
 export { createDocument } from "./model/document.js";
@@ -20,6 +29,12 @@ export { createSetAttributeCommand } from "./commands/set-attribute.js";
 export { createRenameAttributeCommand } from "./commands/rename-attribute.js";
 export { createInsertNodeCommand } from "./commands/insert-node.js";
 export { createRemoveNodeCommand } from "./commands/remove-node.js";
+export type { CommentOutBlocker } from "./commands/comment.js";
+export {
+  commentOutBlocker,
+  createCommentOutCommand,
+  createUncommentCommand,
+} from "./commands/comment.js";
 export type { DropPosition, MovePlan } from "./commands/move-node.js";
 export { createMoveNodeCommand, planMove } from "./commands/move-node.js";
 export type { ReplaceAllResult } from "./commands/replace-all.js";

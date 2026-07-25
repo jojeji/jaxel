@@ -34,7 +34,7 @@
  *   they are left untouched verbatim rather than rejected or resolved.
  */
 
-import { createNode, type DocAttribute, type DocNode } from "../model/node.js";
+import { createCommentNode, createNode, type DocAttribute, type DocNode } from "../model/node.js";
 
 export interface ParseXmlResult {
   root: DocNode;
@@ -132,6 +132,38 @@ function buildByteOffsetTable(source: string): Uint32Array {
   }
   table[len] = byteOffset;
   return table;
+}
+
+/** Wrapper element name for the fragment parse below — never surfaces anywhere. */
+const COMMENT_PROBE_WRAPPER = "jaxel-comment-probe";
+
+/**
+ * Decides whether a comment's text is commented-out markup rather than prose, and returns the
+ * parsed structure if so (see CONTEXT.md, "Auskommentierter Teilbaum"). Nothing marks this in
+ * the file — the parse attempt IS the test.
+ *
+ * The cheap `<`/`>` guard matters: a document can hold millions of prose comments, and without
+ * it each one would pay for a throwaway parser run. Byte ranges from the inner parse are
+ * dropped because they are offsets into the comment text, not into the file — leaving them
+ * would let the minimal-invasive save copy from entirely wrong positions.
+ */
+function parseCommentedOutSubtree(text: string): DocNode[] | undefined {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("<") || !trimmed.endsWith(">")) return undefined;
+  try {
+    const wrapped = parseXml(`<${COMMENT_PROBE_WRAPPER}>${trimmed}</${COMMENT_PROBE_WRAPPER}>`);
+    const children = wrapped.root.children;
+    if (children.length === 0) return undefined;
+    for (const child of children) stripByteRanges(child);
+    return children;
+  } catch {
+    return undefined; // ordinary prose that merely looks like markup
+  }
+}
+
+function stripByteRanges(node: DocNode): void {
+  node.byteRange = undefined;
+  for (const child of node.children) stripByteRanges(child);
 }
 
 export function parseXml(source: string): ParseXmlResult {
@@ -269,15 +301,28 @@ export function parseXml(source: string): ParseXmlResult {
         if (closeName !== name) {
           fail(`mismatched closing tag: expected "</${name}>" but found "</${closeName}>"`, closeTagStart);
         }
+        // Comments alone must not turn a text-carrying element into a container: `<a>x<!--c--></a>`
+        // still has the value "x". Where both appear, the text wins and the comment is dropped —
+        // the same mixed-content limit this parser already applies to stray text.
+        const byteRange: [number, number] = [byteAt[start]!, byteAt[endPos]!];
+        const hasElementChildren = children.some((child) => child.kind === "element");
+        const keepsComments = hasElementChildren || text.trim() === "";
         const node =
-          children.length > 0
-            ? createNode({ name, attributes, value: null, children, byteRange: [byteAt[start]!, byteAt[endPos]!] })
-            : createNode({ name, attributes, value: text, children: [], byteRange: [byteAt[start]!, byteAt[endPos]!] });
+          hasElementChildren || (keepsComments && children.length > 0)
+            ? createNode({ name, attributes, value: null, children, byteRange })
+            : createNode({ name, attributes, value: text, children: [], byteRange });
         return { node, end: endPos };
       }
       if (peekAt("<!--", p)) {
         const end = source.indexOf("-->", p + 4);
         if (end === -1) fail("unterminated comment", p);
+        children.push(
+          createCommentNode({
+            text: source.slice(p + 4, end),
+            children: parseCommentedOutSubtree(source.slice(p + 4, end)),
+            byteRange: [byteAt[p]!, byteAt[end + 3]!],
+          }),
+        );
         p = end + 3;
         continue;
       }

@@ -150,5 +150,9 @@
   "menuBar.help": "Hilfe",
   "menuBar.undo": "Rückgängig",
   "menuBar.redo": "Wiederholen",
-  "menuBar.saveAs": "Speichern unter…"
+  "menuBar.saveAs": "Speichern unter…",
+  "menu.commentOut": "Auskommentieren",
+  "menu.uncomment": "Einkommentieren",
+  "menu.commentOut.containsComment": "Enthält einen Kommentar — XML erlaubt keine verschachtelten Kommentare.",
+  "menu.commentOut.containsDoubleHyphen": "Enthält „--“ — das ist innerhalb eines XML-Kommentars nicht erlaubt."
 }

@@ -102,8 +102,19 @@ const UNCONVERTIBLE_JSON = `{
   }
 }`;
 
+const COMMENTED_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+  <!-- die erste Person -->
+  <person id="P-1">
+    <name>Anna</name>
+  </person>
+  <!-- <person id="P-9"><name>Zoe</name></person> -->
+  <notiz>Vertrag A--B</notiz>
+</catalog>`;
+
 const FILES: Record<string, string> = {
   "/fake/sample.xml": SAMPLE_XML,
+  "/fake/kommentare.xml": COMMENTED_XML,
   "/fake/second.xml": SECOND_XML,
   "/fake/blob.xml": BLOB_XML,
   "/fake/namespaced.xml": NAMESPACED_XML,
@@ -2456,5 +2467,87 @@ describe("Öffnen mit / Kommandozeilen-Pfade (pending open paths)", () => {
     expect(await screen.findByText("second.xml", { selector: ".tab__label" })).toBeInTheDocument();
     expect(await screen.findByText("inventory")).toBeInTheDocument(); // neuer Tab ist aktiv
     expect(screen.getByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument(); // alter Tab bleibt
+  });
+});
+
+describe("Kommentare im Baum", () => {
+  async function openCommentedFile() {
+    const user = userEvent.setup();
+    renderApp();
+    vi.mocked(open).mockResolvedValueOnce("/fake/kommentare.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("catalog");
+    return user;
+  }
+
+  function rowOf(text: string): HTMLElement {
+    return screen.getAllByText(text)[0]!.closest(".tree-row") as HTMLElement;
+  }
+
+  async function openContextMenuOn(user: ReturnType<typeof userEvent.setup>, row: HTMLElement) {
+    fireEvent.contextMenu(row);
+    await screen.findByRole("menu");
+  }
+
+  it("zeigt einen Prosa-Kommentar als eigene Zeile mit Kommentar-Optik", async () => {
+    await openCommentedFile();
+    const comment = await screen.findByText("die erste Person");
+    expect(comment.closest(".tree-row")).toHaveClass("tree-row--comment");
+  });
+
+  it("zeigt einen auskommentierten Teilbaum aufklappbar an", async () => {
+    const user = await openCommentedFile();
+    // Der Kommentar enthält wohlgeformtes XML — sein Inhalt ist als Struktur ausklappbar.
+    const commentRow = rowOf('<person id="P-9"><name>Zoe</name></person>');
+    await user.click(commentRow);
+    const inner = await screen.findByText("person", { selector: ".tree-row--in-comment .tree-row__name" });
+    expect(inner).toBeInTheDocument();
+  });
+
+  it("kommentiert einen Knoten über das Kontextmenü aus", async () => {
+    const user = await openCommentedFile();
+    const personRow = rowOf("person");
+    await user.click(personRow);
+    await openContextMenuOn(user, personRow);
+
+    await user.click(screen.getByRole("menuitem", { name: "Auskommentieren" }));
+
+    // Aus dem Knoten ist eine Kommentarzeile mit seinem Markup geworden.
+    const commented = await screen.findByText(/^<person id="P-1">/);
+    expect(commented.closest(".tree-row")).toHaveClass("tree-row--comment");
+  });
+
+  it("graut Auskommentieren aus, wenn der Knoten -- enthält", async () => {
+    const user = await openCommentedFile();
+    const notizRow = rowOf("notiz");
+    await user.click(notizRow);
+    await openContextMenuOn(user, notizRow);
+
+    expect(screen.getByRole("menuitem", { name: "Auskommentieren" })).toBeDisabled();
+  });
+
+  it("holt einen auskommentierten Teilbaum über Einkommentieren zurück", async () => {
+    const user = await openCommentedFile();
+    const commentRow = rowOf('<person id="P-9"><name>Zoe</name></person>');
+    await user.click(commentRow);
+    await openContextMenuOn(user, commentRow);
+
+    await user.click(screen.getByRole("menuitem", { name: "Einkommentieren" }));
+
+    // Die Kommentarzeile ist weg; an ihrer Stelle steht ein gewöhnlicher Knoten.
+    await waitFor(() =>
+      expect(screen.queryByText(/^<person id="P-9">/)).not.toBeInTheDocument(),
+    );
+    const revived = screen.getAllByText("person").map((el) => el.closest(".tree-row"));
+    expect(revived.some((row) => row && !row.classList.contains("tree-row--in-comment"))).toBe(true);
+  });
+
+  it("graut Einkommentieren bei einem Prosa-Kommentar aus", async () => {
+    const user = await openCommentedFile();
+    const proseRow = rowOf("die erste Person");
+    await user.click(proseRow);
+    await openContextMenuOn(user, proseRow);
+
+    expect(screen.getByRole("menuitem", { name: "Einkommentieren" })).toBeDisabled();
   });
 });

@@ -24,6 +24,13 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Hinzugefügt
 
+- **Kommentare im Baum:** XML-Kommentare erscheinen jetzt als eigene, grün-kursive Zeilen an
+  ihrer Position im Dokument — statt unsichtbar zu bleiben. Enthält ein Kommentar wohlgeformtes
+  XML, wird er als aufklappbare Struktur dargestellt. Über das Kontextmenü lassen sich Knoten
+  **auskommentieren** und wieder **einkommentieren**; bei mehreren markierten Knoten wirkt das
+  auf alle, als ein Rückgängig-Schritt. Knoten, die selbst schon einen Kommentar oder ein „--"
+  enthalten, lassen sich nicht auskommentieren (XML erlaubt das nicht) — der Menüeintrag ist
+  dann ausgegraut und nennt beim Darüberfahren den Grund.
 - **Mehrfachauswahl im Baum:** `Strg`+Klick wählt einzelne Knoten zusätzlich aus, `Shift`+Klick
   einen ganzen Bereich, `Shift`+`↑`/`↓` erweitert die Auswahl zeilenweise. Die Auswahl darf über
   verschiedene Ebenen hinweg gehen. **Löschen**, **Duplizieren**, **Kopieren** und **Verschieben

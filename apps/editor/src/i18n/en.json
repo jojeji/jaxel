@@ -150,5 +150,9 @@
   "menuBar.help": "Help",
   "menuBar.undo": "Undo",
   "menuBar.redo": "Redo",
-  "menuBar.saveAs": "Save as…"
+  "menuBar.saveAs": "Save as…",
+  "menu.commentOut": "Comment out",
+  "menu.uncomment": "Uncomment",
+  "menu.commentOut.containsComment": "Contains a comment — XML does not allow nested comments.",
+  "menu.commentOut.containsDoubleHyphen": "Contains “--”, which is not allowed inside an XML comment."
 }

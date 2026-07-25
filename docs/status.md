@@ -3,6 +3,62 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-25 — Kommentare als Knoten (Schritt 2, Kern)
+
+Schritt 2 des Kommentar-Themas: Kommentare sind jetzt echte `DocNode`s. Design vollständig in
+`docs/entscheidungen.md` ("Grilling: Kommentare in XML"), hier nur Umsetzung und Fallstricke.
+
+**Modell:** `DocNode.kind: "element" | "comment"`, plus `createCommentNode`, `isComment`,
+`isCommentedOutSubtree`, `elementChildren` (`model/node.ts`). Ein Kommentarknoten heißt immer
+`#comment`, damit `path.ts` ohne Sonderfall auskommt.
+
+**Die eine bewusst gebrochene Regel:** Bei einem auskommentierten Teilbaum trägt der Knoten
+`value` (den Rohtext) UND `children` (die geparste Ansicht). Sonst gilt im Modell "value XOR
+children". Die Kinder sind ausdrücklich nur Ansicht — serialisiert wird immer aus `value`, damit
+Jaxel den Kommentar nie reserialisieren muss.
+
+**Erkennung ohne Markierung in der Datei:** Ob ein Kommentar Prosa oder auskommentiertes Markup
+ist, entscheidet allein ein Parse-Versuch beim Laden (`parseCommentedOutSubtree`). Davor steht
+eine billige `<`/`>`-Prüfung — ohne sie zahlte jeder der potenziell Millionen Prosa-Kommentare
+einen eigenen Parserlauf.
+
+**Beim Bauen gefunden:**
+
+- **Kommentare hätten Text-Elemente zu Containern gemacht.** `<a>x<!--c--></a>` hat bisher den
+  Wert "x"; mit Kommentaren als Kindern wäre `children.length > 0` wahr geworden und der Text
+  verschwunden. Jetzt entscheidet ausschließlich die Anwesenheit von *Element*-Kindern. Wo Text
+  und Kommentar zusammentreffen, gewinnt der Text und der Kommentar entfällt — dieselbe
+  Mixed-Content-Grenze, die der Parser schon für Fremdtext zieht.
+- **Byte-Bereiche aus dem Kommentarinhalt zeigen ins Leere.** Sie sind Offsets in den
+  Kommentartext, nicht in die Datei; blieben sie stehen, würde der minimal-invasive Speicherpfad
+  aus völlig falschen Positionen kopieren. Werden deshalb gestrippt.
+- **Die JSON-Konvertierung hätte `"#comment"` als Eigenschaft geschrieben** — im Widerspruch zu
+  dem, was der Bestätigungsdialog dem Nutzer zusagt. `convert.ts` filtert Kommentare jetzt über
+  `elementChildren` heraus.
+- **Ein `title` auf einem `disabled`-Button zeigt keinen Tooltip** (disabled Elemente feuern
+  keine Mouse-Events). Für die Begründung am ausgegrauten "Auskommentieren" musste der Eintrag
+  in ein `<span title>` gewickelt werden.
+
+**Optik:** neue CSS-Variable `--comment` in allen sieben Theme-Blöcken (gedämpftes Grün, je
+Theme abgestimmt), Kursivschrift, `<!--`-Marker statt des Namens und ein linker Randstreifen an
+auskommentierten Teilbäumen. Bewusst NICHT die Tombstone-Optik — der PO hat beim Grilling
+darauf hingewiesen, dass "auskommentiert" sonst nicht von "gelöscht" zu unterscheiden wäre.
+
+**Was noch fehlt (nicht Teil dieses Commits):**
+
+- **"Kommentar einfügen"** (neu anlegen) aus Grilling-Punkt 5 ist noch nicht gebaut. Löschen,
+  Verschieben, Duplizieren und Text-Ändern funktionieren bereits, weil die bestehenden Commands
+  auf Indizes arbeiten bzw. auf `value` gehen.
+- **Die `--`-Prüfung beim Bearbeiten eines Kommentartexts** fehlt noch: F2 auf einem Kommentar
+  erlaubt derzeit, "--" einzutippen und damit ungültiges XML zu erzeugen.
+- **Schreibschutz innerhalb auskommentierter Teilbäume** ist noch nicht erzwungen — die Zeilen
+  sind sichtbar und als solche markiert, aber ein Doppelklick kann sie noch bearbeiten.
+- **Suche/Ersetzen** (Grilling-Punkt 6: beide finden, nur Prosa ersetzen) ist noch nicht
+  umgesetzt; die Suche läuft aktuell ungefiltert über alle Knoten.
+
+**Verifiziert:** Core 255/255 (30 neue Tests), Editor 236/236 (6 neue Integrationstests), beide
+Typechecks und der Produktionsbuild sauber. Der Sichttest im laufenden Fenster steht aus.
+
 ## Nachtrag 2026-07-25 — Prolog und Epilog gehen nicht mehr verloren
 
 Schritt 1 des Kommentar-Themas (siehe `docs/entscheidungen.md`, „Grilling: Kommentare in XML",
