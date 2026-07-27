@@ -3,6 +3,59 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-26 — UI-Tests im echten Browser statt in jsdom
+
+Anlass war die Frage des PO nach UI-Tests. Der Ist-Stand war: es *gab* UI-Tests (157 in
+`App.test.tsx`), aber sie liefen in jsdom — ohne CSS, ohne Layout, ohne `ResizeObserver`. Alles,
+was von Optik oder Geometrie abhing, war damit ungeprüft.
+
+**Umbau:** `apps/editor` läuft jetzt in zwei Vitest-Projekten entlang der Grenze, die das Projekt
+ohnehin zieht (CLAUDE.md-Invariante 3): `*.test.ts` ist React-freie Logik und läuft in Node,
+`*.test.tsx` rendert UI und läuft in einem echten headless Chromium (`@vitest/browser` +
+Playwright). jsdom ist ersatzlos entfallen. Vitest wurde dafür von 2.1 auf 4.1 gehoben — 3.2 wäre
+für den Browser-Modus genug gewesen, aber `toMatchScreenshot` gibt es erst ab 4.
+
+**Was der Wechsel sofort ans Licht brachte:**
+
+- **Drei Drag&Drop-Tests prüften den Mock, nicht das Programm.** Sie mockten
+  `getBoundingClientRect` und verließen sich darauf, dass eine jsdom-Zeile 0 Pixel hoch ist —
+  der Testkommentar sagte das offen (`jsdom-Rect hat Hoehe 0 -> Mitte -> "into"`). Die Drop-Zone
+  „Mitte" traf also nur wegen eines Messfehlers. Jetzt rechnen sie mit echter Zeilenhöhe.
+- **`setDragGhost` in `TreeView.tsx` lief in Tests nie.** Der Code hängt einen Klon der gezogenen
+  Zeile an `document.body`; in jsdom fehlt `setDragImage`, also war der ganze Zweig tot. Im Browser
+  zählten dokumentweite Abfragen den Klon mit — die Tests fragen jetzt innerhalb `.tree-view`.
+- **Der `ResizeObserver`-Stub legte die Virtualisierung still** (`viewportHeight` blieb 0). Er ist
+  entfallen; die Virtualisierung läuft in den Tests jetzt echt.
+
+**Neu abgesichert (`theme-colors.test.tsx`, 21 Tests):** für jedes der sieben Themes wird die
+*berechnete* Kommentarfarbe gemessen — verschieden von der normalen Knotenfarbe, verschieden von
+`--text-2` (der Tombstone-Farbe, die Korrektur des PO aus dem Kommentar-Grilling #8), und
+mindestens 3:1 Kontrast zum Hintergrund. Dazu Marker-Balken und Kursivschrift. Diese Zusicherung
+wurde gegen zwei absichtlich eingebaute Defekte gegengeprüft (Kommentarfarbe auf Tombstone-Grau,
+Kommentarfarbe zu blass) und schlug in beiden Fällen an.
+
+**Referenzbilder (`theme-screenshots.visual.test.tsx`):** ein Baumausschnitt je Theme mit allen
+Zeilenarten nebeneinander. Läuft **nicht** im normalen `npm test`, sondern über
+`npm run test:visual` — Schriftrendering hängt am Rechner, ein Referenzbild von hier würde auf
+einem CI-Runner zwangsläufig abweichen und rote Builds ohne echten Befund erzeugen.
+
+**Nebenwirkungen des Vitest-Sprungs:** `@types/node` musste in beiden Paketen explizit werden (bis
+Vitest 3 kam es ungefragt über eine `reference` mit); `packages/core/tsconfig.json` steht deshalb
+auf `"types": ["node"]` statt `[]`. Der Provider wird in Vitest 4 als Factory übergeben
+(`@vitest/browser-playwright`), und `defineConfig` muss aus `vitest/config` kommen.
+
+**Offener Befund, nicht angefasst:** Der Name einer Tombstone-Zeile erscheint in der normalen
+Element-Farbe statt gedämpft. `.tree-row--tombstone` setzt `color: var(--text-2)` auf der Zeile,
+`.tree-row__name` setzt die Farbe direkt auf dem Kind — vererbte Farbe verliert immer gegen eine
+direkte Regel. Beim Kommentar-Stil wurde genau das gesehen und mit einer Extra-Regel gelöst
+(`styles.css`, `.tree-row--comment .tree-row__preview`), beim Tombstone nicht. Sichtbar bleibt nur
+die Durchstreichung. Dem PO gemeldet, Entscheidung steht aus — Änderungsmarker sind ein optionales
+Feature (Default aus), deshalb nicht ungefragt korrigiert.
+
+**Offen:** Die sieben Tauri-Commands in `src-tauri/src/lib.rs` haben weiterhin keine Tests; `invoke`
+ist in allen Frontend-Tests gemockt. Das ist die vierte Lücke aus der Optionenliste und wäre mit
+`#[test]` plus `cargo test` in der CI günstig zu schließen.
+
 ## Nachtrag 2026-07-25 — Kommentare als Knoten (Schritt 2, Kern)
 
 Schritt 2 des Kommentar-Themas: Kommentare sind jetzt echte `DocNode`s. Design vollständig in

@@ -37,16 +37,6 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
-// jsdom has no ResizeObserver; TreeView only needs it to know the viewport height for
-// virtualization, and the tests here use small trees that fit well within the fallback
-// overscan window even with viewportHeight stuck at 0.
-class ResizeObserverStub {
-  observe(): void {}
-  unobserve(): void {}
-  disconnect(): void {}
-}
-vi.stubGlobal("ResizeObserver", ResizeObserverStub);
-
 const SAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <catalog>
   <person id="P-1">
@@ -66,11 +56,13 @@ const SECOND_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </item>
 </inventory>`;
 
+// btoa statt Buffer: dieser Test läuft im Browser (siehe vite.config.ts), und alle Payloads
+// hier sind reines ASCII — für die ist btoa ein exakter Ersatz.
 const B64_XML_PAYLOAD = `<hello>${"x".repeat(60)}</hello>`;
-const B64_XML = Buffer.from(B64_XML_PAYLOAD).toString("base64");
-const B64_PDF = Buffer.from(`%PDF-1.7\n${"y".repeat(60)}`).toString("base64");
+const B64_XML = btoa(B64_XML_PAYLOAD);
+const B64_PDF = btoa(`%PDF-1.7\n${"y".repeat(60)}`);
 const B64_ATTR_PAYLOAD = `Nur Text im Attribut: ${"z".repeat(50)}`;
-const B64_ATTR = Buffer.from(B64_ATTR_PAYLOAD).toString("base64");
+const B64_ATTR = btoa(B64_ATTR_PAYLOAD);
 
 const BLOB_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <vol>
@@ -1200,8 +1192,30 @@ describe("Fokus-Ansicht ab Knoten", () => {
 });
 
 describe("Drag&Drop im Baum", () => {
+  /** Ein echtes DataTransfer — der Browser weist ein Fake-Objekt in DragEventInit zurueck. */
   function dragPayload() {
-    return { dataTransfer: { setData: vi.fn(), effectAllowed: "", dropEffect: "" } };
+    return { dataTransfer: new DataTransfer() };
+  }
+
+  /**
+   * Y-Koordinate in einer Zeile, als Anteil ihrer TATSAECHLICHEN Hoehe (0 = Oberkante,
+   * 1 = Unterkante). Der Test rechnet damit gegen echtes Layout statt gegen einen
+   * getBoundingClientRect-Mock — die Drop-Zonen-Geometrie ist genau das, was hier geprueft
+   * werden soll.
+   */
+  function pointInRow(row: HTMLElement, fraction: number): number {
+    const rect = row.getBoundingClientRect();
+    return rect.top + rect.height * fraction;
+  }
+
+  /**
+   * Zeilen NUR aus dem Baum. Waehrend eines Drags haengt zusaetzlich der Drag-Ghost
+   * (setDragGhost in TreeView.tsx) als Klon der gezogenen Zeile direkt am document.body —
+   * eine dokumentweite Abfrage wuerde ihn mitzaehlen.
+   */
+  function rowsInTree(selector: string): string[] {
+    const tree = document.querySelector(".tree-view")!;
+    return Array.from(tree.querySelectorAll(selector)).map((el) => el.textContent ?? "");
   }
 
   it("verschiebt einen Knoten hinter ein Geschwister (Einfuege-Linie 'after')", async () => {
@@ -1211,25 +1225,15 @@ describe("Drag&Drop im Baum", () => {
       .map((el) => el.closest(".tree-row")! as HTMLElement);
 
     fireEvent.dragStart(p1!, dragPayload());
-    vi.spyOn(p2!, "getBoundingClientRect").mockReturnValue({
-      top: 100, bottom: 122, height: 22, left: 0, right: 400, width: 400, x: 0, y: 100,
-      toJSON: () => ({}),
-    } as DOMRect);
-    // jsdom kennt kein DragEvent (fireEvent.dragOver verwirft clientY daher) — MouseEvent
-    // mit manuell angehaengtem dataTransfer transportiert die Y-Koordinate zuverlaessig.
-    const overEvent = new MouseEvent("dragover", { bubbles: true, cancelable: true, clientY: 120 });
-    Object.assign(overEvent, dragPayload());
-    fireEvent(p2!, overEvent); // unteres Viertel -> "after"
+    fireEvent.dragOver(p2!, { clientY: pointInRow(p2!, 0.9), ...dragPayload() }); // unteres Viertel -> "after"
     expect(document.querySelector(".tree-row--drop-after")).not.toBeNull();
 
     fireEvent.drop(p2!, dragPayload());
-    const attrs = Array.from(document.querySelectorAll(".tree-row__attrs")).map((el) => el.textContent);
-    expect(attrs).toEqual(['id="P-2"', 'id="P-1"']);
+    expect(rowsInTree(".tree-row__attrs")).toEqual(['id="P-2"', 'id="P-1"']);
 
     // Ein Undo-Schritt stellt die alte Reihenfolge wieder her.
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
-    const attrsAfterUndo = Array.from(document.querySelectorAll(".tree-row__attrs")).map((el) => el.textContent);
-    expect(attrsAfterUndo).toEqual(['id="P-1"', 'id="P-2"']);
+    expect(rowsInTree(".tree-row__attrs")).toEqual(['id="P-1"', 'id="P-2"']);
   });
 
   it("legt einen Knoten AUF einer Zeile als Kind ab ('into')", async () => {
@@ -1239,7 +1243,7 @@ describe("Drag&Drop im Baum", () => {
       .map((el) => el.closest(".tree-row")! as HTMLElement);
 
     fireEvent.dragStart(p2!, dragPayload());
-    fireEvent.dragOver(p1!, { clientY: 0, ...dragPayload() }); // jsdom-Rect hat Hoehe 0 -> Mitte -> "into"
+    fireEvent.dragOver(p1!, { clientY: pointInRow(p1!, 0.5), ...dragPayload() }); // Mitte -> "into"
     expect(document.querySelector(".tree-row--drop-into")).not.toBeNull();
 
     fireEvent.drop(p1!, dragPayload());
@@ -1255,11 +1259,11 @@ describe("Drag&Drop im Baum", () => {
     const cityRow = (await screen.findByText("Berlin")).closest(".tree-row")! as HTMLElement;
 
     fireEvent.dragStart(p1, dragPayload());
-    fireEvent.dragOver(cityRow, { clientY: 0, ...dragPayload() });
+    fireEvent.dragOver(cityRow, { clientY: pointInRow(cityRow, 0.5), ...dragPayload() });
     expect(document.querySelector(".tree-row--drop-into")).toBeNull();
     fireEvent.drop(cityRow, dragPayload());
     // Struktur unveraendert: P-1 hat weiterhin 2 Kinder.
-    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+    expect(rowsInTree(".tree-row__name").filter((name) => name === "person")).toHaveLength(2);
     expect(screen.getByText("Anna")).toBeInTheDocument();
   });
 });

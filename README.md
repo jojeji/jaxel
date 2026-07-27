@@ -12,9 +12,25 @@ Stack: Tauri 2 + Rust-Kern + React 18 + TypeScript + Vite. Monorepo mit npm-Work
 
 ```bash
 npm install
+npx playwright install chromium   # einmalig: Browser für die UI-Tests
 npm run dev      # Tauri-Dev-Fenster (im PROJEKT-WURZELVERZEICHNIS ausführen!)
-npm test         # vitest im Kern-Paket
+npm test         # Kern + Editor (Logik in Node, UI in echtem Chromium)
 ```
+
+### Testebenen
+
+| Ebene | Wo | Läuft in | Befehl |
+|---|---|---|---|
+| Modellkern | `packages/core` | Node | `npm test` |
+| Logik (React-frei) | `apps/editor/src/**/*.test.ts` | Node | `npm test` |
+| UI (Komponenten) | `apps/editor/src/**/*.test.tsx` | headless Chromium | `npm test` |
+| Referenzbilder | `apps/editor/src/**/*.visual.test.tsx` | headless Chromium | `npm run test:visual` (in `apps/editor`) |
+
+Referenzbilder laufen bewusst getrennt und nicht in der CI: ihr Ergebnis hängt am
+Schriftrendering des jeweiligen Rechners. Weicht ein Bild nach einer beabsichtigten
+Design-Änderung ab, die zugehörige `.png` unter `src/__screenshots__/` löschen und
+`npm run test:visual` zweimal laufen lassen — der erste Lauf legt die neue Referenz an und
+schlägt absichtlich fehl, damit man sie ansieht.
 
 **Wichtig:** `npm run dev` muss im Wurzelverzeichnis (`xml-editor/`) laufen. `apps/editor` hat ein
 eigenes, gleichnamiges `"dev"`-Skript, das NUR den Vite-Server startet (kein Tauri-Fenster) — wird

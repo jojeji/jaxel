@@ -9,7 +9,12 @@
     "noImplicitOverride": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": []
+    // Bis Vitest 3 kamen die Node-Typen ungefragt über eine `reference` in dessen .d.ts
+    // herein; seit Vitest 4 nicht mehr, und ohne sie fehlen TextEncoder/TextDecoder
+    // (xml-export.ts) sowie Buffer in den Tests. "React-frei und headless" bleibt eine
+    // Regel über den Code, nicht über diese Zeile — hier steht nur, was ohnehin schon
+    // benutzt wurde.
+    "types": ["node"]
   },
   "include": ["src", "tests"]
 }

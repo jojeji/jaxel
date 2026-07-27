@@ -23,8 +23,9 @@ const DRAG_GHOST_OPACITY = "0.5";
 
 /**
  * Replaces the native (often opaque) drag ghost with a translucent clone of the row, so the
- * drop indicator underneath the cursor stays visible while dragging. No-op in environments
- * without `setDragImage` (e.g. jsdom in tests).
+ * drop indicator underneath the cursor stays visible while dragging. The clone hangs off
+ * document.body for one tick — tests that count rows must scope their query to `.tree-view`.
+ * No-op in environments without `setDragImage`.
  */
 function setDragGhost(event: React.DragEvent): void {
   if (typeof event.dataTransfer.setDragImage !== "function") return;

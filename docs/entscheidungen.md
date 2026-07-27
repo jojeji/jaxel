@@ -471,3 +471,27 @@ JSON-Konvertierung, womit die Index-Logik in `path.ts` unverändert greift.
 **Nebeneffekt, der für Punkt 1 spricht:** Heute überleben Kommentare *zwischen* Geschwistern nur,
 solange der Elternknoten seinen `byteRange` behält (siehe Kommentar in `xml-export.ts`) — ändert
 man ein Kind, sind sie weg. Sind Kommentare eigene Knoten, gibt es diese Lücken nicht mehr.
+
+## 2026-07-26 — Testebenen: Node für Logik, echter Browser für UI
+
+1. **jsdom ist ersatzlos entfallen.** UI-Tests laufen in headless Chromium (`@vitest/browser` +
+   Playwright). Begründung: jsdom kennt weder CSS noch Layout noch `ResizeObserver` — genau die
+   drei Dinge, an denen Darstellungsfehler hängen. Der Umstieg deckte sofort auf, dass drei
+   Drag&Drop-Tests gegen einen `getBoundingClientRect`-Mock prüften und der Drag-Ghost-Code nie
+   ausgeführt wurde.
+2. **Die Projektgrenze ist die Dateiendung**, nicht eine Testliste: `*.test.ts` = React-freie
+   Logik in Node, `*.test.tsx` = UI im Browser. Das ist dieselbe Trennung, die CLAUDE.md ohnehin
+   für den Produktionscode vorschreibt, und braucht deshalb keine eigene Pflege.
+3. **Referenzbilder laufen getrennt** (`npm run test:visual`, Projekt `visual`) und **nicht** in
+   der CI. Schriftrendering hängt an den installierten Fonts des Rechners; ein hier erzeugtes
+   Bild würde auf einem Runner abweichen, ohne dass sich am Programm etwas geändert hat. Der
+   maschinelle Regressionsschutz für Optik kommt stattdessen aus gemessenen Farbwerten
+   (`theme-colors.test.tsx`) — die sind plattformunabhängig und laufen in der CI mit.
+4. **Farbzusicherungen werden gegen einen absichtlichen Defekt gegengeprüft**, bevor sie als
+   erledigt gelten. Ein Test, der nicht rot werden kann, sichert nichts zu; die erste Fassung von
+   `theme-colors.test.tsx` maß gegen einen transparenten Hintergrund und hätte jede Farbe
+   durchgewinkt.
+5. **Keine WebDriver-/Tauri-E2E-Tests.** Native Dateidialoge sind per WebDriver nicht steuerbar —
+   also genau die Stellen, an denen Fehler säßen —, unter macOS gibt es keinen Treiber, und die
+   CI bräuchte `xvfb`. Für die Rust-Seite sind schlichte `#[test]` plus `cargo test` das bessere
+   Werkzeug. (Ergänzt die Liste "ausdrücklich NICHT geplant".)

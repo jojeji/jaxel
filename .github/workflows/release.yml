@@ -26,6 +26,11 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Die UI-Tests laufen in einem echten Chromium (apps/editor/vite.config.ts, Projekt
+      # "ui") — ohne diesen Schritt gibt es auf dem Runner keinen Browser zum Starten.
+      # Die Referenzbilder (Projekt "visual") laufen bewusst NICHT hier: ihr Ergebnis haengt
+      # am Schriftrendering des jeweiligen Rechners.
+      - run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run typecheck
       - name: Tag muss zur Version passen
