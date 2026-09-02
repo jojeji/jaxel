@@ -562,3 +562,12 @@ Always-on-top wird nicht verwendet; Größe und Position des Fensters bleiben un
 
 Ungültige oder nicht mehr existierende Pfade lösen keine zusätzliche Aktivierung aus. Mehrere
 gültige Pfade bleiben in der bestehenden Queue und werden weiterhin als einzelne Tabs geöffnet.
+
+## 2026-09-02 — Korrekturen nach Release 0.7.0
+
+Die beim Start bzw. durch „Öffnen mit“ übergebenen Pfade warten auf den Abschluss der
+Sitzungswiederherstellung und werden danach in Queue-Reihenfolge sequenziell geöffnet. Dadurch
+hat die angeforderte Datei Vorrang vor dem gespeicherten aktiven Tab und parallele Ladevorgänge
+können den Fokus nicht mehr in unbestimmter Reihenfolge überschreiben. Das Tab-Schließen-`x`
+wird über Flexbox an den rechten Rand des Tabs gesetzt; der Dateiname nutzt den verbleibenden
+Platz und wird weiterhin per Ellipse gekürzt.

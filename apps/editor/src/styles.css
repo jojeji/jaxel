@@ -432,6 +432,7 @@ button.primary:hover:not(:disabled) {
 }
 
 .tab__label {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -448,6 +449,8 @@ button.primary:hover:not(:disabled) {
 }
 
 .tab__close {
+  flex: 0 0 auto;
+  margin-left: auto;
   padding: 0 3px;
   background: transparent;
   border: none;
@@ -469,6 +472,8 @@ button.primary:hover:not(:disabled) {
 }
 
 .tab__dirty-dot {
+  flex: 0 0 auto;
+  margin-left: auto;
   width: 8px;
   height: 8px;
   border-radius: 50%;

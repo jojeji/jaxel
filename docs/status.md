@@ -1693,3 +1693,12 @@ bereits laufende Single-Instance. Das Fenster wird sichtbar gemacht, entminimier
 wenn der Window Manager den Fokus nicht synchron bestätigt, wird eine Aufmerksamkeit-Anforderung
 ausgelöst. Always-on-top wird bewusst nicht verwendet. Ungültige Pfade lösen keine Aktivierung
 aus; mehrere gültige Pfade werden unverändert über die bestehende Queue verarbeitet.
+
+## Nachtrag 2026-09-02 — Korrekturen nach Release 0.7.0
+
+Die Dateiübergabe beim Start ist jetzt gegenüber der Sitzungswiederherstellung priorisiert:
+übergebene Dateien werden erst nach Abschluss der Wiederherstellung und anschließend
+sequenziell geöffnet, sodass die zuletzt per Doppelklick angeforderte Datei zuverlässig aktiv
+bleibt. Zusätzlich sitzt das Schließen-`x` mit flexiblem Abstand am rechten Rand jedes Tabs.
+Bewusste Vereinfachung: Die Aktivierungsreihenfolge gilt für die Dateiübergabe-Queue; manuelle
+Klicks während des Öffnens werden nicht künstlich blockiert.

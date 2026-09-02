@@ -2462,6 +2462,27 @@ describe("Sitzung wiederherstellen", () => {
 });
 
 describe("Öffnen mit / Kommandozeilen-Pfade (pending open paths)", () => {
+  it("aktiviert beim Start den übergebenen Pfad nach der Sitzungswiederherstellung", async () => {
+    localStorage.setItem(
+      "jaxel.session",
+      JSON.stringify({ paths: ["/fake/sample.xml"], activePath: "/fake/sample.xml" }),
+    );
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "take_pending_open_paths") return ["/fake/second.xml"];
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+
+    renderApp();
+
+    expect(await screen.findByText("inventory")).toBeInTheDocument();
+    expect(screen.queryByText("catalog")).not.toBeInTheDocument();
+  });
+
   it("öffnet beim Start ALLE wartenden Pfade, nicht nur den ersten", async () => {
     vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
       if (cmd === "take_pending_open_paths") return ["/fake/sample.xml", "/fake/second.xml"];
@@ -2493,7 +2514,7 @@ describe("Öffnen mit / Kommandozeilen-Pfade (pending open paths)", () => {
       if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
       throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
     });
-    act(() => eventMock.listeners.get("jaxel://pending-open-paths")!());
+    await act(async () => eventMock.listeners.get("jaxel://pending-open-paths")!());
 
     expect(await screen.findByText("second.xml", { selector: ".tab__label" })).toBeInTheDocument();
     expect(await screen.findByText("inventory")).toBeInTheDocument(); // neuer Tab ist aktiv

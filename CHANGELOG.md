@@ -9,6 +9,15 @@ Gepflegt wird GROB (Nutzersicht, kein technisches Bug-Protokoll — Details steh
 `docs/status.md` und der Git-Historie). Laufende Arbeit sammelt sich unter *Unreleased*;
 eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
+## [0.7.1] - 2026-09-02
+
+### Behoben
+
+- **Dateiöffnung über Doppelklick:** Die angeforderte Datei bleibt nach der
+  Sitzungswiederherstellung zuverlässig im Fokus.
+- **Tab-Schließen:** Das `x` sitzt jetzt am rechten Rand des jeweiligen Tabs statt direkt hinter
+  dem Dateinamen.
+
 ## [0.7.0] - 2026-09-02
 
 ### Hinzugefügt

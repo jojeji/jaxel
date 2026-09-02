@@ -269,13 +269,14 @@ export function App(): React.ReactElement {
   // Declared BEFORE the session-save effect below so the stored session is read before any
   // save could overwrite it; saving stays suspended until the restore has finished.
   const sessionRestoredRef = useRef(false);
+  const sessionRestoreReadyRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     if (!settings.restoreSession) {
       sessionRestoredRef.current = true;
       return;
     }
     const stored = getStoredSession();
-    void (async () => {
+    const restoreSession = async (): Promise<void> => {
       for (const path of stored.paths) {
         try {
           // openFile, not openPath: restoring must not reshuffle "Zuletzt geöffnet".
@@ -286,7 +287,8 @@ export function App(): React.ReactElement {
       }
       if (stored.activePath) activate(stored.activePath);
       sessionRestoredRef.current = true;
-    })();
+    };
+    sessionRestoreReadyRef.current = restoreSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only, reads initial setting
   }, []);
 
@@ -319,12 +321,15 @@ export function App(): React.ReactElement {
     openPathRef.current = openPath;
   });
   useEffect(() => {
-    const pullPending = (): void => {
-      invoke<string[]>("take_pending_open_paths").then((paths) => {
-        for (const path of paths) void openPathRef.current(path);
-      });
+    const pullPending = async (): Promise<void> => {
+      // A passed-in file must win over the restored active tab. Waiting here also makes the
+      // initial command-line paths and paths forwarded by a second instance follow the same
+      // ordering. The backend keeps them queued until this pull happens.
+      await sessionRestoreReadyRef.current;
+      const paths = await invoke<string[]>("take_pending_open_paths");
+      for (const path of paths) await openPathRef.current(path);
     };
-    pullPending();
+    void pullPending();
     let disposed = false;
     let unlisten: (() => void) | null = null;
     void (async () => {
