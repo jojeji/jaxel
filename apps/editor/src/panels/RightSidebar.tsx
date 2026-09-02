@@ -13,6 +13,7 @@ interface RightSidebarProps {
   onTabChange: (tab: SidebarTab) => void;
   /** Whether the "Suche" tab has any content to show (no open document = no search session). */
   searchAvailable: boolean;
+  showAttributes: boolean;
   attributes: React.ReactNode;
   search: React.ReactNode;
 }
@@ -23,6 +24,7 @@ export function RightSidebar({
   activeTab,
   onTabChange,
   searchAvailable,
+  showAttributes,
   attributes,
   search,
 }: RightSidebarProps): React.ReactElement {
@@ -42,14 +44,14 @@ export function RightSidebar({
       <ResizeHandle axis="column" onDrag={handleDrag} label={t("sidebar.resize")} />
       <div className="right-sidebar__body">
         <div className="right-sidebar__tabs" role="tablist">
-          <button
+          {showAttributes && <button
             role="tab"
             aria-selected={activeTab === "attributes"}
             className={`right-sidebar__tab${activeTab === "attributes" ? " right-sidebar__tab--active" : ""}`}
             onClick={() => onTabChange("attributes")}
           >
             {t("attributes.title")}
-          </button>
+          </button>}
           {searchAvailable && (
             <button
               role="tab"
@@ -61,9 +63,7 @@ export function RightSidebar({
             </button>
           )}
         </div>
-        <div className="right-sidebar__panel" hidden={activeTab !== "attributes"}>
-          {attributes}
-        </div>
+        {showAttributes && <div className="right-sidebar__panel" hidden={activeTab !== "attributes"}>{attributes}</div>}
         {searchAvailable && (
           <div className="right-sidebar__panel right-sidebar__panel--search" hidden={activeTab !== "search"}>
             {search}

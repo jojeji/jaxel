@@ -351,11 +351,67 @@ button.primary:hover:not(:disabled) {
 /* ---------- Tabs ---------- */
 
 .tab-bar {
+  position: relative;
   display: flex;
+  align-items: stretch;
   background: var(--bg-1);
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
+  overflow: visible;
   flex-shrink: 0;
+  min-width: 0;
+}
+
+.tab-bar__scroll {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+
+.tab-bar__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-bar__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  padding: 0;
+  color: var(--text-2);
+  background: var(--bg-1);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.tab-bar__control:hover:not(:disabled) {
+  color: var(--text-0);
+  background: var(--bg-2);
+}
+
+.tab-bar__control:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tab-overview-anchor {
+  position: relative;
+  flex: 0 0 auto;
+  background: var(--bg-1);
+}
+
+.tab-overview-anchor > .tab-bar__control {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+.tab-bar__overview-count {
+  margin-left: 2px;
+  font-size: 10px;
+  line-height: 1;
 }
 
 .tab {
@@ -370,6 +426,15 @@ button.primary:hover:not(:disabled) {
   border-right: 1px solid var(--border);
   box-shadow: inset 0 -2px 0 transparent;
   transition: background 150ms ease, color 150ms ease;
+  flex: 1 1 180px;
+  max-width: 240px;
+  min-width: 128px;
+}
+
+.tab__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab:hover {
@@ -417,6 +482,120 @@ button.primary:hover:not(:disabled) {
 
 .tab--dirty:hover .tab__close {
   display: inline-block;
+}
+
+.tab-overview {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 35;
+  width: min(420px, calc(100vw - 16px));
+  max-height: 70vh;
+  padding: 8px;
+  overflow: hidden;
+  color: var(--text-0);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+}
+
+.tab-overview__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.tab-overview__search input {
+  width: 100%;
+  padding: 7px 0;
+  color: var(--text-0);
+  background: transparent;
+  border: none;
+  outline: none;
+  font: var(--sans);
+  font-size: 12px;
+}
+
+.tab-overview__list {
+  max-height: calc(70vh - 56px);
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.tab-overview__item {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-radius: 4px;
+}
+
+.tab-overview__item--focused,
+.tab-overview__item:hover {
+  background: var(--bg-2);
+}
+
+.tab-overview__activate {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 7px 8px;
+  color: var(--text-0);
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.tab-overview__name,
+.tab-overview__path,
+.tab-overview__dirty {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-overview__name {
+  color: var(--text-0);
+  font-weight: 600;
+}
+
+.tab-overview__path,
+.tab-overview__dirty {
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.tab-overview__dirty {
+  color: var(--accent);
+}
+
+.tab-overview__close {
+  flex: 0 0 28px;
+  align-self: center;
+  padding: 0;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: var(--mono);
+}
+
+.tab-overview__close:hover {
+  color: var(--danger);
+}
+
+.tab-overview__empty {
+  padding: 10px 8px;
+  color: var(--text-2);
+  font-size: 12px;
 }
 
 /* ---------- Schwebende Meldungen ---------- */
@@ -741,7 +920,10 @@ kbd {
   white-space: nowrap;
   cursor: pointer;
   font: var(--mono);
+  font-size: var(--editor-font-size, 12px);
   border-radius: 0;
+  min-height: 22px;
+  align-items: flex-start;
 }
 
 .tree-row:hover {
@@ -794,10 +976,29 @@ kbd {
 
 .tree-row__attrs {
   color: var(--text-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 18px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
 }
 
 .tree-row__preview {
   color: var(--text-1);
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 18px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
 }
 
 .tree-row__editor {
@@ -807,7 +1008,22 @@ kbd {
   border: 1px solid var(--accent);
   border-radius: 4px;
   padding: 0 4px;
-  min-width: 80px;
+  min-width: 0;
+  width: 100%;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow-x: auto;
+  font-size: var(--editor-font-size, 12px);
+}
+
+.tree-row__editor--multiline {
+  line-height: 18px;
+  min-height: calc(4 * 18px + 2px);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: none;
 }
 
 /* ---------- Änderungsmarker / Tombstones (Settings: "Baum" toggle, default aus) ----------
@@ -892,7 +1108,7 @@ kbd {
   background: var(--bg-1);
   padding: 12px;
   overflow-y: auto;
-  font-size: 12px;
+  font-size: var(--editor-font-size, 12px);
 }
 
 .attributes-panel--empty {
@@ -930,6 +1146,7 @@ kbd {
 .attributes-panel__table input {
   width: 100%;
   font: var(--mono);
+  font-size: var(--editor-font-size, 12px);
   background: var(--bg-0);
   color: var(--text-0);
   border: 1px solid var(--border);
@@ -947,8 +1164,22 @@ kbd {
 }
 
 .attributes-panel__attr-name-input {
-  width: 100%;
   color: var(--text-1);
+  flex: 0 0 auto;
+}
+
+.tab-drag-ghost {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: var(--bg-1);
+  color: var(--text-0);
+  font: 12px var(--sans);
+  opacity: 0.82;
+  pointer-events: none;
 }
 
 /* ---------- Kontextmenü ---------- */
@@ -1276,6 +1507,15 @@ kbd {
   align-items: center;
   gap: 8px;
   font-size: 12px;
+}
+
+.settings-dialog__range-label {
+  align-items: stretch;
+}
+
+.settings-dialog__range-label input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
 }
 
 .settings-dialog__disabled-option {

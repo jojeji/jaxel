@@ -3,7 +3,7 @@ mod io;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::ipc::InvokeError;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, UserAttentionType};
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,6 +43,20 @@ fn take_pending_open_paths(state: tauri::State<PendingOpenPaths>) -> Vec<String>
     std::mem::take(&mut *state.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
 }
 
+/// Makes the main window visible and asks the window manager to activate it. If the immediate
+/// focus request is not reflected synchronously, request a non-intrusive attention hint instead
+/// of using Always-on-top (which would change the user's window preference).
+fn bring_main_window_to_front(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        if !window.is_focused().unwrap_or(false) {
+            let _ = window.request_user_attention(Some(UserAttentionType::Informational));
+        }
+    }
+}
+
 /// Logs `error` (with `command`/`path` for context) and converts it into an `InvokeError` for
 /// the frontend — shared by the three plain file-I/O commands, which all just pass an `io::*`
 /// error straight through after logging it.
@@ -75,6 +89,23 @@ fn stat_file(path: String) -> Result<FileStatResult, InvokeError> {
     io::stat_file(&PathBuf::from(&path))
         .map(FileStatResult::from)
         .map_err(|error| log_io_error("stat_file", &path, error))
+}
+
+#[tauri::command]
+fn open_parent_folder(path: String) -> Result<String, InvokeError> {
+    let file = PathBuf::from(&path);
+    let parent = file.parent().ok_or_else(|| InvokeError::from("Datei hat keinen übergeordneten Ordner"))?;
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("explorer").arg(format!("/select,{}", file.display())).spawn().map(|_| ());
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").args(["-R", &path]).spawn().map(|_| ());
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let result = open::that_detached(parent);
+    result.map_err(|error| {
+        log::error!("open_parent_folder fehlgeschlagen ({}): {error}", parent.display());
+        InvokeError::from(format!("Ordner konnte nicht geöffnet werden: {error}"))
+    })?;
+    Ok(parent.to_string_lossy().into_owned())
 }
 
 /// Base64-Decode-Ansicht (docs/entscheidungen.md 2026-07-18): writes decoded binary content
@@ -154,6 +185,7 @@ pub fn run() {
         .skip(1)
         .filter(|arg| PathBuf::from(arg).is_file())
         .collect();
+    let activate_on_start = !startup_paths.is_empty();
 
     tauri::Builder::default()
         // single-instance as the FIRST plugin (per its docs): a second launch must be caught
@@ -172,7 +204,8 @@ pub fn run() {
                 .filter(|path| path.is_file())
                 .map(|path| path.to_string_lossy().into_owned())
                 .collect();
-            if !paths.is_empty() {
+            let has_valid_paths = !paths.is_empty();
+            if has_valid_paths {
                 log::info!("Zweite Instanz: {} Pfad(e) weitergereicht: {paths:?}", paths.len());
                 let state = app.state::<PendingOpenPaths>();
                 state
@@ -182,10 +215,7 @@ pub fn run() {
                     .append(&mut paths);
                 let _ = app.emit("jaxel://pending-open-paths", ());
             }
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+            if has_valid_paths { bring_main_window_to_front(&app); }
         }))
         .plugin(
             // Default-Targets (Stdout + LogDir) und Default-Rotation (KeepOne) passen bereits;
@@ -203,6 +233,7 @@ pub fn run() {
             read_text_file,
             write_text_file,
             stat_file,
+            open_parent_folder,
             take_pending_open_paths,
             open_decoded_file,
             open_log,
@@ -216,6 +247,7 @@ pub fn run() {
                 std::env::consts::OS,
                 std::env::consts::ARCH
             );
+            if activate_on_start { bring_main_window_to_front(app.handle()); }
             Ok(())
         })
         .run(tauri::generate_context!())

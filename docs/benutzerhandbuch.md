@@ -61,6 +61,16 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   zurückgegangen wird — ohne dass erneut gespeichert werden muss.
 - **Mehrere Dokumente**: jede Datei bekommt einen Tab; erneutes Öffnen derselben Datei aktiviert
   den vorhandenen Tab.
+- **Tab-Kontextmenü**: Rechtsklick auf einen Tab bietet „Tab schließen", „Alle Tabs schließen",
+  „Tabs links/rechts schließen", „Alle außer diesem schließen", „Dateipfad kopieren" und
+  „Übergeordneten Ordner öffnen". Tabs lassen sich per Drag&Drop verschieben; der aktive Tab
+ wird beim Öffnen einer Datei automatisch aktiviert.
+- **Öffnen über Dateiverknüpfung**: Ist Jaxel das Standardprogramm für XML-/JSON-Dateien, wird
+  das Fenster beim Öffnen einer Datei automatisch sichtbar gemacht und in den Vordergrund geholt.
+  Das gilt auch, wenn Jaxel bereits läuft oder zuvor minimiert war.
+- **Viele Tabs**: Bei Überlauf erscheinen Randpfeile statt eines überlagernden Scrollbalkens.
+  Mausrad und `Shift`+Mausrad blättern horizontal. Die Tab-Übersicht mit Listenbutton erlaubt
+  Suche, direkte Aktivierung und Einzel-Schließen; `Strg+P` öffnet sie ebenfalls.
 - **Sitzung wiederherstellen**: Beim Start öffnet Jaxel automatisch die Tabs der letzten
   Sitzung wieder (abschaltbar in den Einstellungen unter „Programmstart"). Unbenannte, nie
   gespeicherte Dokumente und Fokus-Ansichten werden dabei nicht wiederhergestellt.
@@ -239,7 +249,11 @@ Zahnrad-Button in der Toolbar oder Menü „Extras" → „Einstellungen": **The
 Standard, dazu sechs weitere: Dunkel, Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast — jeweils
 EIN Akzentton, kontrastgeprüft), **Sprache** (Deutsch/Englisch), Such-Filter-Verhalten, **Baum**
 (Änderungsmarker im Baum, siehe oben, Standard aus), **externe Änderungen** (automatisches
-Neuladen ein-/ausschalten) und der Fenster-Modus („eigene Fenster pro Dokument" ist
+Neuladen ein-/ausschalten), **Schriftgröße im Editor** (10–20 px) und ob das **Attribute-Panel**
+angezeigt wird. Lange Werte und Attribute umbrechen im Baum bis zu vier Zeilen; der vollständige
+Text ist per Tooltip erreichbar; beim Bearbeiten öffnet sich für Werte ebenfalls ein vierzeiliges
+Eingabefeld mit automatischem Umbruch. Außerdem kann das Attribute-Panel über die Toolbar oder mit
+`Strg+Alt+A` ein- und ausgeblendet werden. Der Fenster-Modus („eigene Fenster pro Dokument" ist
 angekündigt, aber noch nicht verfügbar).
 
 ## Über Jaxel
@@ -265,6 +279,10 @@ Dateipfade, Fehlermeldungen und technische Metadaten.
 | `Strg+S` | Speichern |
 | `Strg+Shift+S` | Speichern unter (mit der Endung des anderen Formats: umwandeln) |
 | `Strg+F` | Suchen/Ersetzen |
+| `Strg+Alt+A` | Attribute-Panel ein-/ausblenden |
+| `Strg+Tab` | Zum nächsten Tab wechseln |
+| `Strg+Shift+Tab` | Zum vorherigen Tab wechseln |
+| `Strg+P` | Tab-Übersicht öffnen |
 | `↑ ↓ ← →` | Im Baum navigieren |
 | `Shift+↑` / `Shift+↓` | Auswahl zeilenweise erweitern/verkleinern |
 | `Strg`+Klick / `Shift`+Klick | Knoten zusätzlich auswählen / Bereich auswählen |

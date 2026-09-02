@@ -46,6 +46,7 @@ import {
   FolderOpen,
   Gear,
   MagnifyingGlass,
+  SidebarSimple,
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
@@ -126,6 +127,7 @@ export function App(): React.ReactElement {
     convertSaveAs,
     newDocument,
     closeTab,
+    reorderTabs,
     activate,
     openFocusTab,
     retargetFocusTab,
@@ -300,6 +302,12 @@ export function App(): React.ReactElement {
       activeTab && paths.includes(activeTab.filePath) ? activeTab.filePath : null;
     storeSession({ paths, activePath });
   }, [tabs, activeTab, docs]);
+
+  useEffect(() => {
+    if (!settings.showAttributesPanel && searchDockSide === "right" && activeTab) {
+      setSidebarTab("search");
+    }
+  }, [settings.showAttributesPanel, searchDockSide, activeTab]);
 
   // Files passed on the command line (`jaxel some.xml`) or via "Öffnen mit" arrive here —
   // the backend queues them until the frontend pulls. A second app launch (single-instance)
@@ -1108,6 +1116,11 @@ export function App(): React.ReactElement {
         setSearchFocusRequest((request) => request + 1);
         return;
       }
+      if (ctrl && event.altKey && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        setSettings({ showAttributesPanel: !settings.showAttributesPanel });
+        return;
+      }
       if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
 
       if (ctrl && event.key.toLowerCase() === "o") {
@@ -1295,7 +1308,7 @@ export function App(): React.ReactElement {
     closeTab(key);
   }
 
-  function handleCloseTab(key: string): void {
+  function handleCloseTab(key: string): boolean {
     // Warn only when this close would UNLOAD a dirty document — i.e. no other tab (full
     // view or focus) still references it. Closing a focus tab beside an open full view
     // loses nothing and stays silent.
@@ -1304,10 +1317,42 @@ export function App(): React.ReactElement {
       const doc = docs.find((d) => d.filePath === tab.filePath);
       if (doc?.isDirty) {
         setClosePrompt({ kind: "tab", key, filePath: tab.filePath, focusNodeId: tab.focusNodeId });
-        return;
+        return false;
       }
     }
     closeTabAndForgetView(key);
+    return true;
+  }
+
+  function handleCopyTabPath(path: string): void {
+    void navigator.clipboard.writeText(path).then(
+      () => setStatus(t("tabs.pathCopied")),
+      (err) => setError(toErrorMessage(err)),
+    );
+  }
+
+  function handleOpenTabParent(path: string): void {
+    void invoke<string>("open_parent_folder", { path }).then(
+      () => setStatus(t("tabs.parentOpened")),
+      (err) => setError(toErrorMessage(err)),
+    );
+  }
+
+  function closeTabSet(keys: string[]): void {
+    for (const key of keys) {
+      if (!handleCloseTab(key)) break;
+    }
+  }
+
+  function handleCloseAllTabs(): void { closeTabSet(tabs.map((tab) => tab.key)); }
+  function handleCloseOtherTabs(key: string): void { closeTabSet(tabs.filter((tab) => tab.key !== key).map((tab) => tab.key)); }
+  function handleCloseTabsToRight(key: string): void {
+    const index = tabs.findIndex((tab) => tab.key === key);
+    closeTabSet(tabs.slice(index + 1).map((tab) => tab.key));
+  }
+  function handleCloseTabsToLeft(key: string): void {
+    const index = tabs.findIndex((tab) => tab.key === key);
+    closeTabSet(tabs.slice(0, index).map((tab) => tab.key));
   }
 
   async function destroyWindow(): Promise<void> {
@@ -1617,7 +1662,7 @@ export function App(): React.ReactElement {
     );
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ "--editor-font-size": `${settings.editorFontSize}px` } as React.CSSProperties}>
       <header className="app-chrome">
         <MenuBar
           menus={buildMenuBarMenus()}
@@ -1662,6 +1707,12 @@ export function App(): React.ReactElement {
             disabled={!activeDoc}
             onClick={() => setSearchOpen((prevOpen) => !prevOpen)}
           />
+          <IconButton
+            icon={SidebarSimple}
+            label={t("settings.showAttributesPanel")}
+            shortcut={`${t("key.ctrl")}+Alt+A`}
+            onClick={() => setSettings({ showAttributesPanel: !settings.showAttributesPanel })}
+          />
           <div className="app-toolbar__spacer" />
           <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
         </div>
@@ -1672,6 +1723,13 @@ export function App(): React.ReactElement {
         dirtyPaths={dirtyPaths}
         onActivate={activate}
         onClose={handleCloseTab}
+        onCloseAll={handleCloseAllTabs}
+        onCloseOthers={handleCloseOtherTabs}
+        onCloseToRight={handleCloseTabsToRight}
+        onCloseToLeft={handleCloseTabsToLeft}
+        onCopyPath={handleCopyTabPath}
+        onOpenParentFolder={handleOpenTabParent}
+        onReorder={reorderTabs}
         onNewDocument={() => setNewDocOpen(true)}
       />
       {visibleToasts.length > 0 && (
@@ -1736,11 +1794,12 @@ export function App(): React.ReactElement {
                 activeTab={sidebarTab}
                 onTabChange={setSidebarTab}
                 searchAvailable={activeTab !== null}
+                showAttributes={settings.showAttributesPanel}
                 attributes={attributesPanelEl}
                 search={searchPanelEl("right")}
               />
             ) : (
-              attributesPanelEl
+              settings.showAttributesPanel ? attributesPanelEl : null
             )}
           </>
         ) : (

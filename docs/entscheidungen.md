@@ -495,3 +495,70 @@ man ein Kind, sind sie weg. Sind Kommentare eigene Knoten, gibt es diese Lücken
    also genau die Stellen, an denen Fehler säßen —, unter macOS gibt es keinen Treiber, und die
    CI bräuchte `xvfb`. Für die Rust-Seite sind schlichte `#[test]` plus `cargo test` das bessere
    Werkzeug. (Ergänzt die Liste "ausdrücklich NICHT geplant".)
+## 2026-09-01 — Grilling: Tab-Aktivierung, Tab-Kontextmenü und Tab-Reordering
+
+Beim Öffnen einer Datei wird der neue oder bereits vorhandene Vollansichts-Tab sofort aktiv;
+ein erneutes Öffnen erzeugt keinen Duplikat-Tab. Tabs können per Drag & Drop mit transparentem
+Ghost verschoben werden. Ein normaler Klick aktiviert, das Ziehen selbst aktiviert nicht.
+Die Reihenfolge und der aktive Vollansichts-Tab werden in der Sitzungswiederherstellung erhalten.
+
+Der Rechtsklick bezieht sich auf den angeklickten Tab, ohne ihn zu aktivieren. Das Kontextmenü
+enthält „Tab schließen“, „Alle Tabs schließen“, „Alle anderen Tabs schließen“, „Tabs rechts
+schließen“, „Tabs links schließen“, „Dateipfad kopieren“ und „Übergeordneten Ordner öffnen“.
+Bereichsaktionen erhalten die Reihenfolge der übrigen Tabs und schließen Fokus-Tabs mit ein.
+Nicht mögliche Einträge bleiben deaktiviert. Ungespeicherte Dokumente werden vor dem Entladen
+berücksichtigt; ein Abbruch stoppt die laufende Mehrfachaktion.
+
+„Dateipfad kopieren“ kopiert den absoluten nativen Pfad ohne `file://`; bei unbenannten Tabs ist
+die Aktion deaktiviert. Der Parent-Ordner wird über das Betriebssystem geöffnet, soweit möglich
+mit Markierung der Datei. Fokus-Tabs verwenden dabei den Pfad des zugrunde liegenden Dokuments.
+
+Im Bearbeitungsmodus wächst das Inhaltsfeld über die gesamte verfügbare Inhalts-Spalte, bleibt
+einzeilig horizontal erreichbar und behält Enter zum Bestätigen sowie Escape zum Verwerfen.
+
+## 2026-09-02 — Grilling: Tab-Leiste bei Überlauf
+
+Der native horizontale Scrollbalken wird nicht mehr über der Tab-Leiste angezeigt. Ein separater
+Scrollcontainer erhält bei Überlauf linke und rechte Navigationsbuttons, die jeweils ungefähr eine
+sichtbare Tab-Breite direkt scrollen. Die Buttons sind am jeweiligen Rand deaktiviert; Mausrad und
+`Shift`+Mausrad bewegen die Tabs ebenfalls horizontal. Während eines Tab-Drag&Drop scrollt der
+Bereich automatisch, wenn der Zeiger nahe an einem Rand liegt.
+
+Tabs verwenden eine flexible Breite zwischen 128 und 240 px, lange Namen werden mit Ellipse
+gekürzt. Der vollständige Name bleibt über Tooltip und Übersicht erreichbar. Die Übersicht ist
+ab zwei Tabs verfügbar, enthält Suche, Pfad, Änderungsstatus und Einzel-Schließen, schließt bei
+Außenklick oder `Escape` und ist über `Strg+P` erreichbar. `Strg+Tab` und `Strg+Shift+Tab` wechseln
+zum nächsten bzw. vorherigen Tab; Eingabefelder behalten ihre normale Tastaturbedienung.
+
+Diese Entscheidung ersetzt für die Tab-Leiste die frühere Einzeilen-Annahme; die sichtbare
+Wertevorschau und der Werte-Editor bleiben entsprechend der späteren Lesbarkeitsentscheidung
+mehrzeilig.
+
+## 2026-09-01 — Grilling: Lesbarkeit und ausblendbares Attribute-Panel
+
+Textwerte in der Baumansicht dürfen die feste Ein-Zeilen-Darstellung überschreiten. Die
+Virtualisierung verwendet deshalb gemessene variable Zeilenhöhen; Text wird innerhalb der
+verfügbaren Breite umgebrochen und auf maximal vier sichtbare Zeilen begrenzt. Eine Auslassung
+kennzeichnet längere Inhalte, der Tooltip enthält weiterhin den vollständigen Wert. Der
+Schätzwert für nicht gemessene Zeilen bleibt 22 px, um die Darstellung großer Dateien performant
+zu halten.
+
+Die Schriftgröße für Baum, Inline-Editor und Attributwerte ist als persistente Einstellung im
+Bereich 10–20 px verfügbar, Standardwert 12 px. Das Attribute-Panel ist über die Toolbar und
+`Strg+Alt+A` ein-/ausblendbar. Beim Ausblenden übernimmt der Baum den freigewordenen Platz;
+eine rechts angedockte Suche bleibt unabhängig erreichbar.
+
+Attribute in einer Baumzeile sind ebenfalls flexible, umbrechbare Inhalte. Sie dürfen den
+Elementwert nicht durch eine intrinsische Einzeilenbreite verdrängen; Attribute und Wert teilen
+sich den verfügbaren Platz und werden jeweils auf maximal vier Zeilen begrenzt.
+
+## 2026-09-02 — Grilling: Fensteraktivierung bei Dateiübergabe
+
+Wenn Jaxel über eine Dateiverknüpfung gestartet wird oder eine laufende Instanz einen neuen
+Dateiübergabe-Auftrag erhält, wird das Hauptfenster bei mindestens einem gültigen Pfad explizit
+sichtbar gemacht, entminimiert und fokussiert. Falls der Window Manager den Fokus nicht sofort
+bestätigt, wird plattformabhängig eine nicht-invasive Aufmerksamkeit-Anforderung ausgelöst.
+Always-on-top wird nicht verwendet; Größe und Position des Fensters bleiben unverändert.
+
+Ungültige oder nicht mehr existierende Pfade lösen keine zusätzliche Aktivierung aus. Mehrere
+gültige Pfade bleiben in der bestehenden Queue und werden weiterhin als einzelne Tabs geöffnet.

@@ -305,6 +305,8 @@ describe("Wert editieren (Doppelklick / Enter) und Undo/Redo", () => {
     const cityValue = await expandFirstPerson(user);
     await user.dblClick(cityValue);
     const input = screen.getByDisplayValue("Berlin");
+    expect(input.tagName).toBe("TEXTAREA");
+    expect(input).toHaveClass("tree-row__editor--multiline");
     await user.clear(input);
     await user.type(input, "München");
     fireEvent.blur(input);
@@ -1292,6 +1294,31 @@ describe("Tabs (mehrere Dokumente)", () => {
     await user.click(screen.getByText("sample.xml"));
     expect(await screen.findByText("catalog")).toBeInTheDocument();
     expect(screen.queryByText("inventory")).not.toBeInTheDocument();
+  });
+
+  it("öffnet die Tab-Übersicht und aktiviert einen gefilterten Tab", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+
+    await user.click(screen.getByRole("button", { name: "Geöffnete Tabs, 2" }));
+    const query = screen.getByRole("textbox", { name: "Tabs suchen…" });
+    await user.type(query, "sample");
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(await screen.findByText("catalog")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Geöffnete Tabs, 2" })).not.toBeInTheDocument();
+  });
+
+  it("wechselt mit Strg+Tab zum nächsten Tab", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+
+    fireEvent.keyDown(window, { key: "Tab", ctrlKey: true });
+    expect(await screen.findByText("catalog")).toBeInTheDocument();
   });
 
   it("behaelt den Auf-/Zuklapp-Zustand eines Tabs beim Wechseln und Zurueckkehren bei", async () => {

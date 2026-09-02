@@ -79,6 +79,12 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
 
         <fieldset>
           <legend>{t("settings.tree")}</legend>
+          <label className="settings-dialog__range-label">
+            <span>{t("settings.editorFontSize")}: {settings.editorFontSize}px</span>
+            <input type="range" min="10" max="20" step="1" value={settings.editorFontSize}
+              onChange={(event) => onChange({ editorFontSize: Number(event.target.value) })} />
+          </label>
+          <button type="button" onClick={() => onChange({ editorFontSize: 12 })}>{t("settings.editorFontSizeReset")}</button>
           <label>
             <input
               type="checkbox"
@@ -86,6 +92,11 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
               onChange={(event) => onChange({ showTreeChangeMarkers: event.target.checked })}
             />
             {t("settings.showTreeChangeMarkers")}
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.showAttributesPanel}
+              onChange={(event) => onChange({ showAttributesPanel: event.target.checked })} />
+            {t("settings.showAttributesPanel")}
           </label>
         </fieldset>
 

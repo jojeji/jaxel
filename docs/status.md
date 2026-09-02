@@ -3,6 +3,19 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-07-27 — Letzte Baumzeile bleibt über horizontaler Scrollbar sichtbar
+
+- **Ursache:** Der Spacer des virtualisierten Baums war exakt `Anzahl Zeilen × 22 px` hoch. Damit
+  endete die letzte XML-/JSON-Zeile bündig am Ende des Scrollbereichs; eine eingeblendete
+  horizontale Overlay-Scrollbar (insbesondere unter WebKitGTK) lag direkt über dieser Zeile.
+- **Fix:** Ein nicht gerenderter zusätzlicher Zeilenabstand von 22 px erweitert ausschließlich
+  den virtuellen Scrollinhalt. Dadurch kann die letzte Zeile vollständig über die horizontale
+  Leiste gescrollt werden, ohne Höhe oder Position von Baum, Suche oder anderen Panels zu ändern.
+- **Absicherung:** Neuer echter Browser-Test in `tree/TreeView.test.tsx` misst die Layout-Geometrie
+  und verlangt unter der letzten Zeile genau eine Zeilenhöhe Scrollreserve. Bewusste
+  Vereinfachung: eine feste Zeilenhöhe statt plattformspezifischer Scrollbar-Messung; sie deckt
+  Overlay- und klassische Scrollbars robust ab. Keine offenen Punkte.
+
 ## Nachtrag 2026-07-26 — UI-Tests im echten Browser statt in jsdom
 
 Anlass war die Frage des PO nach UI-Tests. Der Ist-Stand war: es *gab* UI-Tests (157 in
@@ -1625,3 +1638,58 @@ fehlerfrei (in `packages/core` und `apps/editor`).
 - **Live verifiziert**: `npm run dev` gebaut und gestartet (lokale Toolchain: Node 18.19.1, rustc
   1.97.0, webkit2gtk-4.1 vorhanden), Fenster geöffnet und per Screenshot bestätigt — dunkles Theme,
   deutsche Spracherkennung, Petrol-Akzent-Button rendern korrekt. Prozess danach sauber beendet.
+## Nachtrag 2026-09-01 — Tabs: Aktivierung, Kontextmenü, Reordering und Editierbreite
+
+Die bestätigte Tab-Verbesserung ist umgesetzt: Dateiöffnen aktiviert den geöffneten bzw. bereits
+vorhandenen Tab; Tabs sind per Drag & Drop mit halbtransparentem Ghost verschiebbar. Das neue
+Tab-Kontextmenü bietet Schließen einzelner, aller, linker, rechter und aller übrigen Tabs sowie
+Dateipfad kopieren und Parent-Ordner öffnen. Unbenannte Tabs deaktivieren die beiden Dateiaktionen.
+Die Aktionen wirken auch auf Fokus-Tabs; die Sitzung speichert weiterhin die Vollansichts-Reihenfolge
+und den aktiven Tab. Beim Schließen mehrerer Tabs stoppt der Ablauf sicher an der ersten
+ungespeicherten Datei und öffnet die bestehende Speichern/Verwerfen/Abbrechen-Abfrage.
+
+Zusätzlich nutzt das Inline-Feld für Elementinhalte jetzt die verfügbare Breite der Inhalts-Spalte,
+ohne die Baumstruktur oder die bestehenden Enter/Escape-Regeln zu verändern. Die native
+Ordneröffnung markiert die Datei unter Windows/macOS, unter Linux öffnet sie den Parent-Ordner.
+Bewusste Vereinfachung: Die bestehende Close-Dialog-Komponente fragt bei einer Mehrfachaktion
+weiterhin mit ihrem vorhandenen Save-all/Discard-Modell ab; eine Datei-für-Datei-Auswahl bleibt
+ein separater UI-Ausbau.
+
+## Nachtrag 2026-09-01 — Lesbarkeit: mehrzeilige Werte, Schriftgröße und Attribute-Panel
+
+Lange Elementwerte umbrechen jetzt innerhalb der Baumansicht und werden mit variablen, gemessenen
+Zeilenhöhen virtualisiert. Sichtbar sind maximal vier Zeilen; längere Werte erhalten eine
+Auslassung und zeigen den vollständigen Inhalt im Tooltip. Die feste 22‑px-Schätzung bleibt für
+nicht sichtbare Zeilen bestehen, damit große Dokumente weiterhin virtualisiert werden.
+
+Die neue persistente Einstellung „Editor-Schriftgröße“ reicht von 10 bis 20 px und gilt für Baum,
+Inline-Editor und Attributwerte. Das Attribute-Panel kann per Toolbar-Schalter oder `Strg+Alt+A`
+ausgeblendet werden; die rechts angedockte Suche bleibt dabei erhalten. Bewusste Vereinfachung:
+Die bestehende Such-/Baum-Navigation rechnet weiterhin mit der bisherigen Standardzeilenhöhe;
+die normale Darstellung und das Scrollen verwenden die gemessenen Höhen.
+
+Nach einem Sichttest wurde die Attributdarstellung nachgebessert: Lange Attribute sind nun selbst
+flexibel und umbrechbar und können den freien Inhaltsbereich nicht mehr durch eine ungekürzte
+Einzeilenbreite verdrängen. Auch sie werden auf vier Zeilen begrenzt und durch die variable
+Zeilenhöhenmessung korrekt berücksichtigt.
+
+Beim Bearbeiten eines Elementwerts wird jetzt ebenfalls ein vierzeiliges `textarea` mit flexiblem
+Umbruch angezeigt. Damit bleibt der verfügbare Platz auch während der Eingabe erhalten; der
+Namens-Editor bleibt bewusst einzeilig. Der bestehende UI-Test prüft diesen Editor-Typ.
+
+## Nachtrag 2026-09-02 — Tab-Leiste bei Überlauf
+
+Die Tab-Leiste verwendet bei Überlauf keinen sichtbaren nativen Horizontal-Scrollbalken mehr,
+der die Tabs verdecken könnte. Ein eigener Scrollbereich mit Rand-Navigationsbuttons, horizontaler
+Mausradbedienung und Auto-Scroll während Drag&Drop hält die Tabs sichtbar und verschiebbar.
+Zusätzlich gibt es ab zwei Tabs eine durchsuchbare Übersicht mit Pfad, Änderungsstatus und
+Einzel-Schließen. Die Tastaturkürzel `Strg+Tab`, `Strg+Shift+Tab` und `Strg+P` sind ergänzt.
+
+## Nachtrag 2026-09-02 — Fensteraktivierung bei Dateiübergabe
+
+Die Tauri-App aktiviert ihr Hauptfenster jetzt explizit, wenn eine gültige Datei über die
+Dateiverknüpfung geöffnet wird — sowohl beim ersten Start als auch beim Weiterreichen an eine
+bereits laufende Single-Instance. Das Fenster wird sichtbar gemacht, entminimiert und fokussiert;
+wenn der Window Manager den Fokus nicht synchron bestätigt, wird eine Aufmerksamkeit-Anforderung
+ausgelöst. Always-on-top wird bewusst nicht verwendet. Ungültige Pfade lösen keine Aktivierung
+aus; mehrere gültige Pfade werden unverändert über die bestehende Queue verarbeitet.

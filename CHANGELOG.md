@@ -9,6 +9,21 @@ Gepflegt wird GROB (Nutzersicht, kein technisches Bug-Protokoll — Details steh
 `docs/status.md` und der Git-Historie). Laufende Arbeit sammelt sich unter *Unreleased*;
 eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
+## [0.7.0] - 2026-09-02
+
+### Hinzugefügt
+
+- **Tab-Leiste bei vielen geöffneten Dateien:** Der native Scrollbalken verdeckt die Tabs nicht
+  mehr. Rand-Navigationsbuttons, horizontales Mausrad-Scrolling und Auto-Scroll beim Verschieben
+  halten auch bei vielen Tabs die Navigation bedienbar.
+- **Tab-Übersicht:** Eine durchsuchbare Übersicht zeigt geöffnete Tabs mit Pfad und Änderungsstatus
+  und erlaubt direkte Aktivierung sowie Einzel-Schließen. `Strg+Tab`, `Strg+Shift+Tab` und `Strg+P`
+  ergänzen die Tastaturbedienung.
+- **Lesbarer XML-/JSON-Baum:** Lange Werte und Attribute umbrechen, der Werte-Editor verwendet
+  beim Bearbeiten ein mehrzeiliges Eingabefeld. Schriftgröße und Attribute-Panel sind einstellbar.
+- **Fensteraktivierung bei Dateiverknüpfungen:** Jaxel wird beim Öffnen über „Öffnen mit“ sichtbar,
+  entminimiert und fokussiert — auch wenn bereits eine Instanz läuft.
+
 ## [0.6.0] - 2026-07-25
 
 ### Behoben

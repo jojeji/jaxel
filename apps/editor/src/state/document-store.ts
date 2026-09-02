@@ -191,6 +191,7 @@ export function useJaxelDocuments(): {
   /** Closes a single tab. The underlying document is only unloaded once no tab (full view
    * or focus) references it anymore. */
   closeTab: (key: string) => void;
+  reorderTabs: (key: string, targetIndex: number) => void;
   activate: (key: string) => void;
   /** Opens (or activates, if already open) a focused-view tab on an existing document.
    * `ancestorIds` is the focus node's ancestor chain (root-first) at open time. */
@@ -426,6 +427,20 @@ export function useJaxelDocuments(): {
         nextActive = neighbor?.key ?? null;
       }
       return { docs: nextDocs, tabs: nextTabs, activeKey: nextActive };
+    });
+  }, []);
+
+  const reorderTabs = useCallback((key: string, targetIndex: number) => {
+    setState((prev) => {
+      const sourceIndex = prev.tabs.findIndex((tab) => tab.key === key);
+      if (sourceIndex < 0) return prev;
+      const boundedIndex = Math.max(0, Math.min(targetIndex, prev.tabs.length - 1));
+      if (sourceIndex === boundedIndex) return prev;
+      const tabs = [...prev.tabs];
+      const [moved] = tabs.splice(sourceIndex, 1);
+      if (!moved) return prev;
+      tabs.splice(boundedIndex, 0, moved);
+      return { ...prev, tabs };
     });
   }, []);
 
@@ -696,6 +711,7 @@ export function useJaxelDocuments(): {
     convertSaveAs,
     newDocument,
     closeTab,
+    reorderTabs,
     activate,
     openFocusTab,
     retargetFocusTab,

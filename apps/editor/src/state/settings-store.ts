@@ -27,6 +27,8 @@ export interface Settings {
    * gelöschte Knoten als Tombstone-Zeile (siehe CONTEXT.md "Änderungsmarker"/"Tombstone").
    * Default aus — reine Zusatzanzeige, ändert nichts am Modell/Speichern. */
   showTreeChangeMarkers: boolean;
+  editorFontSize: number;
+  showAttributesPanel: boolean;
 }
 
 const STORAGE_KEY = "jaxel.settings";
@@ -38,6 +40,8 @@ const DEFAULTS: Settings = {
   restoreSession: true,
   searchShowNamespaces: false,
   showTreeChangeMarkers: false,
+  editorFontSize: 12,
+  showAttributesPanel: true,
 };
 
 function load(): Settings {

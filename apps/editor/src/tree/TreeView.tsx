@@ -3,11 +3,14 @@ import { looksLikeBase64, type ChangeSet, type DropPosition, type Tombstone } fr
 import { useI18n } from "../i18n/index.js";
 import { withTombstones, type DisplayRow, type TreeRow } from "./flatten.js";
 import { computeDropAllowed, positionFromRatio } from "./dnd.js";
-import { computeAnchoredScrollTop, computeRevealScrollTop } from "./scroll-math.js";
 import { selectModifierOf, type SelectModifier } from "./selection.js";
 
 const ROW_HEIGHT = 22;
+const MAX_ROW_HEIGHT = ROW_HEIGHT * 4;
 const OVERSCAN = 8;
+/** Blank scrollable tail below the final row. Overlay-style horizontal scrollbars (notably
+ * WebKitGTK) otherwise cover that row because the virtual spacer ends at its exact bottom. */
+const BOTTOM_SCROLL_CLEARANCE = ROW_HEIGHT;
 
 export type { DropPosition };
 export type EditingField = { nodeId: string; field: "name" | "value" };
@@ -108,6 +111,8 @@ export function TreeView({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [dragRowId, setDragRowId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const rowHeightsRef = useRef(new Map<string, number>());
+  const [rowHeightsRevision, setRowHeightsRevision] = useState(0);
   /** Set right before a toggle changes `rows`' length (expand/collapse adds/removes rows
    * below the toggled node) — the layout effect below then re-anchors scroll so the toggled
    * row stays at the same viewport pixel it was at, instead of drifting when the browser
@@ -136,7 +141,7 @@ export function TreeView({
     scrollAnchorRef.current = null;
     const newIndex = displayRows.findIndex((item) => item.kind === "node" && item.row.node.id === anchor.nodeId);
     if (newIndex === -1) return; // toggled row itself no longer visible (e.g. an ancestor collapsed too)
-    const newScrollTop = computeAnchoredScrollTop(newIndex, anchor.offsetInViewport, ROW_HEIGHT);
+    const newScrollTop = Math.max(0, (offsets[newIndex] ?? 0) - anchor.offsetInViewport);
     if (containerRef.current) containerRef.current.scrollTop = newScrollTop;
     setScrollTop(newScrollTop);
   }, [displayRows]);
@@ -148,16 +153,51 @@ export function TreeView({
     if (index === -1) return; // ancestors not expanded yet in this pass; the next effect run will catch it
     handledRevealNodeIdRef.current = revealNodeId; // don't re-center again on later, unrelated rows changes
     setScrollTop((current) => {
-      const next = computeRevealScrollTop(index, ROW_HEIGHT, current, viewportHeight);
+      const rowTop = offsets[index] ?? 0;
+      const rowHeight = rowHeightsRef.current.get(revealNodeId) ?? ROW_HEIGHT;
+      const next = rowTop < current
+        ? rowTop
+        : rowTop + rowHeight > current + viewportHeight
+          ? rowTop + rowHeight - viewportHeight
+          : current;
       if (next !== current && containerRef.current) containerRef.current.scrollTop = next;
       return next;
     });
   }, [revealNodeId, displayRows, viewportHeight]);
 
-  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-  const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
-  const endIndex = Math.min(displayRows.length, startIndex + visibleCount);
+  const rowKey = (item: DisplayRow): string => item.kind === "tombstone" ? `tombstone-${item.tombstone.id}` : item.row.node.id;
+  const offsets = useMemo(() => {
+    const result = [0];
+    for (const item of displayRows) {
+      result.push(result[result.length - 1]! + (rowHeightsRef.current.get(rowKey(item)) ?? ROW_HEIGHT));
+    }
+    return result;
+    // rowHeightsRevision invalidates the prefix sums after a visible row is measured.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayRows, rowHeightsRevision]);
+  const totalHeight = offsets[offsets.length - 1] ?? 0;
+  const bottomClearance = displayRows.length > 0
+    ? rowHeightsRef.current.get(rowKey(displayRows[displayRows.length - 1]!)) ?? ROW_HEIGHT
+    : 0;
+  function indexAtOffset(offset: number): number {
+    let low = 0;
+    let high = displayRows.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if ((offsets[middle + 1] ?? 0) <= offset) low = middle + 1;
+      else high = middle;
+    }
+    return Math.min(low, Math.max(0, displayRows.length - 1));
+  }
+  const startIndex = displayRows.length === 0 ? 0 : Math.max(0, indexAtOffset(scrollTop) - OVERSCAN);
+  const endIndex = displayRows.length === 0 ? 0 : Math.min(displayRows.length, indexAtOffset(scrollTop + viewportHeight) + OVERSCAN + 1);
   const visibleRows = displayRows.slice(startIndex, endIndex);
+  function setRowHeight(id: string, height: number): void {
+    const next = Math.max(ROW_HEIGHT, Math.min(MAX_ROW_HEIGHT, Math.ceil(height)));
+    if (rowHeightsRef.current.get(id) === next) return;
+    rowHeightsRef.current.set(id, next);
+    setRowHeightsRevision((revision) => revision + 1);
+  }
 
   const dragRow = dragRowId ? (rows.find((row) => row.node.id === dragRowId) ?? null) : null;
 
@@ -200,9 +240,17 @@ export function TreeView({
       className="tree-view"
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
-      <div className="tree-view__spacer" style={{ height: displayRows.length * ROW_HEIGHT }}>
+      <div
+        className="tree-view__spacer"
+        style={{
+          height:
+            totalHeight +
+            (displayRows.length > 0 ? Math.max(BOTTOM_SCROLL_CLEARANCE, bottomClearance) : 0),
+        }}
+      >
         {visibleRows.map((item, i) => {
-          const top = (startIndex + i) * ROW_HEIGHT;
+          const absoluteIndex = startIndex + i;
+          const top = offsets[absoluteIndex] ?? 0;
           if (item.kind === "tombstone") {
             return (
               <TombstoneRowView
@@ -210,6 +258,7 @@ export function TreeView({
                 tombstone={item.tombstone}
                 depth={item.depth}
                 top={top}
+                height={rowHeightsRef.current.get(`tombstone-${item.tombstone.id}`) ?? ROW_HEIGHT}
               />
             );
           }
@@ -223,6 +272,7 @@ export function TreeView({
               key={row.node.id}
               row={row}
               top={top}
+              onHeightChange={(height) => setRowHeight(row.node.id, height)}
               expanded={expanded.has(row.node.id)}
               selected={selectedIds.has(row.node.id)}
               editingField={editingField?.nodeId === row.node.id ? editingField.field : null}
@@ -271,6 +321,7 @@ type ChangeMarker = "added" | "modified" | "contains" | null;
 interface TreeRowViewProps {
   row: TreeRow;
   top: number;
+  onHeightChange: (height: number) => void;
   expanded: boolean;
   selected: boolean;
   editingField: "name" | "value" | null;
@@ -293,6 +344,7 @@ interface TreeRowViewProps {
 function TreeRowView({
   row,
   top,
+  onHeightChange,
   expanded,
   selected,
   editingField,
@@ -312,6 +364,7 @@ function TreeRowView({
   onDragEnd,
 }: TreeRowViewProps): React.ReactElement {
   const { t } = useI18n();
+  const rowRef = useRef<HTMLDivElement>(null);
   const { node, depth, hasChildren } = row;
   const isCommentRow = node.kind === "comment";
   // Rows sitting INSIDE a commented-out subtree — they carry the same muted styling and the
@@ -324,6 +377,9 @@ function TreeRowView({
     : hasChildren
       ? `(${node.children.length})`
       : (node.value ?? "");
+  const attributesPreview = node.attributes
+    .map((attribute) => `${attribute.name}="${attribute.value}"`)
+    .join(" ");
   const dropClass =
     dropPosition === "into"
       ? " tree-row--drop-into"
@@ -332,6 +388,17 @@ function TreeRowView({
         : dropPosition === "after"
           ? " tree-row--drop-after"
           : "";
+
+  useLayoutEffect(() => {
+    const element = rowRef.current;
+    if (!element) return;
+    const report = (): void => onHeightChange(element.getBoundingClientRect().height);
+    report();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(report);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [onHeightChange]);
 
   // Single click selects AND toggles (double-click fires two clicks first, so a toggle
   // pair cancels itself out before the name/value editor opens — net-neutral by design).
@@ -345,10 +412,11 @@ function TreeRowView({
 
   return (
     <div
+      ref={rowRef}
       className={`tree-row${selected ? " tree-row--selected" : ""}${
         isCommentRow ? " tree-row--comment" : ""
       }${insideComment ? " tree-row--in-comment" : ""}${dropClass}`}
-      style={{ top, height: ROW_HEIGHT, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
+      style={{ top, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
       onClick={handleRowClick}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -418,14 +486,15 @@ function TreeRowView({
       )}
 
       {node.attributes.length > 0 && (
-        <span className="tree-row__attrs">
-          {node.attributes.map((a) => `${a.name}="${a.value}"`).join(" ")}
+        <span className="tree-row__attrs" title={attributesPreview}>
+          {attributesPreview}
         </span>
       )}
 
       {editingField === "value" ? (
         <InlineEditor
           initialValue={node.value ?? ""}
+          multiline
           onCommit={(text) => onCommitEdit("value", text)}
           onCancel={onCancelEdit}
         />
@@ -433,6 +502,7 @@ function TreeRowView({
         preview !== "" && (
           <span
             className="tree-row__preview"
+            title={preview}
             onDoubleClick={(event) => {
               if (hasChildren && !isCommentRow) return; // only leaf values are directly editable
               if (insideComment) return; // read-only, see the name handler above
@@ -466,13 +536,13 @@ function TreeRowView({
 /** A deleted-since-baseline node's placeholder row — purely informational, no click behavior
  * (grill session 2026-07-22 decision: "rein informativ, keine Aktion"; restoring only via the
  * normal undo). See CONTEXT.md "Tombstone". */
-function TombstoneRowView({ tombstone, depth, top }: { tombstone: Tombstone; depth: number; top: number }): React.ReactElement {
+function TombstoneRowView({ tombstone, depth, top, height }: { tombstone: Tombstone; depth: number; top: number; height: number }): React.ReactElement {
   const { t } = useI18n();
   const preview = tombstone.childCount > 0 ? `(${tombstone.childCount})` : "";
   return (
     <div
       className="tree-row tree-row--tombstone"
-      style={{ top, height: ROW_HEIGHT, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
+      style={{ top, height, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
       title={t("tree.tombstone.title")}
     >
       <span className="tree-row__twisty" />
@@ -484,15 +554,17 @@ function TombstoneRowView({ tombstone, depth, top }: { tombstone: Tombstone; dep
 
 function InlineEditor({
   initialValue,
+  multiline = false,
   onCommit,
   onCancel,
 }: {
   initialValue: string;
+  multiline?: boolean;
   onCommit: (text: string) => void;
   onCancel: () => void;
 }): React.ReactElement {
   const [text, setText] = useState(initialValue);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   useLayoutEffect(() => {
     inputRef.current?.focus();
@@ -500,23 +572,49 @@ function InlineEditor({
   }, []);
 
   return (
-    <input
-      ref={inputRef}
-      className="tree-row__editor"
-      value={text}
-      onClick={(event) => event.stopPropagation()}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={() => onCommit(text)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          onCommit(text);
-        } else if (event.key === "Escape") {
-          event.preventDefault();
-          onCancel();
-        }
-        event.stopPropagation();
-      }}
-    />
+    multiline ? (
+      <textarea
+        ref={(element) => {
+          inputRef.current = element;
+        }}
+        className="tree-row__editor tree-row__editor--multiline"
+        rows={4}
+        value={text}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => onCommit(text)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onCommit(text);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          }
+          event.stopPropagation();
+        }}
+      />
+    ) : (
+      <input
+        ref={(element) => {
+          inputRef.current = element;
+        }}
+        className="tree-row__editor"
+        value={text}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => onCommit(text)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onCommit(text);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          }
+          event.stopPropagation();
+        }}
+      />
+    )
   );
 }
