@@ -19,8 +19,8 @@ Embedded-Modus bleiben auf die Host-Schicht begrenzt; die Tauri-App behält ihre
 Datei- und Fenstermodus.
 
 Bewusste Vereinfachung: VS Code baut das WebView-Bundle beim Extension-Build aus dem Quellarchiv
-des jeweils neuesten stabilen öffentlichen GitHub-Releases und legt dessen SHA-256-Summe als
-Build-Identität ab. Das Jaxel-Release muss kein separates WebView-Asset enthalten; ein lokales
+des aktuellen Commits im Standardbranch des öffentlichen GitHub-Repositories und legt dessen SHA-256-Summe
+als Build-Identität ab. Das Jaxel-Release muss kein separates WebView-Asset enthalten; ein lokales
 oder potenziell veraltetes Fallback-Bundle bleibt ausgeschlossen. Verifiziert mit `npm test`
 (Core 259/259, Editor 269/269), `npm run typecheck` und `npm run compile`.
 
