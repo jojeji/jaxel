@@ -571,6 +571,14 @@ function InlineEditor({
     inputRef.current?.select();
   }, []);
 
+  useLayoutEffect(() => {
+    if (!multiline || !(inputRef.current instanceof HTMLTextAreaElement)) return;
+
+    const textarea = inputRef.current;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(18 + 2, Math.min(textarea.scrollHeight, 4 * 18 + 2))}px`;
+  }, [multiline, text]);
+
   return (
     multiline ? (
       <textarea
@@ -578,7 +586,7 @@ function InlineEditor({
           inputRef.current = element;
         }}
         className="tree-row__editor tree-row__editor--multiline"
-        rows={4}
+        rows={1}
         value={text}
         onClick={(event) => event.stopPropagation()}
         onChange={(event) => setText(event.target.value)}

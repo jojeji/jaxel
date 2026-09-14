@@ -563,6 +563,23 @@ Always-on-top wird nicht verwendet; Größe und Position des Fensters bleiben un
 Ungültige oder nicht mehr existierende Pfade lösen keine zusätzliche Aktivierung aus. Mehrere
 gültige Pfade bleiben in der bestehenden Queue und werden weiterhin als einzelne Tabs geöffnet.
 
+## 2026-09-11 — Grilling: Live-Suche ab drei Zeichen
+
+Die Suche aktualisiert ihre Trefferliste automatisch, sobald der Suchbegriff mindestens drei
+Zeichen lang ist. Das gilt für Tippen, Einfügen aus der Zwischenablage, Ausschneiden und Löschen;
+eine kurze Verzögerung bündelt schnelle Eingaben. Unter drei Zeichen werden Trefferliste und
+aktiver Suchfilter geleert.
+
+Änderungen an Suchbereich, Groß-/Kleinschreibung, Regex und Unterbaum-Scope starten ebenfalls
+automatisch eine neue Suche. Änderungen am Dokument durch Bearbeiten, Einfügen, Löschen oder
+Undo/Redo aktualisieren eine aktive Suche erneut, damit Treffer immer dem geparsten Baum
+entsprechen.
+
+Die Live-Suche markiert den ersten Treffer, verschiebt den Baum aber nicht. Pfeiltasten bewegen
+nur die Markierung; Enter bestätigt den markierten Treffer und navigiert im Baum. Gibt ein
+Regex-Eintrag vorübergehend einen Fehler, bleiben die letzten gültigen Treffer sichtbar und die
+Fehlermeldung wird angezeigt.
+
 ## 2026-09-02 — Korrekturen nach Release 0.7.0
 
 Die beim Start bzw. durch „Öffnen mit“ übergebenen Pfade warten auf den Abschluss der

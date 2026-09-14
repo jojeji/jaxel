@@ -307,6 +307,7 @@ describe("Wert editieren (Doppelklick / Enter) und Undo/Redo", () => {
     const input = screen.getByDisplayValue("Berlin");
     expect(input.tagName).toBe("TEXTAREA");
     expect(input).toHaveClass("tree-row__editor--multiline");
+    expect(input).toHaveAttribute("rows", "1");
     await user.clear(input);
     await user.type(input, "München");
     fireEvent.blur(input);
@@ -753,6 +754,55 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     // "city" saß in einem eingeklappten person-Knoten -- der Treffer muss ihn automatisch aufklappen.
     expect(await screen.findByText("Berlin", { selector: ".tree-row__preview" })).toBeInTheDocument();
     expect(screen.getByText("city", { selector: ".attributes-panel__node-name" })).toBeInTheDocument();
+  });
+
+  it("startete die Suche nach dem Einfügen eines Suchbegriffs automatisch", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByPlaceholderText("Suchbegriff…"));
+
+    await user.paste("Berlin");
+
+    expect(await screen.findByText("1/1")).toBeInTheDocument();
+  });
+
+  it("löscht die Trefferliste wieder, wenn der Suchbegriff unter drei Zeichen fällt", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    const query = screen.getByPlaceholderText("Suchbegriff…");
+    await user.paste("person");
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    await user.clear(query);
+    await user.type(query, "pe");
+
+    await waitFor(() => expect(screen.queryByText("1/2")).not.toBeInTheDocument());
+  });
+
+  it("aktualisiert die Treffer automatisch nach einer Suchoptionsänderung", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.paste("Berlin");
+    expect(await screen.findByText("1/1")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox"), "name");
+
+    await waitFor(() => expect(screen.queryByText("1/1")).not.toBeInTheDocument());
+  });
+
+  it("aktualisiert die Treffer automatisch nach einer Dokumentänderung", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.paste("person");
+    expect(await screen.findByText("1/2")).toBeInTheDocument();
+
+    await user.dblClick(screen.getAllByText("person", { selector: ".tree-row__name" })[0]!);
+    const nameInput = screen.getAllByDisplayValue("person").find((element) => element.classList.contains("tree-row__editor"))!;
+    await user.clear(nameInput);
+    await user.type(nameInput, "human");
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText("1/1")).toBeInTheDocument();
   });
 
   it("zeigt die Treffer als klickbare Liste; Klick springt zum Knoten", async () => {

@@ -9,6 +9,13 @@ Gepflegt wird GROB (Nutzersicht, kein technisches Bug-Protokoll — Details steh
 `docs/status.md` und der Git-Historie). Laufende Arbeit sammelt sich unter *Unreleased*;
 eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
+## [0.7.2] - 2026-09-11
+
+### Behoben
+
+- **Live-Suche:** Suchergebnisse werden beim Tippen und Einfügen ab drei Zeichen automatisch
+  aktualisiert. Suchoptionen und Dokumentänderungen lösen ebenfalls eine Aktualisierung aus.
+
 ## [0.7.1] - 2026-09-02
 
 ### Behoben

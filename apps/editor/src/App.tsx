@@ -1661,6 +1661,8 @@ export function App(): React.ReactElement {
         onClose={handleSearchClose}
         focusRequest={searchFocusRequest}
         hasSelection={selectedRow !== null}
+        selectedNodeId={selectedRow?.node.id ?? null}
+        documentRevision={revision}
         dockSide={dock}
         onToggleDock={handleToggleSearchDock}
       />

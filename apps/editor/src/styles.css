@@ -1023,7 +1023,8 @@ kbd {
 
 .tree-row__editor--multiline {
   line-height: 18px;
-  min-height: calc(4 * 18px + 2px);
+  height: calc(18px + 2px);
+  max-height: calc(4 * 18px + 2px);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow-x: hidden;

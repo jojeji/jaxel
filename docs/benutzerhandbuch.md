@@ -177,6 +177,11 @@ Entscheidungsdialog behält dagegen bewusst den Fokus.
 
 - **Scope**: Alles, nur Namen, nur Werte oder nur Attribute; optional Groß-/Kleinschreibung
   und Regex.
+- **Live-Suche**: Ab drei Zeichen aktualisiert sich die Trefferliste beim Tippen oder Einfügen
+  automatisch. Unter drei Zeichen werden alte Treffer entfernt. Änderungen an Suchbereich,
+  Groß-/Kleinschreibung, Regex, Unterbaum-Scope und am Dokument aktualisieren die Treffer
+  ebenfalls automatisch. Ein ungültiger Regex zeigt eine Fehlermeldung, lässt aber die letzten
+  gültigen Treffer sichtbar.
 - **Nur im ausgewählten Unterbaum**: schränkt die Suche (und „Alle ersetzen") auf den im Baum
   gerade ausgewählten Knoten samt Nachfahren ein — folgt live der aktuellen Auswahl, ohne
   Auswahl deaktiviert. In einer Fokus-Ansicht (siehe oben) bezieht sich „Alles" ohnehin nur auf
@@ -191,12 +196,10 @@ Entscheidungsdialog behält dagegen bewusst den Fokus.
   festlegen, ob Namespace-Präfixe (z. B. `ram:`) in Pfad und Treffer-Text angezeigt werden
   (Standard: ausgeblendet) — betrifft nur diese Anzeige, nicht die Suche selbst und nicht
   Baum/Eigenschaften-Panel.
-- **Tastaturnavigation im Suchfeld**: `Enter` sucht (falls sich der Suchbegriff geändert hat oder
-  noch keine Treffer vorliegen) und springt sofort zum ersten Treffer. Danach bewegen `↑`/`↓` nur
-  die Markierung in der Trefferliste (mit Wraparound), ohne den Baum zu verändern — man kann also
-  in Ruhe durchblättern oder weitertippen. Erneutes `Enter` springt zum gerade markierten Treffer;
-  ändert man stattdessen den Suchbegriff und drückt `Enter`, beginnt eine komplette neue Suche
-  wieder bei Treffer 1.
+- **Tastaturnavigation im Suchfeld**: `Enter` springt zum aktuell markierten Treffer. `↑`/`↓`
+  bewegen nur die Markierung in der Trefferliste (mit Wraparound), ohne den Baum zu verändern —
+  auch während des Weitertippens. Ein Klick auf eine Trefferzeile springt direkt zu diesem
+  Knoten.
 - **Filtern**: reduziert den Baum auf Treffer und ihre Vorfahren. In den Einstellungen lässt
   sich zusätzlich der komplette Unterbaum jedes Treffers einblenden.
 - **Ersetzen**: „Alle ersetzen" ersetzt in allen Treffern — als ein einziger Undo-Schritt.

@@ -5,6 +5,11 @@ Wahrheit; jede Mutation läuft als Command über den CommandBus (siehe `CLAUDE.m
 
 ## Language
 
+**Live-Suche**:
+Eine Suche, deren Trefferliste sich während der Eingabe und bei Änderungen der Suchbedingungen
+automatisch am aktuellen Dokumentstand orientiert.
+_Avoid_: Suche erst nach Enter
+
 **Dirty**:
 Ein Dokument, dessen aktueller Baum von dem Stand abweicht, der zuletzt gespeichert wurde.
 Bestimmt sich aus der Baseline (siehe unten), nicht daraus, ob jemals ein Command lief.

@@ -16,6 +16,8 @@ import {
 /** Beyond this many results the list is cut off (path computation per row isn't free). */
 const RESULT_LIMIT = 200;
 const MIN_PANEL_HEIGHT = 140;
+const MIN_SEARCH_QUERY_LENGTH = 3;
+const SEARCH_DEBOUNCE_MS = 150;
 /** Advance width (px) of one monospace character at the panel's 12px --mono font, rounded
  * UP a bit on purpose: the budget must stay comfortably inside the actual rendered cell, or
  * the CSS text-overflow:ellipsis fallback on .search-panel__result-path (for the rare case
@@ -56,6 +58,10 @@ interface SearchPanelProps {
   focusRequest: number;
   /** Whether a node is currently selected in the tree — "subtree only" needs one to scope to. */
   hasSelection: boolean;
+  /** The selected node identity — changes while `hasSelection` remains true. */
+  selectedNodeId: string | null;
+  /** Invalidates live results after a command mutates the active document. */
+  documentRevision: number;
   /** "bottom" = full-width bar under the tree (resizable height); "right" = embedded as a
    * sidebar tab next to the attributes editor (fills the tab's height, no own resize handle). */
   dockSide: SearchDockSide;
@@ -84,10 +90,9 @@ function wrapIndex(index: number, offset: number, length: number): number {
  * the tree to matches + ancestors while active (see tree/filter.ts); the checkbox state
  * lives here, the actual row filtering in App.
  *
- * Keyboard model: Enter always jumps to the current cursor position; the first Enter after
- * the query changed runs a fresh search and jumps to match 0. ArrowUp/ArrowDown only move
- * the cursor within the existing result list (wrapping), they never touch the tree — so you
- * can arrow through results while still typing, and only Enter commits the jump.
+ * Keyboard model: live search keeps the first result highlighted without moving the tree.
+ * Enter jumps to the current cursor position. ArrowUp/ArrowDown only move the cursor within
+ * the existing result list (wrapping), they never touch the tree — only Enter commits the jump.
  */
 export function SearchPanel({
   onSearch,
@@ -100,6 +105,8 @@ export function SearchPanel({
   onClose,
   focusRequest,
   hasSelection,
+  selectedNodeId,
+  documentRevision,
   dockSide,
   onToggleDock,
 }: SearchPanelProps): React.ReactElement {
@@ -134,6 +141,24 @@ export function SearchPanel({
   }, [focusRequest]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (query.length < MIN_SEARCH_QUERY_LENGTH) {
+        setMessage(null);
+        setSearchedQuery(query);
+        setMatches([]);
+        setCurrentIndex(-1);
+        onFilterChange(null);
+        return;
+      }
+      runSearch(false, false);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+    // `onSearch` is supplied by App and intentionally changes identity on render; the
+    // document revision and selected node identity are the explicit invalidation signals.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, scope, caseSensitive, useRegex, filterOn, subtreeOnly, hasSelection, selectedNodeId, documentRevision]);
+
+  useEffect(() => {
     resultRefs.current[currentIndex]?.scrollIntoView?.({ block: "nearest" });
   }, [currentIndex]);
 
@@ -153,10 +178,10 @@ export function SearchPanel({
     [query, scope, caseSensitive, useRegex],
   );
 
-  function runSearch(navigateToFirst: boolean): SearchMatch[] {
-    setMessage(null);
-    setSearchedQuery(query);
-    if (query === "") {
+  function runSearch(navigateToFirst: boolean, clearMessage = true): SearchMatch[] {
+    if (clearMessage) setMessage(null);
+    if (query.length < MIN_SEARCH_QUERY_LENGTH) {
+      setSearchedQuery(query);
       setMatches([]);
       setCurrentIndex(-1);
       onFilterChange(null);
@@ -164,20 +189,18 @@ export function SearchPanel({
     }
     try {
       const found = onSearch(options, subtreeOnly && hasSelection);
+      setSearchedQuery(query);
       setMatches(found);
       onFilterChange(filterOn ? found : null);
       if (found.length === 0) {
         setCurrentIndex(-1);
-      } else if (navigateToFirst) {
+      } else {
         setCurrentIndex(0);
-        onNavigate(found[0]!);
+        if (navigateToFirst) onNavigate(found[0]!);
       }
       return found;
     } catch (err) {
       setMessage(toErrorMessage(err));
-      setMatches([]);
-      setCurrentIndex(-1);
-      onFilterChange(null);
       return [];
     }
   }
@@ -284,7 +307,10 @@ export function SearchPanel({
           className="search-panel__query"
           placeholder={t("search.query")}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setMessage(null);
+            setQuery(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") handleEnter();
             else if (event.key === "ArrowDown") {
@@ -297,7 +323,13 @@ export function SearchPanel({
           }}
           autoFocus
         />
-        <select value={scope} onChange={(event) => setScope(event.target.value as SearchScope)}>
+        <select
+          value={scope}
+          onChange={(event) => {
+            setMessage(null);
+            setScope(event.target.value as SearchScope);
+          }}
+        >
           <option value="all">{t("search.scope.all")}</option>
           <option value="name">{t("search.scope.name")}</option>
           <option value="value">{t("search.scope.value")}</option>
@@ -307,12 +339,22 @@ export function SearchPanel({
           <input
             type="checkbox"
             checked={caseSensitive}
-            onChange={(event) => setCaseSensitive(event.target.checked)}
+            onChange={(event) => {
+              setMessage(null);
+              setCaseSensitive(event.target.checked);
+            }}
           />
           {t("search.caseSensitive")}
         </label>
         <label>
-          <input type="checkbox" checked={useRegex} onChange={(event) => setUseRegex(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={useRegex}
+            onChange={(event) => {
+              setMessage(null);
+              setUseRegex(event.target.checked);
+            }}
+          />
           {t("search.regex")}
         </label>
         <label>
@@ -324,7 +366,10 @@ export function SearchPanel({
             type="checkbox"
             checked={subtreeOnly}
             disabled={!hasSelection}
-            onChange={(event) => setSubtreeOnly(event.target.checked)}
+            onChange={(event) => {
+              setMessage(null);
+              setSubtreeOnly(event.target.checked);
+            }}
           />
           {t("search.subtreeOnly")}
         </label>

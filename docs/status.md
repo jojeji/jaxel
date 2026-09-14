@@ -1702,3 +1702,23 @@ sequenziell geöffnet, sodass die zuletzt per Doppelklick angeforderte Datei zuv
 bleibt. Zusätzlich sitzt das Schließen-`x` mit flexiblem Abstand am rechten Rand jedes Tabs.
 Bewusste Vereinfachung: Die Aktivierungsreihenfolge gilt für die Dateiübergabe-Queue; manuelle
 Klicks während des Öffnens werden nicht künstlich blockiert.
+
+## Nachtrag 2026-09-04 — Inline-Editor wächst nur bei Bedarf
+
+Das Inline-Textarea für Elementwerte startet wieder mit einer Zeile und wächst während der Eingabe
+anhand des tatsächlichen Inhalts automatisch bis maximal vier Zeilen. Längere Inhalte bleiben in
+der Box scrollbar. Die bestehende Mehrzeilenbearbeitung und die Enter/Escape-Regeln bleiben erhalten;
+der Namens-Editor bleibt einzeilig.
+
+## Nachtrag 2026-09-11 — Live-Suche ab drei Zeichen
+
+Die Suche aktualisiert Trefferliste und optionalen Baumfilter nun automatisch beim Tippen und
+beim Einfügen aus der Zwischenablage, sobald der Suchbegriff mindestens drei Zeichen umfasst.
+Unterhalb dieser Grenze werden alte Treffer entfernt. Suchoptionen sowie Änderungen am Dokument
+lösen ebenfalls eine erneute Suche aus. Der erste Treffer wird markiert, aber erst durch Enter
+oder einen Klick im Baum angesprungen; bei einem ungültigen Regex bleiben die letzten gültigen
+Treffer erhalten und die Fehlermeldung wird angezeigt.
+
+Bewusste Vereinfachung: Die Suche wartet 150 ms nach der letzten Eingabe, um bei großen Bäumen
+keine Suche für jedes einzelne schnell eingegebene Zeichen auszuführen. Verifiziert mit
+`npm test` (Core 259/259, Editor 269/269) und `npm run typecheck` (Core und Editor sauber).

@@ -6,3 +6,12 @@ target/
 apps/editor/src-tauri/target/
 apps/editor/src-tauri/gen/
 .scratch/
+
+# Generated browser-test artifacts; visual reference snapshots stay versioned.
+apps/editor/.vitest-attachments/
+apps/editor/src/__screenshots__/App.test.tsx/
+apps/editor/src/tree/__screenshots__/
+
+# Dated graphify run archives are local analysis history, not project output.
+graphify-out/20*/
+graphify-out/.graphify_analysis.json
