@@ -3,6 +3,27 @@
 Wird nach jedem Arbeitspaket (AP) fortgeschrieben: was wurde gebaut, warum, bewusste
 Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
+## Nachtrag 2026-09-14 — VS-Code-Integration als optionaler Host
+
+Jaxel kann jetzt zusätzlich zur Tauri-Desktop-App als WebView in einer VS-Code-Extension laufen.
+Eine Host-Abstraktion hält Datei-I/O, Dirty-State, Speichern, Backup und PDF-Übergabe getrennt
+von der Baumlogik; im eingebetteten Modus werden Menüleiste, Toolbar, Tabs und Startbildschirm
+ausgeblendet. XML und JSON werden dort nicht automatisch dem Jaxel-Editor zugeordnet — die
+Editorauswahl bleibt vollständig bei VS Code.
+
+Base64-PDFs werden in VS Code als Bytes an den einbettenden Host zurückgegeben; standalone
+dekodiert Jaxel sie weiterhin und öffnet sie im Standard-PDF-Programm. Beim Host-Save werden
+XML-Bytebereiche, Quelltext, Änderungs-Baseline und Dateistatistik gemeinsam aktualisiert, damit
+der folgende minimale Save nicht auf veraltete Offsets zugreift. Die Besonderheiten des
+Embedded-Modus bleiben auf die Host-Schicht begrenzt; die Tauri-App behält ihren bisherigen
+Datei- und Fenstermodus.
+
+Bewusste Vereinfachung: VS Code liefert das WebView-Bundle beim Extension-Build aus dem jeweils
+neuesten stabilen öffentlichen GitHub-Release und prüft dessen SHA-256-Summe. Solange ein Release
+kein WebView-Bundle enthält, schlägt der Download absichtlich fehl; es gibt keinen Fallback auf
+lokale oder potenziell veraltete Bundles. Verifiziert mit `npm test` (Core 259/259, Editor
+269/269), `npm run typecheck` und `npm run compile`.
+
 ## Nachtrag 2026-07-27 — Letzte Baumzeile bleibt über horizontaler Scrollbar sichtbar
 
 - **Ursache:** Der Spacer des virtualisierten Baums war exakt `Anzahl Zeilen × 22 px` hoch. Damit

@@ -1,11 +1,11 @@
 // Einzige Logging-Brücke des Frontends (AP15, siehe .scratch/ap15-crash-logging/spec.md).
 // Fire-and-forget: ein Fehler beim Loggen selbst darf die App nie stören (Story 15).
-import { invoke } from "@tauri-apps/api/core";
+import { getJaxelHost } from "./host.js";
 
 type LogLevel = "info" | "warn" | "error";
 
 function logToBackend(level: LogLevel, source: string, message: string): void {
-  void invoke("log_frontend", { level, message: `[${source}] ${message}` }).catch(() => {});
+  void getJaxelHost().log(level, source, message).catch(() => {});
 }
 
 export function logInfo(source: string, message: string): void {

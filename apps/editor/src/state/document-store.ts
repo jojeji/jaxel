@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { logInfo } from "../logging.js";
+import { getJaxelHost, type HostFileStat, type JaxelHost } from "../host.js";
 import {
   CommandBus,
   captureChangeBaseline,
@@ -114,7 +114,7 @@ function detectFormat(path: string, content: string): DocFormat {
   return formatOfExtension(path) ?? (content.trimStart().startsWith("<") ? "xml" : "json");
 }
 
-function serializeForSave(target: OpenDocumentState): string {
+export function serializeForSave(target: OpenDocumentState): string {
   return target.format === "xml"
     ? serializeXmlMinimal(target.sourceText, {
         root: target.document.root,
@@ -136,13 +136,10 @@ function serializeForSave(target: OpenDocumentState): string {
 async function persistSaved(
   target: OpenDocumentState,
   writePath: string,
+  host: JaxelHost,
 ): Promise<{ text: string; stat: { mtimeMs: number; size: number }; changeBaseline: ChangeBaseline }> {
   const text = serializeForSave(target);
-  const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
-    path: writePath,
-    content: text,
-    encoding: target.encoding,
-  });
+  const stat = await host.writeTextFile(writePath, text, target.encoding);
   logInfo("breadcrumb", `Datei gespeichert: ${writePath}`);
   // The file on disk now matches the tree again — that becomes the new minimal-invasive
   // baseline AND the new dirty/change-marker baseline (see CommandBus.markSaved, CONTEXT.md
@@ -163,7 +160,7 @@ async function persistSaved(
  * already loaded just activates its full-view tab (creating it if it was closed while a
  * focus tab on the same document was still open) instead of re-parsing a duplicate.
  */
-export function useJaxelDocuments(): {
+export function useJaxelDocuments(host: JaxelHost = getJaxelHost()): {
   docs: OpenDocumentState[];
   tabs: TabState[];
   activeTab: TabState | null;
@@ -203,6 +200,8 @@ export function useJaxelDocuments(): {
   retargetFocusTab: (key: string, nodeId: string | null, label: string | null, ancestorIds: string[]) => void;
   /** Acknowledges an observed on-disk version without reloading or changing document content. */
   acknowledgeExternalChange: (filePath: string, mtimeMs: number, size: number) => void;
+  /** Acknowledges a successful host save and refreshes all baselines used by the next edit/save. */
+  acknowledgeSaved: (filePath: string, text: string, stat?: HostFileStat) => void;
   /** Re-reads a document from disk after an external change; see the function itself. */
   reloadFile: (
     filePath: string,
@@ -302,10 +301,7 @@ export function useJaxelDocuments(): {
   }
 
   const openFile = useCallback(async (path: string) => {
-    const result = await invoke<{ content: string; encoding: string; mtimeMs: number; size: number }>(
-      "read_text_file",
-      { path },
-    );
+    const result = await host.readTextFile(path);
     logInfo("breadcrumb", `Datei geöffnet: ${path}`);
     const format = detectFormat(path, result.content);
     const parsed = parseDocument(format, result.content);
@@ -337,7 +333,7 @@ export function useJaxelDocuments(): {
     const targetPath = path ?? stateRef.current.tabs.find((t) => t.key === stateRef.current.activeKey)?.filePath;
     const target = stateRef.current.docs.find((d) => d.filePath === targetPath);
     if (!target) return;
-    const { text, stat, changeBaseline } = await persistSaved(target, target.filePath);
+    const { text, stat, changeBaseline } = await persistSaved(target, target.filePath, host);
     setState((current) => ({
       ...current,
       docs: current.docs.map((d) =>
@@ -351,7 +347,7 @@ export function useJaxelDocuments(): {
   const saveFileAs = useCallback(async (currentPath: string, newPath: string) => {
     const target = stateRef.current.docs.find((d) => d.filePath === currentPath);
     if (!target) return;
-    const { text, stat, changeBaseline } = await persistSaved(target, newPath);
+    const { text, stat, changeBaseline } = await persistSaved(target, newPath, host);
     const unsubscribe = unsubscribersRef.current.get(currentPath);
     if (unsubscribe) {
       unsubscribersRef.current.delete(currentPath);
@@ -499,6 +495,32 @@ export function useJaxelDocuments(): {
     }));
   }, []);
 
+  const acknowledgeSaved = useCallback((filePath: string, text: string, stat?: HostFileStat): void => {
+    const target = stateRef.current.docs.find((doc) => doc.filePath === filePath);
+    if (!target) return;
+
+    // The host has written exactly this text. Refresh the XML byte ranges before replacing the
+    // source baseline; otherwise the next minimal-invasive save can read old offsets from the
+    // new source text after an earlier edit shifted the document.
+    if (target.format === "xml") {
+      syncByteRangesAfterSave(target.document.root, parseXml(text).root);
+    }
+    target.commandBus.markSaved();
+    const changeBaseline = captureChangeBaseline(target.document.root);
+    setState((current) => ({
+      ...current,
+      docs: current.docs.map((doc) => doc.filePath === filePath
+        ? {
+            ...doc,
+            sourceText: text,
+            isDirty: false,
+            changeBaseline,
+            ...(stat ? { lastKnownMtimeMs: stat.mtimeMs, lastKnownSize: stat.size } : {}),
+          }
+        : doc),
+    }));
+  }, []);
+
   /**
    * Replaces a loaded document's tree wholesale and re-resolves everything that pointed into
    * the old one. Shared by "reload from disk" and "convert to the other format" because both
@@ -620,10 +642,7 @@ export function useJaxelDocuments(): {
       const target = stateRef.current.docs.find((d) => d.filePath === filePath);
       if (!target) return { selectedId: null, expandedIds: [] };
 
-      const result = await invoke<{ content: string; encoding: string; mtimeMs: number; size: number }>(
-        "read_text_file",
-        { path: filePath },
-      );
+      const result = await host.readTextFile(filePath);
       const parsed = parseDocument(target.format, result.content);
       // No asynchronous boundary follows before the store replacement. This closes the window
       // in which an automatic reload could discard a command executed while read_text_file ran.
@@ -642,7 +661,7 @@ export function useJaxelDocuments(): {
         expandedSegmentsList,
       });
     },
-    [],
+    [host],
   );
 
   /**
@@ -671,11 +690,7 @@ export function useJaxelDocuments(): {
         indent: target.document.indent,
         encoding: target.encoding,
       });
-      const stat = await invoke<{ mtimeMs: number; size: number }>("write_text_file", {
-        path: newPath,
-        content: text,
-        encoding: target.encoding,
-      });
+      const stat = await host.writeTextFile(newPath, text, target.encoding);
       logInfo("breadcrumb", `Datei konvertiert nach ${targetFormat} und gespeichert: ${newPath}`);
 
       const parsed = parseDocument(targetFormat, text);
@@ -693,7 +708,7 @@ export function useJaxelDocuments(): {
         expandedSegmentsList,
       });
     },
-    [],
+    [host],
   );
 
   const activeTab = state.tabs.find((t) => t.key === state.activeKey) ?? null;
@@ -716,6 +731,7 @@ export function useJaxelDocuments(): {
     openFocusTab,
     retargetFocusTab,
     acknowledgeExternalChange,
+    acknowledgeSaved,
     reloadFile,
   };
 }

@@ -97,6 +97,23 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   damit mehrere zwischenzeitliche externe Änderungen nicht nacheinander gemeldet werden; erst eine
   spätere Änderung löst wieder eine Meldung aus.
 
+## Verwendung als VS-Code-Editor
+
+Jaxel kann auch in eine Extension eingebettet werden. Der Editor erscheint dort nur als optionale
+Auswahl unter **Öffnen mit…**; XML- und JSON-Dateien werden nicht automatisch umgestellt. Welche
+Dateien mit Jaxel geöffnet werden, legt jeder selbst über die normalen VS-Code-Einstellungen und
+die Dateizuordnung fest. Dateioperationen, Speichern, Backups und der Änderungsstatus werden vom
+einbettenden VS-Code-Host verwaltet.
+
+Im eingebetteten Modus zeigt Jaxel nur die Baumansicht. Menüleiste, Toolbar, Tab-Leiste und
+Startbildschirm bleiben ausgeblendet, sodass pro Datei und VS-Code-Fenster genau ein Editor-Tab
+sichtbar ist. Die Desktop-App mit Tauri bleibt davon unabhängig und unterstützt weiterhin ihre
+eigenen Datei- und Fensteraktionen.
+
+Wird in einem eingebetteten Dokument ein Base64-PDF erkannt, übergibt Jaxel die dekodierten Bytes
+an die Extension; diese öffnet sie im vorhandenen PDF-Viewer. Standalone schreibt Jaxel den
+dekodierten Inhalt weiterhin temporär und öffnet ihn mit dem Standardprogramm des Betriebssystems.
+
 ## Baumansicht und Navigation
 
 - **Klick** auf einen Knoten: auswählen und (bei Containern) auf-/zuklappen.

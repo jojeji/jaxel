@@ -1,6 +1,4 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   computeChanges,
   computePaths,
@@ -50,9 +48,10 @@ import {
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
+import { getJaxelHost } from "./host.js";
 import { conversionErrorMessage, toErrorMessage } from "./errors.js";
 import { resolveShortcut } from "./shortcuts.js";
-import { formatOfExtension, tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
+import { formatOfExtension, serializeForSave, tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
 import { useSettings } from "./state/settings-store.js";
 import {
   getLastDir,
@@ -114,6 +113,8 @@ const STATUS_TOAST_DURATION_MS = 4_000;
 const ERROR_TOAST_DURATION_MS = 8_000;
 
 export function App(): React.ReactElement {
+  const host = getJaxelHost();
+  const embedded = host.mode === "vscode";
   const { t } = useI18n();
   const { settings, setSettings } = useSettings();
   const {
@@ -132,8 +133,9 @@ export function App(): React.ReactElement {
     openFocusTab,
     retargetFocusTab,
     acknowledgeExternalChange,
+    acknowledgeSaved,
     reloadFile,
-  } = useJaxelDocuments();
+  } = useJaxelDocuments(host);
   const dirtyPaths = useMemo(
     () => new Set(docs.filter((d) => d.isDirty).map((d) => d.filePath)),
     [docs],
@@ -199,15 +201,37 @@ export function App(): React.ReactElement {
   // App version for the "Über"/About dialog — read from Tauri (mirrors package.json /
   // tauri.conf.json); unavailable outside a real Tauri window (e.g. plain `vite` dev/tests).
   useEffect(() => {
-    void (async () => {
-      try {
-        const { getVersion } = await import("@tauri-apps/api/app");
-        setAppVersion(await getVersion());
-      } catch {
-        setAppVersion(null);
-      }
-    })();
-  }, []);
+    void host.getVersion().then(setAppVersion);
+  }, [host]);
+
+  // VS Code supplies exactly one document to an embedded Jaxel instance. The
+  // provider remains responsible for the CustomDocument and disk writes.
+  useEffect(() => {
+    if (!embedded) return;
+    let cancelled = false;
+    void host.getInitialDocument().then((initial) => {
+      if (!cancelled && initial) void openFile(initial.path);
+    });
+    return () => { cancelled = true; };
+  }, [embedded, host, openFile]);
+
+  useEffect(() => host.onSaved((_revision, text, stat) => {
+    if (!activeDoc) return;
+    if (text !== undefined) acknowledgeSaved(activeDoc.filePath, text, stat);
+    else activeDoc.commandBus.markSaved(); // Compatibility with older embedded bundles.
+  }), [host, activeDoc, acknowledgeSaved]);
+
+  useEffect(() => {
+    host.notifyDirty(activeDoc?.isDirty ?? false);
+  }, [host, activeDoc?.isDirty, activeDoc?.document.revision]);
+
+  useEffect(() => {
+    const stopContent = host.onRequestCurrentContent((requestId) => {
+      if (activeDoc) host.respondCurrentContent(requestId, serializeForSave(activeDoc), activeDoc.document.revision);
+    });
+    const stopSession = host.onRequestSession((requestId) => host.respondSession(requestId, null));
+    return () => { stopContent(); stopSession(); };
+  }, [host, activeDoc]);
 
   // Globale Absturzspuren (AP15 Story 2, 3): window.onerror/unhandledrejection landen im Log.
   useEffect(() => installGlobalErrorLogging(), []);
@@ -271,6 +295,10 @@ export function App(): React.ReactElement {
   const sessionRestoredRef = useRef(false);
   const sessionRestoreReadyRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
+    if (embedded) {
+      sessionRestoredRef.current = true;
+      return;
+    }
     if (!settings.restoreSession) {
       sessionRestoredRef.current = true;
       return;
@@ -290,7 +318,7 @@ export function App(): React.ReactElement {
     };
     sessionRestoreReadyRef.current = restoreSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only, reads initial setting
-  }, []);
+  }, [embedded, openFile, activate]);
 
   // Record the current session (full-view tabs on real files; untitled and focus tabs are
   // deliberately excluded — focus node ids do not survive a re-parse).
@@ -326,27 +354,15 @@ export function App(): React.ReactElement {
       // initial command-line paths and paths forwarded by a second instance follow the same
       // ordering. The backend keeps them queued until this pull happens.
       await sessionRestoreReadyRef.current;
-      const paths = await invoke<string[]>("take_pending_open_paths");
+      const paths = await host.takePendingOpenPaths();
       for (const path of paths) await openPathRef.current(path);
     };
     void pullPending();
-    let disposed = false;
-    let unlisten: (() => void) | null = null;
-    void (async () => {
-      try {
-        const { listen } = await import("@tauri-apps/api/event");
-        const fn = await listen("jaxel://pending-open-paths", pullPending);
-        if (disposed) fn();
-        else unlisten = fn;
-      } catch {
-        // not running inside a Tauri window
-      }
-    })();
+    const stop = host.onPendingOpenPaths(() => void pullPending());
     return () => {
-      disposed = true;
-      unlisten?.();
+      stop();
     };
-  }, []);
+  }, [host]);
 
   // Intercept the window close while any document has unsaved changes (docs/entscheidungen.md
   // 2026-07-18, Desktop-Reife #1). Registered once; the handler reads the live docs via ref.
@@ -360,59 +376,35 @@ export function App(): React.ReactElement {
     settingsRef.current = settings;
   }, [activeDoc?.filePath, docs, settings]);
   useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | null = null;
-    void (async () => {
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const fn = await getCurrentWindow().onCloseRequested((event) => {
-          if (docsRef.current.some((d) => d.isDirty)) {
-            event.preventDefault();
-            setClosePrompt({ kind: "window" });
-          }
-        });
-        if (disposed) fn();
-        else unlisten = fn;
-      } catch {
-        // not running inside a Tauri window
+    const stop = host.onCloseRequested((event) => {
+      if (docsRef.current.some((d) => d.isDirty)) {
+        event.preventDefault();
+        setClosePrompt({ kind: "window" });
       }
-    })();
+    });
     return () => {
-      disposed = true;
-      unlisten?.();
+      stop();
     };
-  }, []);
+  }, [host]);
 
   // Drag&drop of files onto the window (Tauri webview event; unavailable — and silently
   // skipped — outside a real Tauri window, e.g. in jsdom tests).
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-        const stop = await getCurrentWebview().onDragDropEvent((event) => {
-          if (event.payload.type === "enter" || event.payload.type === "over") {
+    const stop = host.onFileDrop((event) => {
+          if (event.type === "enter" || event.type === "over") {
             setDragOver(true);
-          } else if (event.payload.type === "leave") {
+          } else if (event.type === "leave") {
             setDragOver(false);
-          } else if (event.payload.type === "drop") {
+          } else if (event.type === "drop") {
             setDragOver(false);
-            for (const path of event.payload.paths) void openPath(path);
+            for (const path of event.paths) void openPath(path);
           }
         });
-        if (cancelled) stop();
-        else unlisten = stop;
-      } catch {
-        // not running inside Tauri — drag&drop simply stays unavailable
-      }
-    })();
     return () => {
-      cancelled = true;
-      unlisten?.();
+      stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- openPath only wraps the stable openFile
-  }, []);
+  }, [host]);
 
   // Restore the per-tab EXPANDED set whenever the active TAB changes (not just the document —
   // switching between the full view and a focus tab of the same document is also a distinct
@@ -615,7 +607,7 @@ export function App(): React.ReactElement {
     if (keepMinePendingRef.current) return;
     keepMinePendingRef.current = true;
     try {
-      const stat = await invoke<{ mtimeMs: number; size: number }>("stat_file", { path: filePath });
+      const stat = await host.statFile(filePath);
       if (docsRef.current.some((doc) => doc.filePath === filePath)) {
         acknowledgeExternalChange(filePath, stat.mtimeMs, stat.size);
       }
@@ -636,7 +628,7 @@ export function App(): React.ReactElement {
       if (!activeDoc || activeDoc.isUntitled) return;
       const { filePath } = activeDoc;
       const checkId = ++externalCheckIdRef.current;
-      invoke<{ mtimeMs: number; size: number }>("stat_file", { path: filePath })
+      host.statFile(filePath)
         .then((stat) => {
           if (checkId !== externalCheckIdRef.current || activeFilePathRef.current !== filePath) return;
           const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
@@ -661,11 +653,7 @@ export function App(): React.ReactElement {
   async function handleOpen(): Promise<void> {
     setError(null);
     try {
-      const path = await open({
-        multiple: false,
-        defaultPath: getLastDir() ?? undefined,
-        filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
-      });
+      const path = await host.pickOpenFile(getLastDir());
       if (typeof path === "string") {
         await openPath(path);
       }
@@ -692,14 +680,11 @@ export function App(): React.ReactElement {
   async function promptSaveAs(doc: OpenDocumentState): Promise<string | null> {
     const extension = doc.format === "xml" ? "xml" : "json";
     const dir = getLastDir();
-    const path = await save({
-      defaultPath: doc.isUntitled
+    const path = await host.pickSaveFile(doc.isUntitled
         ? dir
           ? `${dir}/${doc.filePath}.${extension}`
           : `${doc.filePath}.${extension}`
-        : doc.filePath,
-      filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
-    });
+        : doc.filePath, ["xml", "json"]);
     if (typeof path !== "string") return null; // user cancelled the dialog
     const targetFormat = formatOfExtension(path);
     if (targetFormat && targetFormat !== doc.format) {
@@ -1128,12 +1113,12 @@ export function App(): React.ReactElement {
       }
       if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
 
-      if (ctrl && event.key.toLowerCase() === "o") {
+      if (!embedded && ctrl && event.key.toLowerCase() === "o") {
         event.preventDefault();
         void handleOpen();
         return;
       }
-      if (ctrl && event.key.toLowerCase() === "n") {
+      if (!embedded && ctrl && event.key.toLowerCase() === "n") {
         event.preventDefault();
         setNewDocOpen(true);
         return;
@@ -1153,7 +1138,7 @@ export function App(): React.ReactElement {
           void handleSave();
           break;
         case "saveAs":
-          void handleSaveAs();
+          if (!embedded) void handleSaveAs();
           break;
         case "undo":
           handleUndo();
@@ -1337,7 +1322,7 @@ export function App(): React.ReactElement {
   }
 
   function handleOpenTabParent(path: string): void {
-    void invoke<string>("open_parent_folder", { path }).then(
+    void host.openParentFolder(path).then(
       () => setStatus(t("tabs.parentOpened")),
       (err) => setError(toErrorMessage(err)),
     );
@@ -1363,8 +1348,7 @@ export function App(): React.ReactElement {
   async function destroyWindow(): Promise<void> {
     try {
       // destroy(), not close(): close() would re-fire onCloseRequested and re-open the dialog.
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().destroy();
+      await host.destroyWindow();
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -1419,8 +1403,8 @@ export function App(): React.ReactElement {
       setBase64Preview({ text: decoded.text!, format: decoded.textFormat });
       return;
     }
-    invoke<string>("open_decoded_file", { dataBase64: value, extension: decoded.extension }).then(
-      (path) => setStatus(t("base64.openedExternally").replace("{path}", path)),
+    host.openDecodedFile(decoded).then(
+      (path) => setStatus(path ? t("base64.openedExternally").replace("{path}", path) : "PDF an VS Code übergeben."),
       (err) => setError(toErrorMessage(err)),
     );
   }
@@ -1459,7 +1443,7 @@ export function App(): React.ReactElement {
 
   /** "Logdatei öffnen": im Über-Dialog UND im Extras-Menü — eine Stelle für Aufruf + Toast. */
   function handleOpenLog(): void {
-    invoke<string>("open_log").then(
+    host.openLog().then(
       (path) => setStatus(t("about.logOpened").replace("{path}", path)),
       (err) => setError(toErrorMessage(err)),
     );
@@ -1670,7 +1654,7 @@ export function App(): React.ReactElement {
 
   return (
     <div className="app-shell" style={{ "--editor-font-size": `${settings.editorFontSize}px` } as React.CSSProperties}>
-      <header className="app-chrome">
+      {!embedded && <header className="app-chrome">
         <MenuBar
           menus={buildMenuBarMenus()}
           brand={<strong>{t("app.title")}</strong>}
@@ -1723,8 +1707,8 @@ export function App(): React.ReactElement {
           <div className="app-toolbar__spacer" />
           <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
         </div>
-      </header>
-      <TabBar
+      </header>}
+      {!embedded && <TabBar
         tabs={tabs}
         activeKey={activeTab?.key ?? null}
         dirtyPaths={dirtyPaths}
@@ -1738,7 +1722,7 @@ export function App(): React.ReactElement {
         onOpenParentFolder={handleOpenTabParent}
         onReorder={reorderTabs}
         onNewDocument={() => setNewDocOpen(true)}
-      />
+      />}
       {visibleToasts.length > 0 && (
         <div className="toast-viewport">
           {visibleToasts.map((toast) => (
@@ -1809,7 +1793,7 @@ export function App(): React.ReactElement {
               settings.showAttributesPanel ? attributesPanelEl : null
             )}
           </>
-        ) : (
+        ) : embedded ? null : (
           <WelcomeScreen
             onOpen={() => void handleOpen()}
             onOpenPath={(path) => void openPath(path)}

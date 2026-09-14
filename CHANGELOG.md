@@ -9,6 +9,16 @@ Gepflegt wird GROB (Nutzersicht, kein technisches Bug-Protokoll — Details steh
 `docs/status.md` und der Git-Historie). Laufende Arbeit sammelt sich unter *Unreleased*;
 eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
+## [Unreleased]
+
+### Hinzugefügt
+
+- **VS-Code-Integration:** Jaxel kann als optionaler XML-/JSON-Editor in einer Extension
+  eingebettet werden. Die Desktop-App bleibt unverändert eigenständig nutzbar; Dateizuweisungen
+  und die Auswahl des Standardeditors bleiben bei VS Code.
+- **Base64-PDFs:** Im eingebetteten Modus werden erkannte PDFs als Bytes an die Extension
+  übergeben, während die Standalone-App sie weiterhin mit dem Standard-PDF-Viewer öffnet.
+
 ## [0.7.2] - 2026-09-11
 
 ### Behoben

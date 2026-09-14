@@ -57,6 +57,13 @@ aus, das auf einem Linux-Host nicht baubar ist.
 
 ## VS Code
 
+Die Editor-Oberfläche kann auch als WebView in einer VS-Code-Extension eingebettet werden.
+Der Embedded-Modus zeigt nur den Dokumentbaum und überlässt Dateiöffnung, Speichern, Backups
+und Dirty-State der Extension. XML- und JSON-Dateien werden dadurch nicht automatisch diesem
+Editor zugeordnet; VS Code entscheidet weiterhin über „Öffnen mit…" und die benutzerspezifische
+Editorauswahl. Erkannte Base64-PDFs werden im Embedded-Modus als Bytes an den Host übergeben.
+Standalone bleibt die Tauri-App mit eigener Dateiverwaltung und OS-PDF-Viewer.
+
 `.vscode/tasks.json` und `.vscode/launch.json` bündeln die üblichen Abläufe:
 „Jaxel starten (Tauri dev)" (Start-Button / F5), „Prüfkette" (Strg+Shift+B, Tests +
 Typecheck + `cargo check`), „Alle Tests" sowie die Release-Tasks für Linux

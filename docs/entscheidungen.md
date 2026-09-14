@@ -563,6 +563,27 @@ Always-on-top wird nicht verwendet; Größe und Position des Fensters bleiben un
 Ungültige oder nicht mehr existierende Pfade lösen keine zusätzliche Aktivierung aus. Mehrere
 gültige Pfade bleiben in der bestehenden Queue und werden weiterhin als einzelne Tabs geöffnet.
 
+## 2026-09-14 — Grilling: Optionaler VS-Code-Host
+
+Jaxel bleibt eine eigenständige Tauri-Anwendung und erhält zusätzlich eine Host-Abstraktion für
+die Einbettung seiner React-Oberfläche als VS-Code-WebView. Die Extension liefert genau eine
+Datei an einen Jaxel-Tab pro VS-Code-Fenster; Jaxel übernimmt dort weder automatische
+Dateizuordnungen noch eigene Menüs, Tabs oder Dateidialoge. Die Entscheidung, welche XML-/JSON-
+Dateien den optionalen Custom-Editor verwenden, bleibt bei VS Code.
+
+Im Embedded-Modus besitzt VS Code die Wahrheit über Datei-I/O, Speichern, Backup und Dirty-State.
+Nach jedem Host-Save bestätigt der Host den gespeicherten Text einschließlich Dateistatistik;
+Jaxel aktualisiert vor dem nächsten minimal-invasiven XML-Save seine Bytebereiche und
+Änderungs-Baseline. Standalone behält die bisherige Tauri-Dateiverwaltung.
+
+Base64-PDFs werden abhängig vom Host behandelt: Standalone dekodiert sie in eine temporäre Datei
+und öffnet das Betriebssystem-Standardprogramm; im VS-Code-Modus sendet Jaxel nur die Bytes an den
+Host, der sie über den vorhandenen PDF-Provider der Extension öffnet.
+
+Das WebView-Bundle wird beim Extension-Build aus dem neuesten stabilen öffentlichen GitHub-Release
+bezogen und per SHA-256 geprüft. Ein Release ohne Bundle ist ein Build-Fehler; lokale Fallback-
+Bundles sind ausgeschlossen, damit keine veraltete oder vertrauliche Jaxel-Kopie eingebettet wird.
+
 ## 2026-09-11 — Grilling: Live-Suche ab drei Zeichen
 
 Die Suche aktualisiert ihre Trefferliste automatisch, sobald der Suchbegriff mindestens drei
