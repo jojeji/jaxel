@@ -568,8 +568,9 @@ gültige Pfade bleiben in der bestehenden Queue und werden weiterhin als einzeln
 Jaxel bleibt eine eigenständige Tauri-Anwendung und erhält zusätzlich eine Host-Abstraktion für
 die Einbettung seiner React-Oberfläche als VS-Code-WebView. Die Extension liefert genau eine
 Datei an einen Jaxel-Tab pro VS-Code-Fenster; Jaxel übernimmt dort weder automatische
-Dateizuordnungen noch eigene Menüs, Tabs oder Dateidialoge. Die Entscheidung, welche XML-/JSON-
-Dateien den optionalen Custom-Editor verwenden, bleibt bei VS Code.
+Dateizuordnungen, die eigene Tab-Leiste oder Dateidialoge. Menüleiste und Toolbar bleiben als
+Bedienoberfläche sichtbar. Die Entscheidung, welche XML-/JSON-Dateien den optionalen Custom-Editor
+verwenden, bleibt bei VS Code.
 
 Im Embedded-Modus besitzt VS Code die Wahrheit über Datei-I/O, Speichern, Backup und Dirty-State.
 Nach jedem Host-Save bestätigt der Host den gespeicherten Text einschließlich Dateistatistik;

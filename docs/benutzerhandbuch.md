@@ -105,9 +105,11 @@ Dateien mit Jaxel geöffnet werden, legt jeder selbst über die normalen VS-Code
 die Dateizuordnung fest. Dateioperationen, Speichern, Backups und der Änderungsstatus werden vom
 einbettenden VS-Code-Host verwaltet.
 
-Im eingebetteten Modus zeigt Jaxel nur die Baumansicht. Menüleiste, Toolbar, Tab-Leiste und
-Startbildschirm bleiben ausgeblendet, sodass pro Datei und VS-Code-Fenster genau ein Editor-Tab
-sichtbar ist. Die Desktop-App mit Tauri bleibt davon unabhängig und unterstützt weiterhin ihre
+Im eingebetteten Modus zeigt Jaxel die Baumansicht mit der gewohnten Menüleiste und Toolbar.
+Nur die eigene Tab-Leiste und der Startbildschirm bleiben ausgeblendet, sodass pro Datei und
+VS-Code-Fenster genau ein Editor-Tab sichtbar ist. Dateiaktionen für neue oder weitere Dateien
+bleiben dabei VS Code vorbehalten; Speichern, Bearbeiten und die übrigen Jaxel-Funktionen bleiben
+verfügbar. Die Desktop-App mit Tauri bleibt davon unabhängig und unterstützt weiterhin ihre
 eigenen Datei- und Fensteraktionen.
 
 Wird in einem eingebetteten Dokument ein Base64-PDF erkannt, übergibt Jaxel die dekodierten Bytes

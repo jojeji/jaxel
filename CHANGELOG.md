@@ -18,6 +18,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
   und die Auswahl des Standardeditors bleiben bei VS Code.
 - **Base64-PDFs:** Im eingebetteten Modus werden erkannte PDFs als Bytes an die Extension
   übergeben, während die Standalone-App sie weiterhin mit dem Standard-PDF-Viewer öffnet.
+- **Embedded-Oberfläche:** Menüleiste und Toolbar bleiben wie in der Standalone-App sichtbar;
+  nur die eigene Tab-Leiste wird im VS-Code-Editor ausgeblendet.
 
 ## [0.7.2] - 2026-09-11
 

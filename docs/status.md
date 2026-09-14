@@ -7,8 +7,8 @@ Vereinfachungen, offene Punkte. Neueste Einträge oben.
 
 Jaxel kann jetzt zusätzlich zur Tauri-Desktop-App als WebView in einer VS-Code-Extension laufen.
 Eine Host-Abstraktion hält Datei-I/O, Dirty-State, Speichern, Backup und PDF-Übergabe getrennt
-von der Baumlogik; im eingebetteten Modus werden Menüleiste, Toolbar, Tabs und Startbildschirm
-ausgeblendet. XML und JSON werden dort nicht automatisch dem Jaxel-Editor zugeordnet — die
+von der Baumlogik; im eingebetteten Modus bleiben Menüleiste und Toolbar sichtbar, während die
+eigene Tab-Leiste und der Startbildschirm ausgeblendet werden. XML und JSON werden dort nicht automatisch dem Jaxel-Editor zugeordnet — die
 Editorauswahl bleibt vollständig bei VS Code.
 
 Base64-PDFs werden in VS Code als Bytes an den einbettenden Host zurückgegeben; standalone

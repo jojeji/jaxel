@@ -651,6 +651,7 @@ export function App(): React.ReactElement {
   });
 
   async function handleOpen(): Promise<void> {
+    if (embedded) return;
     setError(null);
     try {
       const path = await host.pickOpenFile(getLastDir());
@@ -742,6 +743,7 @@ export function App(): React.ReactElement {
   /** "Speichern unter" (Menü/`Strg+Shift+S`) — unlike `handleSave`, always prompts, even for an
    * already-named document. */
   async function handleSaveAs(): Promise<void> {
+    if (embedded) return;
     if (!activeDoc) return;
     setError(null);
     try {
@@ -1521,7 +1523,7 @@ export function App(): React.ReactElement {
    * Toolbar und das Kontextmenü, nur über einen anderen Einstiegspunkt — keine eigene Logik. */
   function buildMenuBarMenus(): MenuBarMenu[] {
     const ctrl = t("key.ctrl");
-    const recentFiles = getRecentFiles();
+    const recentFiles = embedded ? [] : getRecentFiles();
     const recentEntries: MenuBarEntry[] =
       recentFiles.length > 0
         ? [
@@ -1534,15 +1536,15 @@ export function App(): React.ReactElement {
       {
         label: t("menuBar.file"),
         items: [
-          { label: t("welcome.newDocument"), shortcut: `${ctrl}+N`, onClick: () => setNewDocOpen(true) },
-          { label: t("welcome.openFile"), shortcut: `${ctrl}+O`, onClick: () => void handleOpen() },
+          { label: t("welcome.newDocument"), shortcut: `${ctrl}+N`, disabled: embedded, onClick: () => setNewDocOpen(true) },
+          { label: t("welcome.openFile"), shortcut: `${ctrl}+O`, disabled: embedded, onClick: () => void handleOpen() },
           ...recentEntries,
           "separator",
           { label: t("welcome.save"), shortcut: `${ctrl}+S`, disabled: !activeDoc, onClick: () => void handleSave() },
           {
             label: t("menuBar.saveAs"),
             shortcut: `${ctrl}+Shift+S`,
-            disabled: !activeDoc,
+            disabled: !activeDoc || embedded,
             onClick: () => void handleSaveAs(),
           },
         ],
@@ -1654,7 +1656,7 @@ export function App(): React.ReactElement {
 
   return (
     <div className="app-shell" style={{ "--editor-font-size": `${settings.editorFontSize}px` } as React.CSSProperties}>
-      {!embedded && <header className="app-chrome">
+      <header className="app-chrome">
         <MenuBar
           menus={buildMenuBarMenus()}
           brand={<strong>{t("app.title")}</strong>}
@@ -1665,9 +1667,10 @@ export function App(): React.ReactElement {
             icon={FilePlus}
             label={t("welcome.newDocument")}
             shortcut={`${t("key.ctrl")}+N`}
+            disabled={embedded}
             onClick={() => setNewDocOpen(true)}
           />
-          <IconButton icon={FolderOpen} label={t("welcome.openFile")} shortcut={`${t("key.ctrl")}+O`} onClick={handleOpen} />
+          <IconButton icon={FolderOpen} label={t("welcome.openFile")} shortcut={`${t("key.ctrl")}+O`} disabled={embedded} onClick={handleOpen} />
           <IconButton
             icon={FloppyDisk}
             label={t("welcome.save")}
@@ -1707,7 +1710,7 @@ export function App(): React.ReactElement {
           <div className="app-toolbar__spacer" />
           <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
         </div>
-      </header>}
+      </header>
       {!embedded && <TabBar
         tabs={tabs}
         activeKey={activeTab?.key ?? null}

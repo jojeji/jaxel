@@ -58,7 +58,7 @@ aus, das auf einem Linux-Host nicht baubar ist.
 ## VS Code
 
 Die Editor-Oberfläche kann auch als WebView in einer VS-Code-Extension eingebettet werden.
-Der Embedded-Modus zeigt nur den Dokumentbaum und überlässt Dateiöffnung, Speichern, Backups
+Der Embedded-Modus zeigt den Dokumentbaum mit Menüleiste und Toolbar und überlässt Dateiöffnung, Speichern, Backups
 und Dirty-State der Extension. XML- und JSON-Dateien werden dadurch nicht automatisch diesem
 Editor zugeordnet; VS Code entscheidet weiterhin über „Öffnen mit…" und die benutzerspezifische
 Editorauswahl. Erkannte Base64-PDFs werden im Embedded-Modus als Bytes an den Host übergeben.
