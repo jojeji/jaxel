@@ -138,6 +138,10 @@ dekodierten Inhalt weiterhin temporär und öffnet ihn mit dem Standardprogramm 
   `←` klappt zu bzw. springt zum Elternknoten. `Shift`+`↑`/`↓` erweitert die Auswahl Zeile für
   Zeile (und schrumpft sie wieder, wenn man die Richtung wechselt); `↑`/`↓` ohne `Shift` hebt
   eine Mehrfachauswahl wieder auf.
+- **Gesamten Baum auf-/zuklappen**: Im Menü „Ansicht" stehen „Alles aufklappen" und „Alles
+  zuklappen" zur Verfügung. `NumPad *` öffnet alle Knoten unter der aktuellen Baumwurzel,
+  `NumPad /` schließt sie wieder. In einer Fokus-Ansicht gilt die Aktion nur für den fokussierten
+  Unterbaum; die Wurzel bleibt sichtbar.
 - **Verschieben per Drag&Drop**: Knoten einfach ziehen. Beim Ziehen ist die Zeile halbtransparent,
   damit die Einfüge-Linie/Als-Kind-Markierung darunter sichtbar bleibt. Eine Linie zwischen den
   Zeilen zeigt die Ziel-Position als Geschwister; landet der Mauszeiger mittig auf einer Zeile,
@@ -254,7 +258,7 @@ an der Baumzeile bzw. neben dem Attributwert im Attribute-Panel:
   ist es XML oder JSON, kann es direkt **als neuer Tab** geöffnet werden (ein eigenständiges,
   unbenanntes Dokument ohne Verbindung zur Quelle). Binärinhalte (PDF, Bilder, ZIP …) werden
   als temporäre Datei gespeichert und im Standardprogramm des Systems geöffnet.
-- **Kontextmenü → „Als Base64 dekodieren"** funktioniert auf jedem Knoten mit Wert — auch
+- **Kontextmenü → „Base64 dekodieren"** funktioniert auf jedem Knoten mit Wert — auch
   dann, wenn die automatische Erkennung kein Badge zeigt (z. B. bei sehr kurzen Inhalten).
 - Das Dekodieren ist eine **reine Ansicht**: Änderungen daran fließen nicht in das
   Ursprungsdokument zurück.
@@ -274,7 +278,8 @@ Zahnrad-Button in der Toolbar oder Menü „Extras" → „Einstellungen": **The
 Standard, dazu sechs weitere: Dunkel, Nordlicht, Tanne, Terrakotta, Kobalt, Kontrast — jeweils
 EIN Akzentton, kontrastgeprüft), **Sprache** (Deutsch/Englisch), Such-Filter-Verhalten, **Baum**
 (Änderungsmarker im Baum, siehe oben, Standard aus), **externe Änderungen** (automatisches
-Neuladen ein-/ausschalten), **Schriftgröße im Editor** (10–20 px) und ob das **Attribute-Panel**
+Neuladen ein-/ausschalten), **Schriftgröße im Editor** (10–20 px), die **Anzahl zuletzt geöffneter
+Dateien** (0–50, Standard 8; 0 leert und verbirgt die Liste) und ob das **Attribute-Panel**
 angezeigt wird. Lange Werte und Attribute umbrechen im Baum bis zu vier Zeilen; der vollständige
 Text ist per Tooltip erreichbar; beim Bearbeiten öffnet sich für Werte ebenfalls ein vierzeiliges
 Eingabefeld mit automatischem Umbruch. Außerdem kann das Attribute-Panel über die Toolbar oder mit
@@ -286,6 +291,10 @@ angekündigt, aber noch nicht verfügbar).
 Menü „Hilfe" → „Über Jaxel": Versionsnummer und die Entwickler des Projekts. Dazu
 **„Logdatei öffnen"** — auch direkt über Menü „Extras" erreichbar — nützlich für
 Fehlerberichte: Die Datei enthält das technische Protokoll der laufenden Sitzung.
+
+In der portablen Windows-App wird die vorhandene Logdatei direkt mit dem Standardprogramm geöffnet.
+Falls noch keine Datei existiert, öffnet Jaxel den Logordner; ein Öffnungsfehler wird mit dem
+Zielpfad angezeigt.
 
 Jaxel schreibt seit AP15 laufend in diese Logdatei (begrenzt auf 5 MB, eine Vorgängerdatei
 bleibt erhalten): Programmstart mit Version und Plattform, welche Dateien geöffnet/gespeichert/
@@ -305,6 +314,8 @@ Dateipfade, Fehlermeldungen und technische Metadaten.
 | `Strg+Shift+S` | Speichern unter (mit der Endung des anderen Formats: umwandeln) |
 | `Strg+F` | Suchen/Ersetzen |
 | `Strg+Alt+A` | Attribute-Panel ein-/ausblenden |
+| `NumPad *` | Alles aufklappen |
+| `NumPad /` | Alles zuklappen |
 | `Strg+Tab` | Zum nächsten Tab wechseln |
 | `Strg+Shift+Tab` | Zum vorherigen Tab wechseln |
 | `Strg+P` | Tab-Übersicht öffnen |

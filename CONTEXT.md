@@ -66,3 +66,21 @@ mitgeführt und beim Speichern wörtlich wieder vorangestellt bzw. angehängt �
 dafür keine Knoten, weil ein Dokument genau eine Wurzel hat. Kommentare darin erscheinen als
 schreibgeschützte Zeilen über bzw. unter der Wurzel.
 _Avoid_: Header/Footer, Vorspann, Dokumentkopf.
+
+**Zuletzt geöffnete Dateien**:
+Die vom Benutzer zuletzt geöffneten Pfade, die auf dem Startscreen und im Datei-Menü als
+schnelle Wiedereinstiege angeboten werden. Ihre maximale Anzahl ist einstellbar; `0` bedeutet,
+dass die Liste geleert und nicht angezeigt wird.
+_Avoid_: Sitzung (das sind wiederherzustellende Tabs), Verlauf.
+
+**Baumweite Auf-/Zuklapp-Aktion**:
+Eine Bedienaktion, die alle Knoten unter der aktuell sichtbaren Baumwurzel öffnet oder schließt.
+Im Vollbild gilt die Dokumentwurzel, in einer Fokusansicht der fokussierte Unterbaum; beim
+Zuklappen bleibt die jeweilige Wurzel sichtbar.
+_Avoid_: Einzelknoten-Toggle, Alles reduzieren.
+
+**Logdatei öffnen**:
+Die Diagnoseaktion, die die Jaxel-Logdatei mit dem Betriebssystem-Standardprogramm öffnet.
+Existiert die Datei noch nicht, wird stattdessen ihr Ordner geöffnet; ein Öffnungsfehler wird
+dem Benutzer sichtbar gemeldet.
+_Avoid_: Debugmodus, Konsole öffnen.

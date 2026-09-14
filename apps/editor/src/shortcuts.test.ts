@@ -88,6 +88,12 @@ describe("resolveShortcut", () => {
     expect(resolveShortcut(key({ key: "*", ctrlKey: true, shiftKey: true }), noSelection)).toBe("addChild");
   });
 
+  it("numpad * and / expand or collapse the complete visible tree", () => {
+    expect(resolveShortcut(key({ key: "*", code: "NumpadMultiply" }), noSelection)).toBe("expandAll");
+    expect(resolveShortcut(key({ key: "/", code: "NumpadDivide" }), noSelection)).toBe("collapseAll");
+    expect(resolveShortcut(key({ key: "*", code: "NumpadMultiply", shiftKey: true }), noSelection)).toBeNull();
+  });
+
   it("returns null for an unrelated key", () => {
     expect(resolveShortcut(key({ key: "a" }), leafSelected)).toBeNull();
   });

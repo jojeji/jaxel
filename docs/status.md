@@ -1744,3 +1744,37 @@ Treffer erhalten und die Fehlermeldung wird angezeigt.
 Bewusste Vereinfachung: Die Suche wartet 150 ms nach der letzten Eingabe, um bei großen Bäumen
 keine Suche für jedes einzelne schnell eingegebene Zeichen auszuführen. Verifiziert mit
 `npm test` (Core 259/259, Editor 269/269) und `npm run typecheck` (Core und Editor sauber).
+
+## Nachtrag 2026-09-14 — Bestätigtes Kollegenfeedback (Planung)
+
+Das Feedback zur Desktop-Reife wurde per Grilling konkretisiert: Für die portable Windows-Tauri-
+Version soll „Logdatei öffnen“ Datei, ersatzweise Ordner und bei Fehlern den Zielpfad melden. Die
+Liste „Zuletzt geöffnet“ erhält eine einstellbare Anzahl von 0 bis 50 (Standard 8); 0 leert und
+verbirgt sie. Der deutsche Base64-Menütext wird auf „Base64 dekodieren“ vereinheitlicht. Für den
+Baum kommen „Alles aufklappen“/„Alles zuklappen“ für die aktuelle sichtbare Wurzel hinzu, mit
+NumPad `*` und NumPad `/` nach dem Spooler-Vorbild. Eine freie Kürzelbelegung bleibt bewusst ein
+separates späteres Arbeitspaket.
+
+Bewusste Vereinfachungen: Es gibt zunächst keine eigene Löschaktion für den Verlauf und keine
+Shortcut-Einstellungsoberfläche. Offener Punkt: Das konkrete Nichtöffnen der Logdatei unter
+Windows muss in der portablen Tauri-Version reproduziert werden, bevor die Ursache behoben wird;
+die bestehende Implementierung ist bisher nur durch UI-Tests, nicht durch echtes Windows-
+Standardprogramm-Öffnen abgesichert.
+
+## Nachtrag 2026-09-14 — Kollegenfeedback umgesetzt
+
+Die geplanten Punkte sind umgesetzt und durch Editor-Tests sowie Typecheck abgesichert: Die
+Verlaufslänge ist in den Einstellungen konfigurierbar und wird bei `0` sofort geleert; der
+deutsche Base64-Menütext ist vereinheitlicht. „Alles aufklappen“ und „Alles zuklappen“ wirken im
+aktuellen sichtbaren Baum (inklusive Fokusansicht) und sind über das Ansichtsmenü sowie NumPad `*`
+und `/` erreichbar. Die Logdatei-Auflösung berücksichtigt die Dateinamensvarianten bestehender
+Installationen. Ein echter Windows-Lauf mit der portablen Version steht weiterhin aus.
+
+## Nachtrag 2026-09-14 — Release 0.7.3
+
+Die Änderungen aus dem Kollegenfeedback sowie die zuvor unter „Unreleased“ gesammelten Embedded-
+Verbesserungen sind als Version 0.7.3 vorbereitet. Root-Paket, Editor-Paket und Tauri-Konfiguration
+sind auf 0.7.3 synchronisiert; der Release-Workflow prüft diese Werte gegen den Tag. Tests,
+Typechecks, Produktionsbuild und `cargo check` wurden vor dem Release ausgeführt. Der Windows-
+Portable-Build wird vom Tag-Workflow auf `windows-latest` erzeugt und kann hier nicht lokal
+ausgeführt werden.

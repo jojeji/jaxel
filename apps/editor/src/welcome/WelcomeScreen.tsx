@@ -7,6 +7,7 @@ interface WelcomeScreenProps {
   onOpen: () => void;
   onOpenPath: (path: string) => void;
   onNew: () => void;
+  recentFilesLimit: number;
 }
 
 function fileName(path: string): string {
@@ -19,9 +20,9 @@ function fileName(path: string): string {
  * list and the keyboard-shortcut overview. Drag&drop onto the window is handled
  * globally in App (Tauri drag-drop event), the hint here just advertises it.
  */
-export function WelcomeScreen({ onOpen, onOpenPath, onNew }: WelcomeScreenProps): React.ReactElement {
+export function WelcomeScreen({ onOpen, onOpenPath, onNew, recentFilesLimit }: WelcomeScreenProps): React.ReactElement {
   const { t } = useI18n();
-  const recent = getRecentFiles();
+  const recent = getRecentFiles(recentFilesLimit);
   const ctrl = t("key.ctrl");
 
   const shortcuts: Array<[string, string]> = [
@@ -36,6 +37,8 @@ export function WelcomeScreen({ onOpen, onOpenPath, onNew }: WelcomeScreenProps)
     [`${ctrl}+C / ${ctrl}+V`, t("shortcut.copyPaste")],
     [`${ctrl}++`, t("shortcut.addSibling")],
     [`${ctrl}+Shift++`, t("shortcut.addChild")],
+    ["NumPad *", t("shortcut.expandAll")],
+    ["NumPad /", t("shortcut.collapseAll")],
     [t("key.delete"), t("shortcut.delete")],
     [`${ctrl}+Z`, t("shortcut.undo")],
   ];

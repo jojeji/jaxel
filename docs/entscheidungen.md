@@ -620,3 +620,37 @@ typischerweise diese Endung verwenden. Die Endung allein legt das Format nicht f
 bei `.ext` weiterhin die vorhandene Inhaltsheuristik (XML bei führendem `<`, sonst JSON). In der
 VS-Code-Extension bleibt Jaxel für `.ext` nur eine optionale Editorwahl; standalone wird die Endung
 zusätzlich im Öffnen-Dialog und in der Tauri-Dateizuordnung angeboten.
+
+## 2026-09-14 — Grilling: Kollegenfeedback zu Logdatei, Verlauf, Base64 und Baumaktionen
+
+Vier Rückmeldungen wurden mit dem PO geschärft und als Anforderungen bestätigt:
+
+1. **Logdatei öffnen (Windows, portable Tauri-App):** Der Menüpunkt soll die vorhandene
+   Logdatei direkt mit dem Standardprogramm öffnen. Falls sie noch nicht existiert, öffnet Jaxel
+   den Logordner; falls das Betriebssystem das Öffnen ablehnt, zeigt Jaxel den Fehler zusammen
+   mit dem Zielpfad sichtbar an. Der konkrete Fehlerfall der portablen Windows-Version bleibt
+   bis zu einer reproduzierbaren Ausführung ein offener Debugpunkt.
+2. **Zuletzt geöffnete Dateien:** Eine Einstellung steuert die Anzahl im Bereich `0–50`, mit
+   Standardwert `8`. Beim Wert `0` wird die gespeicherte Liste sofort geleert und ausgeblendet;
+   beim Verringern werden die ältesten Einträge unmittelbar abgeschnitten. Eine eigene
+   Löschaktion ist damit nicht erforderlich.
+3. **Base64-Benennung:** Der deutsche UI-Schlüssel wird von „Als Base64 dekodieren“ zu
+   „Base64 dekodieren“ verkürzt. Kontextmenü, Badge-Titel und Dokumentation verwenden dieselbe
+   Benennung; die Funktion und die englische Übersetzung bleiben unverändert.
+4. **Baumweite Auf-/Zuklapp-Aktion:** Im Menü „Ansicht“ kommen „Alles aufklappen“ und
+   „Alles zuklappen“ hinzu. Die Aktion gilt im Vollansicht-Tab für die Dokumentwurzel und in
+   einer Fokusansicht für den fokussierten Unterbaum. Beim Zuklappen bleibt die jeweilige Wurzel
+   sichtbar. Die zunächst feste Spooler-Belegung lautet NumPad `*` zum Aufklappen und NumPad `/`
+   zum Zuklappen; eine spätere freie Umbelegung ist ein separates Arbeitspaket.
+
+Die Punkte beschreiben den bestätigten Produktscope; ihre Implementierung und die zugehörigen
+Tests stehen noch aus.
+
+## 2026-09-14 — Umsetzung des Kollegenfeedbacks
+
+Die vier bestätigten Punkte sind umgesetzt: Die Verlaufslänge ist in den Einstellungen zwischen
+0 und 50 steuerbar (Standard 8), wobei 0 die Liste leert; der deutsche Base64-Schlüssel lautet
+„Base64 dekodieren“. Der Baum unterstützt im aktuellen Sichtbereich „Alles aufklappen“ und
+„Alles zuklappen“ über das Ansichtsmenü sowie NumPad `*` und NumPad `/`. `open_log` berücksichtigt
+die möglichen Schreibweisen der Logdatei, damit portable Windows-Installationen nicht wegen einer
+abweichenden Groß-/Kleinschreibung auf den falschen Zielpfad fallen.

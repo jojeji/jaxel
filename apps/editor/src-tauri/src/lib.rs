@@ -151,11 +151,32 @@ fn open_log(app: tauri::AppHandle) -> Result<String, InvokeError> {
         log::error!("open_log: Log-Verzeichnis unbekannt: {e}");
         InvokeError::from(format!("Log-Verzeichnis unbekannt: {e}"))
     })?;
-    let file = dir.join(format!("{}.log", app.package_info().name));
-    let target = if file.is_file() { file } else { dir };
+    // tauri-plugin-log normally uses the package name, while older portable builds and
+    // existing installations may have a title-cased `Jaxel.log`. Resolve both spellings so
+    // Windows portable upgrades do not silently fall back to opening the directory.
+    let candidates = [
+        dir.join(format!("{}.log", app.package_info().name)),
+        dir.join("Jaxel.log"),
+        dir.join("jaxel.log"),
+    ];
+    let target = candidates
+        .into_iter()
+        .find(|candidate| candidate.is_file())
+        .or_else(|| {
+            // Portable builds can carry a log written by a differently named package. If no
+            // known name matched, use the only/first `.log` file in the application log folder.
+            std::fs::read_dir(&dir).ok()?.filter_map(Result::ok).map(|entry| entry.path()).find(|path| {
+                path.is_file()
+                    && path
+                        .extension()
+                        .and_then(|extension| extension.to_str())
+                        .is_some_and(|extension| extension.eq_ignore_ascii_case("log"))
+            })
+        })
+        .unwrap_or(dir);
     open::that_detached(&target).map_err(|e| {
         log::error!("open_log: Öffnen fehlgeschlagen ({}): {e}", target.display());
-        InvokeError::from(format!("Öffnen fehlgeschlagen: {e}"))
+        InvokeError::from(format!("Öffnen fehlgeschlagen ({}): {e}", target.display()))
     })?;
     Ok(target.to_string_lossy().into_owned())
 }

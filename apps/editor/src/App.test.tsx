@@ -266,6 +266,25 @@ describe("Auswahl, Auf-/Zuklappen per Klick und Attribute-Panel", () => {
     await openSampleFile();
     expect(screen.getByText("Kein Knoten ausgewählt")).toBeInTheDocument();
   });
+
+  it("klappt den sichtbaren Baum per NumPad * auf und per NumPad / zu", async () => {
+    await openSampleFile();
+
+    fireEvent.keyDown(window, { key: "*", code: "NumpadMultiply" });
+    expect(await screen.findByText("Anna")).toBeInTheDocument();
+    expect(screen.getByText("Hamburg")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "/", code: "NumpadDivide" });
+    expect(screen.getByText("catalog")).toBeInTheDocument();
+    expect(screen.queryByText("Anna")).not.toBeInTheDocument();
+  });
+
+  it("bietet die Baumaktionen im Ansichtsmenü an", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("menuitem", { name: "Ansicht" }));
+    expect(screen.getByRole("menuitem", { name: /Alles aufklappen/ })).toHaveTextContent("NumPad *");
+    expect(screen.getByRole("menuitem", { name: /Alles zuklappen/ })).toHaveTextContent("NumPad /");
+  });
 });
 
 describe("Umbenennen (Doppelklick auf Namen / F2)", () => {
@@ -1595,6 +1614,19 @@ describe("Einstellungen", () => {
       filterIncludesSubtree: true,
     });
   });
+
+  it("begrenzt die Liste zuletzt geöffneter Dateien und leert sie bei 0", async () => {
+    localStorage.setItem("jaxel.recentFiles", JSON.stringify(["/fake/one.xml", "/fake/two.xml"]));
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole("button", { name: "Einstellungen" }));
+    const limit = screen.getByRole("spinbutton", { name: /Anzahl zuletzt geöffneter Dateien/ });
+    await user.clear(limit);
+    await user.type(limit, "0");
+    expect(localStorage.getItem("jaxel.recentFiles")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(screen.queryByText("Zuletzt geöffnet")).not.toBeInTheDocument();
+  });
 });
 
 describe("Baum-Änderungsmarker (Settings: default aus)", () => {
@@ -2452,11 +2484,11 @@ describe("Base64-Decode-Ansicht", () => {
     await user.click(screen.getAllByText("person")[0]!); // aufklappen, damit "Berlin" sichtbar ist
 
     fireEvent.contextMenu((await screen.findByText("Berlin")).closest(".tree-row")!);
-    await user.click(screen.getByRole("menuitem", { name: "Als Base64 dekodieren" }));
+    await user.click(screen.getByRole("menuitem", { name: "Base64 dekodieren" }));
     expect(await screen.findByText("Der Wert ist kein gültiges Base64")).toBeInTheDocument();
 
     fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
-    expect(screen.getByRole("menuitem", { name: "Als Base64 dekodieren" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Base64 dekodieren" })).toBeDisabled();
   });
 
   it("kurze Werte bekommen KEIN Badge (Mindestlänge der Heuristik)", async () => {

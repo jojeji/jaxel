@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { normalizeRecentFilesLimit, trimRecentFiles, RECENT_FILES_LIMIT_DEFAULT } from "./local-prefs.js";
 
 export type Theme = "light" | "dark" | "nordlicht" | "tanne" | "terrakotta" | "kobalt" | "kontrast";
 /** "windows" (separate OS windows per document) is tracked but not yet implemented — see
@@ -29,6 +30,7 @@ export interface Settings {
   showTreeChangeMarkers: boolean;
   editorFontSize: number;
   showAttributesPanel: boolean;
+  recentFilesLimit: number;
 }
 
 const STORAGE_KEY = "jaxel.settings";
@@ -42,13 +44,15 @@ const DEFAULTS: Settings = {
   showTreeChangeMarkers: false,
   editorFontSize: 12,
   showAttributesPanel: true,
+  recentFilesLimit: RECENT_FILES_LIMIT_DEFAULT,
 };
 
 function load(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULTS;
-    return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) };
+    const loaded = { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) };
+    return { ...loaded, recentFilesLimit: normalizeRecentFilesLimit(loaded.recentFilesLimit) };
   } catch {
     return DEFAULTS;
   }
@@ -59,8 +63,15 @@ export function useSettings(): { settings: Settings; setSettings: (patch: Partia
 
   const setSettings = useCallback((patch: Partial<Settings>) => {
     setSettingsState((prev) => {
-      const next = { ...prev, ...patch };
+      const next = {
+        ...prev,
+        ...patch,
+        ...(patch.recentFilesLimit === undefined
+          ? {}
+          : { recentFilesLimit: normalizeRecentFilesLimit(patch.recentFilesLimit) }),
+      };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      if (patch.recentFilesLimit !== undefined) trimRecentFiles(next.recentFilesLimit);
       return next;
     });
   }, []);

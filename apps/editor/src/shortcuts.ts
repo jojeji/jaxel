@@ -25,6 +25,8 @@ export type ShortcutAction =
   | "pasteNode"
   | "addChild"
   | "addSibling"
+  | "expandAll"
+  | "collapseAll"
   | null;
 
 export interface ShortcutContext {
@@ -59,6 +61,10 @@ export function resolveShortcut(event: ShortcutKeyInfo, context: ShortcutContext
   if (event.key === "ArrowUp") return event.shiftKey ? "extendUp" : "moveUp";
   if (event.key === "ArrowRight") return "arrowRight";
   if (event.key === "ArrowLeft") return "arrowLeft";
+  // Spooler-compatible tree-wide actions. Use `code` so the shortcut is restricted to the
+  // numeric keypad and does not steal a regular '*' or '/' typed in an editor field.
+  if (!ctrl && !event.shiftKey && event.code === "NumpadMultiply") return "expandAll";
+  if (!ctrl && !event.shiftKey && event.code === "NumpadDivide") return "collapseAll";
   if (ctrl && key === "d") return "duplicate";
   if (ctrl && event.shiftKey && key === "c" && context.hasSelection) return "copyPathFull";
   if (ctrl && !event.shiftKey && key === "c" && context.hasSelection) return "copyNode";

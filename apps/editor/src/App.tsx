@@ -67,6 +67,7 @@ import {
 import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
 import { FocusBreadcrumb } from "./tree/FocusBreadcrumb.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
+import { walkTree } from "./tree/walk.js";
 import { nextSelectedRow, planArrowLeft, planArrowRight, type ArrowIntent } from "./tree/keyboard-nav.js";
 import {
   EMPTY_SELECTION,
@@ -510,6 +511,22 @@ export function App(): React.ReactElement {
     });
   }
 
+  /** Opens every container below the current visible root (document root or focus root). */
+  function expandAllTree(): void {
+    if (!root) return;
+    const next = new Set<string>();
+    walkTree(root, (node) => {
+      if (node.children.length > 0) next.add(node.id);
+    });
+    setExpanded(next);
+  }
+
+  /** Closes every container below the current visible root while keeping that root visible. */
+  function collapseAllTree(): void {
+    if (!root) return;
+    setExpanded(root.children.length > 0 ? new Set([root.id]) : new Set());
+  }
+
   /** Click on a row. Ctrl toggles that one node, Shift spans a range from the anchor, a plain
    * click collapses back to just this node (see tree/selection.ts). */
   function selectRow(row: TreeRow, modifier: SelectModifier = "none"): void {
@@ -666,7 +683,7 @@ export function App(): React.ReactElement {
   async function openPath(path: string): Promise<void> {
     await openFile(path);
     rememberLastDir(path);
-    addRecentFile(path);
+    addRecentFile(path, settings.recentFilesLimit);
   }
 
   /** Always shows the OS "save as" dialog — for an untitled document's first save AND for the
@@ -694,7 +711,7 @@ export function App(): React.ReactElement {
     }
     await saveFileAs(doc.filePath, path);
     rememberLastDir(path);
-    addRecentFile(path);
+    addRecentFile(path, settings.recentFilesLimit);
     return path;
   }
 
@@ -712,7 +729,7 @@ export function App(): React.ReactElement {
       setExpanded(new Set(result.expandedIds));
       setEditingField(null);
       rememberLastDir(newPath);
-      addRecentFile(newPath);
+      addRecentFile(newPath, settings.recentFilesLimit);
       setStatus(
         t("convert.done").replace("{name}", fileNameOf(newPath)).replace("{target}", targetFormat.toUpperCase()),
       );
@@ -1193,6 +1210,12 @@ export function App(): React.ReactElement {
         case "addSibling":
           handleAddSibling();
           break;
+        case "expandAll":
+          expandAllTree();
+          break;
+        case "collapseAll":
+          collapseAllTree();
+          break;
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -1523,7 +1546,7 @@ export function App(): React.ReactElement {
    * Toolbar und das Kontextmenü, nur über einen anderen Einstiegspunkt — keine eigene Logik. */
   function buildMenuBarMenus(): MenuBarMenu[] {
     const ctrl = t("key.ctrl");
-    const recentFiles = embedded ? [] : getRecentFiles();
+    const recentFiles = embedded ? [] : getRecentFiles(settings.recentFilesLimit);
     const recentEntries: MenuBarEntry[] =
       recentFiles.length > 0
         ? [
@@ -1595,6 +1618,19 @@ export function App(): React.ReactElement {
       {
         label: t("menuBar.view"),
         items: [
+          {
+            label: t("menuBar.expandAll"),
+            shortcut: "NumPad *",
+            disabled: !activeDoc || !root,
+            onClick: expandAllTree,
+          },
+          {
+            label: t("menuBar.collapseAll"),
+            shortcut: "NumPad /",
+            disabled: !activeDoc || !root,
+            onClick: collapseAllTree,
+          },
+          "separator",
           {
             label: t("toolbar.search"),
             shortcut: `${ctrl}+F`,
@@ -1801,6 +1837,7 @@ export function App(): React.ReactElement {
             onOpen={() => void handleOpen()}
             onOpenPath={(path) => void openPath(path)}
             onNew={() => setNewDocOpen(true)}
+            recentFilesLimit={settings.recentFilesLimit}
           />
         )}
       </main>

@@ -11,6 +11,10 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+Noch keine veröffentlichten Änderungen.
+
+## [0.7.3] - 2026-09-14
+
 ### Hinzugefügt
 
 - **VS-Code-Integration:** Jaxel kann als optionaler XML-/JSON-Editor in einer Extension
@@ -20,6 +24,20 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
   übergeben, während die Standalone-App sie weiterhin mit dem Standard-PDF-Viewer öffnet.
 - **Embedded-Oberfläche:** Menüleiste und Toolbar bleiben wie in der Standalone-App sichtbar;
   nur die eigene Tab-Leiste wird im VS-Code-Editor ausgeblendet.
+- **Einstellbarer Verlauf:** Die Anzahl der unter „Zuletzt geöffnet“ angezeigten Dateien lässt
+  sich zwischen 0 und 50 festlegen. Der Wert 0 leert und verbirgt die Liste.
+- **Baumweite Auf-/Zuklapp-Aktionen:** „Alles aufklappen“ und „Alles zuklappen“ wirken auf den
+  aktuellen sichtbaren Baum und sind über das Ansichtsmenü sowie NumPad `*` und `/` erreichbar.
+
+### Geändert
+
+- **Base64-Menütext:** Die deutsche Aktion heißt nun einheitlich „Base64 dekodieren“.
+
+### Behoben
+
+- **Logdatei öffnen:** Die Logdatei wird in portablen Windows-Installationen anhand der möglichen
+  Dateinamensvarianten aufgelöst. Falls sie fehlt, wird der Logordner geöffnet; bei einem Fehler
+  zeigt die Meldung zusätzlich den verwendeten Zielpfad.
 
 ## [0.7.2] - 2026-09-11
 

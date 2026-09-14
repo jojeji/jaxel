@@ -1,6 +1,7 @@
 import React from "react";
 import { useI18n, type Locale } from "../i18n/index.js";
 import type { Settings, Theme, WindowMode } from "../state/settings-store.js";
+import { RECENT_FILES_LIMIT_MAX } from "../state/local-prefs.js";
 
 interface SettingsDialogProps {
   settings: Settings;
@@ -109,6 +110,17 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
               onChange={(event) => onChange({ restoreSession: event.target.checked })}
             />
             {t("settings.restoreSession")}
+          </label>
+          <label className="settings-dialog__range-label">
+            <span>{t("settings.recentFilesLimit")}</span>
+            <input
+              type="number"
+              min="0"
+              max={RECENT_FILES_LIMIT_MAX}
+              step="1"
+              value={settings.recentFilesLimit}
+              onChange={(event) => onChange({ recentFilesLimit: Number(event.target.value) })}
+            />
           </label>
         </fieldset>
 
