@@ -62,7 +62,9 @@ Der Embedded-Modus zeigt den Dokumentbaum mit Menüleiste und Toolbar und überl
 und Dirty-State der Extension. XML- und JSON-Dateien werden dadurch nicht automatisch diesem
 Editor zugeordnet; VS Code entscheidet weiterhin über „Öffnen mit…" und die benutzerspezifische
 Editorauswahl. Erkannte Base64-PDFs werden im Embedded-Modus als Bytes an den Host übergeben.
-Standalone bleibt die Tauri-App mit eigener Dateiverwaltung und OS-PDF-Viewer.
+Standalone bleibt die Tauri-App mit eigener Dateiverwaltung und OS-PDF-Viewer. Der Öffnen-Dialog
+akzeptiert neben `.xml` und `.json` auch `.ext`; bei dieser Endung entscheidet der Dateiinhalt,
+ob XML oder JSON vorliegt.
 
 `.vscode/tasks.json` und `.vscode/launch.json` bündeln die üblichen Abläufe:
 „Jaxel starten (Tauri dev)" (Start-Button / F5), „Prüfkette" (Strg+Shift+B, Tests +

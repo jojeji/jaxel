@@ -80,7 +80,7 @@ function createTauriHost(): JaxelHost {
       const result = await open({
         multiple: false,
         defaultPath: defaultPath ?? undefined,
-        filters: [{ name: "XML/JSON", extensions: ["xml", "json"] }],
+        filters: [{ name: "XML/JSON/EXT", extensions: ["xml", "json", "ext"] }],
       });
       return typeof result === "string" ? result : null;
     },

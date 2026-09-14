@@ -28,7 +28,7 @@
     "targets": ["appimage", "deb", "rpm", "nsis"],
     "fileAssociations": [
       {
-        "ext": ["xml"],
+        "ext": ["xml", "ext"],
         "mimeType": "application/xml",
         "name": "XML",
         "description": "XML-Dokument"

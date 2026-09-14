@@ -612,3 +612,11 @@ hat die angeforderte Datei Vorrang vor dem gespeicherten aktiven Tab und paralle
 können den Fokus nicht mehr in unbestimmter Reihenfolge überschreiben. Das Tab-Schließen-`x`
 wird über Flexbox an den rechten Rand des Tabs gesetzt; der Dateiname nutzt den verbleibenden
 Platz und wird weiterhin per Ellipse gekürzt.
+
+## 2026-09-14 — `.ext`-Dateien als XML-/JSON-Quellen
+
+`.ext`-Dateien werden als mögliche XML-/JSON-Quellen behandelt, weil ReportWriter-SourceCopies
+typischerweise diese Endung verwenden. Die Endung allein legt das Format nicht fest: Jaxel nutzt
+bei `.ext` weiterhin die vorhandene Inhaltsheuristik (XML bei führendem `<`, sonst JSON). In der
+VS-Code-Extension bleibt Jaxel für `.ext` nur eine optionale Editorwahl; standalone wird die Endung
+zusätzlich im Öffnen-Dialog und in der Tauri-Dateizuordnung angeboten.

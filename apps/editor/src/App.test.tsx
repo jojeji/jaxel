@@ -106,6 +106,7 @@ const COMMENTED_XML = `<?xml version="1.0" encoding="UTF-8"?>
 
 const FILES: Record<string, string> = {
   "/fake/sample.xml": SAMPLE_XML,
+  "/fake/source.ext": SAMPLE_XML,
   "/fake/kommentare.xml": COMMENTED_XML,
   "/fake/second.xml": SECOND_XML,
   "/fake/blob.xml": BLOB_XML,
@@ -187,7 +188,8 @@ function renderApp() {
   );
 }
 
-async function openSampleFile() {
+async function openSampleFile(path = "/fake/sample.xml") {
+  vi.mocked(open).mockResolvedValueOnce(path);
   const user = userEvent.setup();
   renderApp();
   const openButtons = screen.getAllByRole("button", { name: "Datei öffnen…" });
@@ -207,6 +209,12 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 describe("Datei öffnen und Baumdarstellung", () => {
   it("öffnet eine Datei und zeigt den Baum an", async () => {
     await openSampleFile();
+    expect(screen.getByText("catalog")).toBeInTheDocument();
+    expect(screen.getAllByText("person")).toHaveLength(2);
+  });
+
+  it("erkennt XML-Inhalt auch bei einer .ext-Datei", async () => {
+    await openSampleFile("/fake/source.ext");
     expect(screen.getByText("catalog")).toBeInTheDocument();
     expect(screen.getAllByText("person")).toHaveLength(2);
   });

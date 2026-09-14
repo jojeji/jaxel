@@ -17,9 +17,11 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
 - **Startscreen**: Ohne offenes Dokument zeigt Jaxel die zuletzt geöffneten Dateien (Klick öffnet
   direkt) und eine Übersicht der Tastenkürzel.
 - **Kommandozeile**: `jaxel datei.xml` öffnet die Datei direkt beim Start — auch mehrere
-  Dateien auf einmal (`jaxel a.xml b.json`), jede bekommt ihren Tab.
+  Dateien auf einmal (`jaxel a.xml b.json`), jede bekommt ihren Tab. Der Öffnen-Dialog und
+  die Kommandozeile akzeptieren außerdem `.ext`; Jaxel erkennt bei dieser Endung XML oder JSON
+  anhand des Inhalts.
 - **„Öffnen mit" aus dem Dateimanager (Linux)**: Nach der Installation über das `.deb`-/`.rpm`-Paket
-  ist Jaxel für XML- und JSON-Dateien als Programm registriert und erscheint im
+  ist Jaxel für XML-, JSON- und `.ext`-Dateien als Programm registriert und erscheint im
   „Öffnen mit"-Menü des Dateimanagers (ggf. einmal ab- und wieder anmelden, falls der
   Dateimanager die Liste noch gecacht hat). Läuft Jaxel bereits, öffnet die Datei als
   neuer Tab im laufenden Fenster, und das Fenster kommt nach vorn.
@@ -66,7 +68,7 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   „Übergeordneten Ordner öffnen". Tabs lassen sich per Drag&Drop verschieben; der aktive Tab
   wird beim Öffnen einer Datei automatisch aktiviert. Das Schließen-`x` sitzt am rechten Rand
   des jeweiligen Tabs.
-- **Öffnen über Dateiverknüpfung**: Ist Jaxel das Standardprogramm für XML-/JSON-Dateien, wird
+- **Öffnen über Dateiverknüpfung**: Ist Jaxel das Standardprogramm für XML-/JSON-/`.ext`-Dateien, wird
   das Fenster beim Öffnen einer Datei automatisch sichtbar gemacht und in den Vordergrund geholt.
   Das gilt auch, wenn Jaxel bereits läuft oder zuvor minimiert war.
 - **Viele Tabs**: Bei Überlauf erscheinen Randpfeile statt eines überlagernden Scrollbalkens.
