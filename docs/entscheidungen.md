@@ -580,9 +580,11 @@ Base64-PDFs werden abhängig vom Host behandelt: Standalone dekodiert sie in ein
 und öffnet das Betriebssystem-Standardprogramm; im VS-Code-Modus sendet Jaxel nur die Bytes an den
 Host, der sie über den vorhandenen PDF-Provider der Extension öffnet.
 
-Das WebView-Bundle wird beim Extension-Build aus dem neuesten stabilen öffentlichen GitHub-Release
-bezogen und per SHA-256 geprüft. Ein Release ohne Bundle ist ein Build-Fehler; lokale Fallback-
-Bundles sind ausgeschlossen, damit keine veraltete oder vertrauliche Jaxel-Kopie eingebettet wird.
+Die Extension baut beim Extension-Build das Frontend aus dem Quellarchiv des neuesten stabilen
+öffentlichen GitHub-Releases selbst und kopiert ausschließlich die erzeugte `dist`-Ausgabe. Die
+SHA-256-Prüfsumme des Quellarchivs wird als Build-Identität abgelegt. Ein lokales Fallback-Bundle
+ist ausgeschlossen, damit keine veraltete oder vertrauliche Jaxel-Kopie eingebettet wird; das
+Jaxel-Release muss deshalb kein separates WebView-Asset veröffentlichen.
 
 ## 2026-09-11 — Grilling: Live-Suche ab drei Zeichen
 
