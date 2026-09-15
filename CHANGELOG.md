@@ -11,7 +11,11 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
-Noch keine veröffentlichten Änderungen.
+### Geändert
+
+- Die portable Windows-ZIP speichert Einstellungen, WebView-Daten und die
+  Jaxel-Logdatei direkt im Verzeichnis von `jaxel.exe`; installierte Varianten
+  behalten ihre normalen AppData-Pfade.
 
 ## [0.7.3] - 2026-09-14
 

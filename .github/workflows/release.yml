@@ -104,7 +104,12 @@ jobs:
         run: |
           $version = (Get-Content apps/editor/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           $zip = "Jaxel_${version}_x64-portable.zip"
-          Compress-Archive -Path apps/editor/src-tauri/target/release/jaxel.exe -DestinationPath $zip
+          $portableDir = "apps/editor/src-tauri/target/release/jaxel-portable"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          Copy-Item apps/editor/src-tauri/target/release/jaxel.exe (Join-Path $portableDir "jaxel.exe")
+          Set-Content -Path (Join-Path $portableDir "jaxel.portable") -Value "portable" -NoNewline
+          Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $zip
+          Remove-Item -Recurse -Force $portableDir
           echo "PORTABLE_ZIP=$zip" >> $env:GITHUB_ENV
 
       - name: Portable Build zum Release hinzufügen (Tag)

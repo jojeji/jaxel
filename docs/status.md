@@ -1778,3 +1778,13 @@ sind auf 0.7.3 synchronisiert; der Release-Workflow prüft diese Werte gegen den
 Typechecks, Produktionsbuild und `cargo check` wurden vor dem Release ausgeführt. Der Windows-
 Portable-Build wird vom Tag-Workflow auf `windows-latest` erzeugt und kann hier nicht lokal
 ausgeführt werden.
+
+## Nachtrag 2026-09-15 — Portable Datenpfade
+
+Die portable Windows-ZIP enthält neben `jaxel.exe` jetzt die Markierungsdatei
+`jaxel.portable`. Erkennt Jaxel diese Datei beim Start, verwendet es das
+Verzeichnis der EXE als WebView-Datenverzeichnis und als Logordner. Dadurch
+bleiben Einstellungen, sonstige WebView-Daten und die Logdatei im portablen
+Verzeichnis; installierte Varianten verwenden weiterhin die normalen
+Windows-AppData-Pfade. Die portable Markierung ist nötig, weil beide Varianten
+bislang denselben EXE-Namen verwenden.

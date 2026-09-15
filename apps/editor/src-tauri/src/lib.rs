@@ -1,9 +1,25 @@
 mod io;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::ipc::InvokeError;
 use tauri::{Emitter, Manager, UserAttentionType};
+
+const PORTABLE_MARKER: &str = "jaxel.portable";
+
+/// The portable ZIP contains a marker next to `jaxel.exe`. The marker is needed
+/// because the portable and installed builds currently use the same executable
+/// name. Its directory is also the WebView data directory in portable mode.
+fn portable_data_directory(executable: &Path) -> Option<PathBuf> {
+    let parent = executable.parent()?;
+    let file_name = executable.file_name()?.to_str()?.to_ascii_lowercase();
+    (file_name.ends_with("-portable.exe") || parent.join(PORTABLE_MARKER).is_file())
+        .then(|| parent.to_path_buf())
+}
+
+fn current_portable_data_directory() -> Option<PathBuf> {
+    std::env::current_exe().ok().and_then(|path| portable_data_directory(&path))
+}
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,10 +163,14 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
 /// to opening the log directory if the file does not exist yet.
 #[tauri::command]
 fn open_log(app: tauri::AppHandle) -> Result<String, InvokeError> {
-    let dir = app.path().app_log_dir().map_err(|e| {
-        log::error!("open_log: Log-Verzeichnis unbekannt: {e}");
-        InvokeError::from(format!("Log-Verzeichnis unbekannt: {e}"))
-    })?;
+    let dir = if let Some(portable_directory) = current_portable_data_directory() {
+        portable_directory
+    } else {
+        app.path().app_log_dir().map_err(|e| {
+            log::error!("open_log: Log-Verzeichnis unbekannt: {e}");
+            InvokeError::from(format!("Log-Verzeichnis unbekannt: {e}"))
+        })?
+    };
     // tauri-plugin-log normally uses the package name, while older portable builds and
     // existing installations may have a title-cased `Jaxel.log`. Resolve both spellings so
     // Windows portable upgrades do not silently fall back to opening the directory.
@@ -207,6 +227,22 @@ pub fn run() {
         .filter(|arg| PathBuf::from(arg).is_file())
         .collect();
     let activate_on_start = !startup_paths.is_empty();
+    let portable_directory = current_portable_data_directory();
+    let portable_log_directory = portable_directory.clone();
+
+    let mut log_builder = tauri_plugin_log::Builder::new()
+        .level(log::LevelFilter::Info)
+        .max_file_size(5_000_000)
+        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne);
+    if let Some(path) = portable_log_directory {
+        log_builder = log_builder.targets([
+            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+            tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Folder {
+                path,
+                file_name: None,
+            }),
+        ]);
+    }
 
     tauri::Builder::default()
         // single-instance as the FIRST plugin (per its docs): a second launch must be caught
@@ -243,11 +279,7 @@ pub fn run() {
             // nur Maximalgröße (Default 40 KB) und Level (Default Trace) werden angehoben bzw.
             // eingeschränkt. rotation_strategy explizit gesetzt, um die Größenbegrenzung (Story
             // 10) nicht stillschweigend von einem Library-Default abhängig zu machen.
-            tauri_plugin_log::Builder::new()
-                .level(log::LevelFilter::Info)
-                .max_file_size(5_000_000)
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
-                .build(),
+            log_builder.build(),
         )
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -262,6 +294,17 @@ pub fn run() {
         ])
         .setup(move |app| {
             app.manage(PendingOpenPaths(Mutex::new(startup_paths)));
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .first()
+                .ok_or(tauri::Error::WindowNotFound)?;
+            let mut window = tauri::WebviewWindowBuilder::from_config(app.handle(), window_config)?;
+            if let Some(data_directory) = portable_directory {
+                window = window.data_directory(data_directory);
+            }
+            window.build()?;
             log::info!(
                 "Jaxel {} gestartet ({} {})",
                 app.package_info().version,
@@ -273,4 +316,27 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Jaxel");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::portable_data_directory;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn detects_portable_marker_next_to_executable() {
+        let root = std::env::temp_dir().join(format!("jaxel-portable-test-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("jaxel.portable"), "portable").unwrap();
+
+        assert_eq!(portable_data_directory(&root.join("jaxel.exe")), Some(root.clone()));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn installed_executable_without_marker_is_not_portable() {
+        let executable = Path::new(r"C:\Program Files\Jaxel\jaxel.exe");
+        assert_eq!(portable_data_directory(executable), None::<PathBuf>);
+    }
 }
