@@ -11,6 +11,10 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+Noch keine veröffentlichten Änderungen.
+
+## [0.8.0] - 2026-09-15
+
 ### Geändert
 
 - Die portable Windows-ZIP speichert Einstellungen, WebView-Daten und die
