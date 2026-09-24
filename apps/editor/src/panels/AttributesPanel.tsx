@@ -16,6 +16,9 @@ interface AttributesPanelProps {
   onCreateAttribute: (name: string, coalesceKey: string) => void;
   /** Click on the "base64" badge of an attribute whose value looks like base64 content. */
   onDecodeBase64: (value: string) => void;
+  /** Shown but not editable: the node sits inside a commented-out subtree (or is a comment),
+   * whose saved form is the comment's raw text — an edit here would be lost on save. */
+  readOnly?: boolean;
 }
 
 export function AttributesPanel({
@@ -25,6 +28,7 @@ export function AttributesPanel({
   onRenameAttribute,
   onCreateAttribute,
   onDecodeBase64,
+  readOnly = false,
 }: AttributesPanelProps): React.ReactElement {
   const { t } = useI18n();
   /** Index of a just-created attribute whose name input should grab focus. */
@@ -57,6 +61,7 @@ export function AttributesPanel({
     <aside className="attributes-panel">
       <h3>{t("attributes.title")}</h3>
       <div className="attributes-panel__node-name">{node.name}</div>
+      {readOnly && <p className="attributes-panel__read-only">{t("attributes.readOnly")}</p>}
       <table className="attributes-panel__table">
         <tbody>
           {node.attributes.map((attribute, index) => (
@@ -64,6 +69,7 @@ export function AttributesPanel({
               <td className="attributes-panel__attr-name-cell">
                 <AttrNameInput
                   name={attribute.name}
+                  readOnly={readOnly}
                   autoFocus={focusIndex === index}
                   onFocused={() => setFocusIndex(null)}
                   isDuplicate={(candidate) =>
@@ -76,6 +82,7 @@ export function AttributesPanel({
                 <input
                   aria-label={`${attribute.name}`}
                   value={attribute.value}
+                  readOnly={readOnly}
                   onChange={(event) =>
                     onSetAttribute(attribute.name, event.target.value, `attr-value:${node.id}:${index}`)
                   }
@@ -91,24 +98,28 @@ export function AttributesPanel({
                     base64
                   </button>
                 )}
-                <button onClick={() => onSetAttribute(attribute.name, null)} title={t("attributes.remove")}>
-                  ×
-                </button>
+                {!readOnly && (
+                  <button onClick={() => onSetAttribute(attribute.name, null)} title={t("attributes.remove")}>
+                    ×
+                  </button>
+                )}
               </td>
             </tr>
           ))}
-          <tr>
-            <td className="attributes-panel__attr-name-cell">
-              {/* Typing here immediately creates the attribute; focus then jumps into the
-                  freshly created row above (value stays empty until filled in). */}
-              <input
-                placeholder={t("attributes.newName")}
-                value=""
-                onChange={(event) => handleCreate(event.target.value)}
-              />
-            </td>
-            <td colSpan={2} />
-          </tr>
+          {!readOnly && (
+            <tr>
+              <td className="attributes-panel__attr-name-cell">
+                {/* Typing here immediately creates the attribute; focus then jumps into the
+                    freshly created row above (value stays empty until filled in). */}
+                <input
+                  placeholder={t("attributes.newName")}
+                  value=""
+                  onChange={(event) => handleCreate(event.target.value)}
+                />
+              </td>
+              <td colSpan={2} />
+            </tr>
+          )}
         </tbody>
       </table>
     </aside>
@@ -123,12 +134,14 @@ export function AttributesPanel({
  */
 function AttrNameInput({
   name,
+  readOnly,
   autoFocus,
   onFocused,
   isDuplicate,
   onRename,
 }: {
   name: string;
+  readOnly: boolean;
   autoFocus: boolean;
   onFocused: () => void;
   isDuplicate: (candidate: string) => boolean;
@@ -162,6 +175,7 @@ function AttrNameInput({
       ref={inputRef}
       className="attributes-panel__attr-name-input"
       value={text}
+      readOnly={readOnly}
       onChange={(event) => handleChange(event.target.value)}
       onBlur={() => setText(name)}
     />

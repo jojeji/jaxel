@@ -424,7 +424,7 @@ function TreeRowView({
         // multi-selection or collapses onto this row (see onRowContextMenu).
         onContextMenu(event.clientX, event.clientY);
       }}
-      draggable={row.ancestors.length > 0 && editingField === null}
+      draggable={row.ancestors.length > 0 && editingField === null && !insideComment}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}

@@ -57,7 +57,7 @@ export type {
   TreeActionPlan,
   TreeActionResult,
 } from "./commands/tree-actions.js";
-export { isInsideComment, planTreeAction, treeActionBlocker } from "./commands/tree-actions.js";
+export { isInsideComment, moveTargetBlocker, planTreeAction, treeActionBlocker } from "./commands/tree-actions.js";
 
 export type { ParseXmlResult } from "./format/xml-import.js";
 export { parseXml } from "./format/xml-import.js";

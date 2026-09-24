@@ -1830,3 +1830,13 @@ Extension-Versionen) ruft weiterhin nur `markSaved()` auf; `isDirty` im Snapshot
 zum nächsten Command auf `true` stehen (Verhalten unverändert). Nicht in `npm run dev`
 ausprobiert (Container ohne Desktop); Nachweis über die Browsertests in Chromium.
 
+## Nachtrag 2026-09-24 — Kommentare ziehen, Attribute im Kommentar schreibgeschützt
+
+Beide offenen Punkte aus „Baumaktionen im Core“ nach PO-Entscheidung umgesetzt (siehe
+`docs/entscheidungen.md`): Kommentarzeilen lassen sich per Drag&Drop verschieben; Zeilen im
+Kommentar sind nicht mehr `draggable`, und die Drop-Anzeige nutzt die Core-Regel
+`moveTargetBlocker`. Das Attribute-Panel erhält `readOnly`, gesteuert über
+`treeActionBlocker(…, "set-attribute")`. Tests: drei neue UI-Tests in `App.test.tsx` (vorher rot),
+drei neue Core-Fälle in `tree-actions.test.ts`. Nicht in `npm run dev` ausprobiert (Container
+ohne Desktop).
+

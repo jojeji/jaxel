@@ -167,16 +167,30 @@ export function treeActionBlocker(
     }
     case "move":
       if (rows.length === 0) return "no-selection";
-      // Neither a comment node nor anything inside one is dragged: the comment's raw text is
-      // what gets saved (behaviour unchanged from the former App.tsx check).
-      return rows.some((row) => row.node.kind === "comment" || isInsideComment(row)) ? "read-only" : null;
-    case "rename":
+      // A comment node moves as a whole like any node; what sits inside one stays put, since the
+      // comment's raw text is what gets saved.
+      return rows.some(isInsideComment) ? "read-only" : null;
     case "set-value":
+      if (!sole) return "no-selection";
+      return isInsideComment(sole) ? "read-only" : null;
+    case "rename":
     case "set-attribute":
     case "rename-attribute":
       if (!sole) return "no-selection";
-      return isInsideComment(sole) ? "read-only" : null;
+      // A comment has no name and no attributes: its file form is only its text.
+      return sole.node.kind === "comment" || isInsideComment(sole) ? "read-only" : null;
   }
+}
+
+/**
+ * Why nothing may be dropped at `position` relative to `target`, or null. Answers from the target
+ * alone, so the tree can show or hide its drop indicator while dragging: nothing lands inside a
+ * comment (into it, or beside a row that is already inside one).
+ */
+export function moveTargetBlocker(target: BulkRow, position: DropPosition): TreeActionBlocker | null {
+  if (isInsideComment(target)) return "read-only";
+  if (position === "into" && target.node.kind === "comment") return "read-only";
+  return null;
 }
 
 /**
@@ -247,8 +261,8 @@ function buildPlan(
     }
     case "move": {
       const { target, position } = action;
-      // Nothing is dropped onto, into or beside a node inside a comment, nor onto a comment.
-      if (target.node.kind === "comment" || isInsideComment(target)) return { blocker: "read-only" };
+      const targetBlocker = moveTargetBlocker(target, position);
+      if (targetBlocker) return { blocker: targetBlocker };
       const command = createBulkMoveCommand(rows, target, position);
       if (!command) return { blocker: "invalid-target" };
       return {

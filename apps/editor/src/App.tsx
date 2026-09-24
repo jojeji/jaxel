@@ -1513,6 +1513,7 @@ export function App(): React.ReactElement {
       onRenameAttribute={handleRenameAttribute}
       onCreateAttribute={handleCreateAttribute}
       onDecodeBase64={handleDecodeBase64}
+      readOnly={selectedRow !== null && actionBlocker("set-attribute") === "read-only"}
     />
   );
 

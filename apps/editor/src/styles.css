@@ -1140,6 +1140,12 @@ kbd {
   margin-bottom: 12px;
 }
 
+.attributes-panel__read-only {
+  margin: -6px 0 12px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
 .attributes-panel__table {
   width: 100%;
   border-collapse: collapse;

@@ -15,6 +15,13 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 - Einfügen (`Strg+V`) in einen auskommentierten Bereich und das Anlegen eines Kindes unter einem
   Kommentar sind gesperrt. Bisher gingen die eingefügten Knoten beim nächsten Speichern verloren.
+- Das Attribute-Panel zeigt Knoten in einem auskommentierten Bereich schreibgeschützt an, statt
+  Eingaben anzunehmen und stillschweigend zu verwerfen.
+
+### Geändert
+
+- Kommentare lassen sich per Drag&Drop verschieben. Beim Ziehen erscheint über auskommentierten
+  Bereichen keine Ablagemarkierung mehr.
 
 ## [0.8.0] - 2026-09-15
 

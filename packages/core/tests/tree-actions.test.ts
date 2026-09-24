@@ -5,6 +5,7 @@ import { parseFragments } from "../src/format/fragments.js";
 import { CommandBus } from "../src/commands/command-bus.js";
 import { createDocument } from "../src/model/document.js";
 import {
+  moveTargetBlocker,
   planTreeAction,
   treeActionBlocker,
   type TreeAction,
@@ -125,6 +126,47 @@ describe("Schreibschutz im auskommentierten Teilbaum", () => {
       blocker: "read-only",
     });
     expect(treeActionBlocker([rowAt(root, ...INSIDE)], "move", XML)).toBe("read-only");
+  });
+
+  it("verschiebt einen Kommentar als Ganzes und legt vor oder hinter einem Kommentar ab", () => {
+    const { bus, root } = load();
+    const before = serializeXml({ root, indent: "  " });
+    expect(run(bus, [rowAt(root, ...PROSE)], { kind: "move", target: rowAt(root, ...NOTIZ), position: "after" }).ok).toBe(
+      true,
+    );
+    expect(root.children.map((n) => n.name)).toEqual(["person", "#comment", "notiz", "#comment"]);
+    expect(root.children[3]!.value).toBe(" die erste Person ");
+
+    // Auch ein auskommentierter Teilbaum zieht als Ganzes um, und neben einem Kommentar ist Platz.
+    expect(
+      run(bus, [rowAt(root, 1)], { kind: "move", target: rowAt(root, 0), position: "into" }).ok,
+    ).toBe(true);
+    expect(root.children[0]!.children.at(-1)!.kind).toBe("comment");
+    expect(run(bus, [rowAt(root, 1)], { kind: "move", target: rowAt(root, 2), position: "after" }).ok).toBe(true);
+    expect(root.children.map((n) => n.name)).toEqual(["person", "#comment", "notiz"]);
+
+    bus.undo();
+    bus.undo();
+    bus.undo();
+    expect(serializeXml({ root, indent: "  " })).toBe(before);
+  });
+
+  it("sperrt Umbenennen und Attribute am Kommentar selbst", () => {
+    const { root } = load();
+    const prose = [rowAt(root, ...PROSE)];
+    expect(treeActionBlocker(prose, "rename", XML)).toBe("read-only");
+    expect(treeActionBlocker(prose, "set-attribute", XML)).toBe("read-only");
+    expect(treeActionBlocker(prose, "rename-attribute", XML)).toBe("read-only");
+  });
+});
+
+describe("Ablageziel beim Verschieben", () => {
+  it("erlaubt kein Ablegen in oder neben Zeilen im Kommentar, wohl aber neben dem Kommentar", () => {
+    const { root } = load();
+    expect(moveTargetBlocker(rowAt(root, ...INSIDE), "before")).toBe("read-only");
+    expect(moveTargetBlocker(rowAt(root, ...COMMENTED), "into")).toBe("read-only");
+    expect(moveTargetBlocker(rowAt(root, ...COMMENTED), "after")).toBeNull();
+    expect(moveTargetBlocker(rowAt(root, ...PERSON), "into")).toBeNull();
   });
 });
 

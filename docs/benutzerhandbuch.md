@@ -194,7 +194,9 @@ Standardmäßig ausgeschaltet, in den Einstellungen unter „Baum" aktivierbar:
   verschieben oder als Einfügeposition nutzen; unter einen Kommentar lässt sich auch kein Kind
   anlegen. Die betreffenden Menüeinträge sind dort ausgegraut, das Tastenkürzel bewirkt nichts.
   Grund: Jaxel schreibt beim Speichern den Kommentartext unverändert zurück — eine Änderung darin
-  ginge verloren. Den Kommentartext selbst kann man weiterhin bearbeiten.
+  ginge verloren. Das Attribute-Panel zeigt solche Knoten mit dem Hinweis „Schreibgeschützt“ an.
+  Den Kommentar selbst kann man weiterhin bearbeiten (Text) und per Drag&Drop als Ganzes an eine
+  andere Stelle ziehen; ablegen lässt sich dabei nichts in einen Kommentar hinein.
 - **Rückgängig/Wiederholen**: `Strg+Z` / `Strg+Y`, Toolbar-Buttons oder Menü „Bearbeiten" — jede
   sichtbare Aktion ist genau ein Schritt, auch „Alle ersetzen".
 

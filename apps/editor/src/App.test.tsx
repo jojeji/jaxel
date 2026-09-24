@@ -2768,6 +2768,62 @@ describe("Kommentare im Baum", () => {
     expect(screen.queryByText("node", { selector: ".tree-row__name" })).not.toBeInTheDocument();
   });
 
+  function pointInRow(row: HTMLElement, fraction: number): number {
+    const rect = row.getBoundingClientRect();
+    return rect.top + rect.height * fraction;
+  }
+
+  /** Row labels in tree order — the drag ghost (a clone on document.body) is not counted. */
+  function treeOrder(): string[] {
+    return Array.from(document.querySelectorAll(".tree-view .tree-row")).map((row) => row.textContent ?? "");
+  }
+
+  it("verschiebt einen Kommentar per Drag&Drop", async () => {
+    await openCommentedFile();
+    const comment = rowOf("die erste Person");
+    const notiz = rowOf("notiz");
+
+    fireEvent.dragStart(comment, { dataTransfer: new DataTransfer() });
+    fireEvent.dragOver(notiz, { clientY: pointInRow(notiz, 0.9), dataTransfer: new DataTransfer() });
+    expect(document.querySelector(".tree-row--drop-after")).not.toBeNull();
+    fireEvent.drop(notiz, { dataTransfer: new DataTransfer() });
+
+    const order = treeOrder();
+    const commentAt = order.findIndex((text) => text.includes("die erste Person"));
+    const notizAt = order.findIndex((text) => text.includes("notiz"));
+    expect(commentAt).toBeGreaterThan(notizAt);
+  });
+
+  it("zeigt beim Ziehen in einen auskommentierten Teilbaum keine Ablage an", async () => {
+    const user = await openCommentedFile();
+    await user.click(rowOf('<person id="P-9"><name>Zoe</name></person>'));
+    const inner = (
+      await screen.findByText("person", { selector: ".tree-row--in-comment .tree-row__name" })
+    ).closest(".tree-row") as HTMLElement;
+    const notiz = rowOf("notiz");
+
+    fireEvent.dragStart(notiz, { dataTransfer: new DataTransfer() });
+    fireEvent.dragOver(inner, { clientY: pointInRow(inner, 0.9), dataTransfer: new DataTransfer() });
+    expect(document.querySelector(".tree-row--drop-after")).toBeNull();
+    fireEvent.dragOver(inner, { clientY: pointInRow(inner, 0.5), dataTransfer: new DataTransfer() });
+    expect(document.querySelector(".tree-row--drop-into")).toBeNull();
+    // Zeilen innerhalb des Kommentars lassen sich gar nicht erst ziehen.
+    expect(inner).toHaveAttribute("draggable", "false");
+  });
+
+  it("zeigt die Attribute eines Knotens im Kommentar schreibgeschützt an", async () => {
+    const user = await openCommentedFile();
+    await user.click(rowOf('<person id="P-9"><name>Zoe</name></person>'));
+    const inner = await screen.findByText("person", { selector: ".tree-row--in-comment .tree-row__name" });
+    await user.click(inner.closest(".tree-row") as HTMLElement);
+
+    const panel = document.querySelector(".attributes-panel") as HTMLElement;
+    expect(within(panel).getByLabelText("id")).toHaveAttribute("readonly");
+    expect(within(panel).queryByTitle("Attribut entfernen")).not.toBeInTheDocument();
+    expect(within(panel).queryByPlaceholderText("Name")).not.toBeInTheDocument();
+    expect(within(panel).getByText(/schreibgeschützt/i)).toBeInTheDocument();
+  });
+
   it("graut Einkommentieren bei einem Prosa-Kommentar aus", async () => {
     const user = await openCommentedFile();
     const proseRow = rowOf("die erste Person");

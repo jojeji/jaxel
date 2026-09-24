@@ -703,3 +703,19 @@ eigene Tests; erreichbar nur über `App.test.tsx` im Browser mit gemockten Tauri
 6. **CommandBus-Abos sind nach CommandBus geschlüsselt statt nach Dateipfad** — „Speichern unter“
    muss dadurch keine Abo-Tabelle mehr umschlüsseln.
 
+## 2026-09-24 — Kommentare verschiebbar, Attribute im Kommentar schreibgeschützt
+
+PO-Entscheidung auf die zwei offenen Punkte aus „Baumaktionen im Core“:
+
+1. **Kommentarknoten sind per Drag&Drop verschiebbar** (wie in CONTEXT.md „Kommentarknoten“
+   beschrieben), als Ganzes samt eines auskommentierten Teilbaums. Weiterhin gesperrt: Zeilen
+   *innerhalb* eines Kommentars ziehen, und irgendetwas in einen Kommentar hinein oder neben eine
+   Zeile im Kommentar ablegen. Die Zielregel steht einmal im Core (`moveTargetBlocker`) und wird
+   auch von der Drop-Anzeige (`tree/dnd.ts`) benutzt, damit beim Ziehen keine Ablage angezeigt
+   wird, die danach abgelehnt würde. Das ersetzt Punkt 4 des Eintrags „Baumaktionen“, soweit er
+   Kommentarknoten selbst betraf.
+2. **Das Attribute-Panel ist für Knoten im Kommentar schreibgeschützt** (Felder `readOnly`, kein
+   Entfernen, keine neue Zeile, Hinweistext) statt Eingaben stillschweigend zu verwerfen. Die
+   Entscheidung kommt aus derselben Core-Regel (`set-attribute`); am Kommentarknoten selbst sind
+   Umbenennen und Attribute ebenfalls gesperrt, weil ein Kommentar nur seinen Text speichert.
+
