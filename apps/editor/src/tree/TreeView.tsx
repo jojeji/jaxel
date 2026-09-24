@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { looksLikeBase64, type ChangeSet, type DropPosition, type Tombstone } from "@jaxel/core";
+import { isInsideComment, looksLikeBase64, type ChangeSet, type DropPosition, type Tombstone } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
 import { withTombstones, type DisplayRow, type TreeRow } from "./flatten.js";
 import { computeDropAllowed, positionFromRatio } from "./dnd.js";
@@ -369,7 +369,7 @@ function TreeRowView({
   const isCommentRow = node.kind === "comment";
   // Rows sitting INSIDE a commented-out subtree — they carry the same muted styling and the
   // left rail that shows how far the stilllegung reaches (CONTEXT.md, "Auskommentierter Teilbaum").
-  const insideComment = row.ancestors.some((ancestor) => ancestor.kind === "comment");
+  const insideComment = isInsideComment(row);
   // A commented-out subtree shows its markup, not a child count: the count would describe the
   // parsed view, which is not what the file contains.
   const preview = isCommentRow

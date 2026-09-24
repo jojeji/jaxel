@@ -11,7 +11,10 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
-Noch keine veröffentlichten Änderungen.
+### Behoben
+
+- Einfügen (`Strg+V`) in einen auskommentierten Bereich und das Anlegen eines Kindes unter einem
+  Kommentar sind gesperrt. Bisher gingen die eingefügten Knoten beim nächsten Speichern verloren.
 
 ## [0.8.0] - 2026-09-15
 

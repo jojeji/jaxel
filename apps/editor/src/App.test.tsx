@@ -2737,6 +2737,37 @@ describe("Kommentare im Baum", () => {
     await waitFor(() => expect(document.querySelector(".tree-row__editor")).not.toBeNull());
   });
 
+  it("fügt Strg+V nicht in einen auskommentierten Teilbaum ein", async () => {
+    const user = await openCommentedFile();
+    stubClipboard();
+    readText.mockResolvedValue("<extra/>");
+    const commentRow = rowOf('<person id="P-9"><name>Zoe</name></person>');
+    await user.click(commentRow);
+    const inner = await screen.findByText("person", { selector: ".tree-row--in-comment .tree-row__name" });
+    await user.click(inner.closest(".tree-row") as HTMLElement);
+
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+
+    // Eingefügt hinter einem Knoten im Kommentar, verschwände der Knoten beim nächsten Speichern.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText("extra", { selector: ".tree-row__name" })).not.toBeInTheDocument();
+    await openContextMenuOn(user, inner.closest(".tree-row") as HTMLElement);
+    expect(screen.getByRole("menuitem", { name: "Einfügen Strg+V" })).toBeDisabled();
+  });
+
+  it("legt unter einem Kommentar kein Kind an", async () => {
+    const user = await openCommentedFile();
+    const proseRow = rowOf("die erste Person");
+    await user.click(proseRow);
+
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true });
+
+    // Ein Kind unter einem Kommentar ginge beim Speichern verloren: geschrieben wird nur der Text.
+    expect(document.querySelector(".tree-row__editor")).toBeNull();
+    expect(proseRow).toHaveClass("tree-row--comment");
+    expect(screen.queryByText("node", { selector: ".tree-row__name" })).not.toBeInTheDocument();
+  });
+
   it("graut Einkommentieren bei einem Prosa-Kommentar aus", async () => {
     const user = await openCommentedFile();
     const proseRow = rowOf("die erste Person");

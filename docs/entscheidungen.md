@@ -654,3 +654,28 @@ Die vier bestätigten Punkte sind umgesetzt: Die Verlaufslänge ist in den Einst
 „Alles zuklappen“ über das Ansichtsmenü sowie NumPad `*` und NumPad `/`. `open_log` berücksichtigt
 die möglichen Schreibweisen der Logdatei, damit portable Windows-Installationen nicht wegen einer
 abweichenden Groß-/Kleinschreibung auf den falschen Zielpfad fallen.
+
+## 2026-09-24 — Baumaktionen: Erlaubnis und Command-Bau im Core
+
+Gefunden per Architektur-Review (`improve-codebase-architecture`, Kandidat „Schreibschutz für
+auskommentierte Teilbäume in den Core holen“). Der Schreibschutz des auskommentierten Teilbaums
+war nur im UI durchgesetzt, verteilt über sieben Prüfungen in `App.tsx`; Einfügen (`Strg+V`) und
+„Kind anlegen“ unter einem Kommentar hatten keine Prüfung, die eingefügten Knoten wären beim
+nächsten Speichern verloren gegangen (Tests belegen beides).
+
+1. **Ein Modul, zwei Fragen:** `packages/core/src/commands/tree-actions.ts` beantwortet für jede
+   Baumaktion, ob sie auf diesen Zeilen erlaubt ist (`treeActionBlocker`, billig genug für jeden
+   Menü-Render) und welcher Command samt Folgeauswahl/Aufklappen/Editor sie ausführt
+   (`planTreeAction`). `App.tsx` führt nur noch den Plan aus. Vorbild ist
+   `planReplacements`/`createReplaceAllCommand` (Save-Epoche-Eintrag).
+2. **Menüzustand und Ausführung fragen dieselbe Stelle.** Vorher prüften Menüleiste,
+   Kontextmenü und Handler unterschiedlich (Menüleiste: nur „etwas ausgewählt“), genau daraus
+   entstanden die Lücken.
+3. **Regel:** Nichts innerhalb eines Kommentars wird geändert, und ein Kommentar bekommt keine
+   Kinder. Der Kommentarknoten selbst bleibt editierbar (Text) und darf Geschwister bekommen.
+4. **Verschieben wird strenger:** Bisher prüfte das Ziehen nur die gezogene Zeile; lag ein
+   Kommentar oder ein Knoten aus einem Kommentar zusätzlich in der Mehrfachauswahl, wurde er
+   mitverschoben. Jetzt blockiert jede solche Zeile in der Auswahl. Für Knoten *aus* einem
+   Kommentar war das ein Datenfehler (der Kommentartext hätte ihn beim Speichern
+   wiederhergestellt, also verdoppelt).
+
