@@ -1808,3 +1808,25 @@ Kommentar weiterhin Eingabefelder; Änderungen werden verworfen statt die Felder
 (unverändertes Verhalten, reine UI-Frage). Nicht in `npm run dev` ausprobiert: die Session läuft
 in einem Container ohne Desktop, Nachweis über die Browsertests in Chromium.
 
+## Nachtrag 2026-09-24 — Workspace ohne React (Architektur-Review, Kandidat 1)
+
+Die Dokument- und Tab-Verwaltung liegt jetzt in der React-freien Klasse `Workspace`
+(`apps/editor/src/state/workspace.ts`); `useJaxelDocuments` in `document-store.ts` ist nur noch
+der Adapter über `useSyncExternalStore`. Typen und Helfer (`OpenDocumentState`, `TabState`,
+`tabKey`, `formatOfExtension`, `serializeForSave`) sind mit umgezogen. Neue Node-Tests
+`workspace.test.ts` (21 Fälle) mit einem In-Memory-Host decken Öffnen/Deduplizieren,
+Tab-Schließen und Nachbarwahl, Fokus-Tab-Verschmelzen, Speichern (inkl. der Regressionen
+„Byte-Offsets nach dem Speichern“ und „Save-Epoche“, gegengeprüft per absichtlich eingebautem
+Defekt), Speichern unter, VS-Code-Speicherbestätigung, Neuladen mit Pfad-Auflösung und
+Konvertieren ab. Alle 276 bestehenden Editor-Tests liefen ohne Anpassung durch.
+
+Bewusste Vereinfachungen: `App.tsx` nutzt weiterhin den Hook in unveränderter Form; die
+Host-Injektion über React-Context (Kandidat 4) und das Modul für externe Dateiänderungen
+(Kandidat 3) sind nicht Teil dieses Pakets. Einzige Verhaltensänderung: Öffnen einer bereits
+geladenen Datei parst sie nicht mehr erneut (vorher geparst und verworfen).
+
+Offen: Der Kompatibilitätszweig in `App.tsx` (`host.onSaved` ohne Text, ältere
+Extension-Versionen) ruft weiterhin nur `markSaved()` auf; `isDirty` im Snapshot bleibt dort bis
+zum nächsten Command auf `true` stehen (Verhalten unverändert). Nicht in `npm run dev`
+ausprobiert (Container ohne Desktop); Nachweis über die Browsertests in Chromium.
+

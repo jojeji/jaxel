@@ -38,7 +38,8 @@ import { installGlobalErrorLogging, logError } from "./logging.js";
 import { getJaxelHost } from "./host.js";
 import { conversionErrorMessage, toErrorMessage } from "./errors.js";
 import { resolveShortcut } from "./shortcuts.js";
-import { formatOfExtension, serializeForSave, tabKey, useJaxelDocuments, type OpenDocumentState } from "./state/document-store.js";
+import { useJaxelDocuments } from "./state/document-store.js";
+import { formatOfExtension, serializeForSave, tabKey, type OpenDocumentState } from "./state/workspace.js";
 import { useSettings } from "./state/settings-store.js";
 import {
   getLastDir,

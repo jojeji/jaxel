@@ -679,3 +679,27 @@ nächsten Speichern verloren gegangen (Tests belegen beides).
    Kommentar war das ein Datenfehler (der Kommentartext hätte ihn beim Speichern
    wiederhergestellt, also verdoppelt).
 
+## 2026-09-24 — Workspace: Dokument- und Tab-Verwaltung ohne React
+
+Gefunden per Architektur-Review (Kandidat „Workspace aus dem React-Hook lösen“). Die
+meistgeänderte Zustandslogik (`useJaxelDocuments`, 16 Commits seit Juli) war ein React-Hook ohne
+eigene Tests; erreichbar nur über `App.test.tsx` im Browser mit gemockten Tauri-Modulen.
+
+1. **`Workspace` (`apps/editor/src/state/workspace.ts`) ist eine React-freie Klasse** mit
+   unveränderlichen Snapshots (`getSnapshot`/`subscribe`). `useJaxelDocuments` ist nur noch der
+   `useSyncExternalStore`-Adapter und behält seine bisherige Rückgabe — `App.tsx` blieb dadurch
+   unverändert.
+2. **Ort `apps/editor`, nicht `packages/core`:** Tabs, Fokus-Tabs und „Unbenannt-N“ sind
+   Editor-Zustand, kein Dokumentmodell. Wie `tree/selection.ts` ist es reines TypeScript und läuft
+   im Node-Projekt `logic` (Dateiendung `*.test.ts`, Entscheidung vom 26.07.).
+3. **Seam zum Host: `WorkspaceHost = Pick<JaxelHost, "readTextFile" | "writeTextFile" | "log">`.**
+   Zwei Adapter: der echte Host (Tauri/VS Code) und `InMemoryHost` in `workspace.test.ts`.
+4. **Ein Speicherabschluss für alle Wege:** eigenes Speichern, „Speichern unter“ und die
+   Bestätigung einer VS-Code-Speicherung laufen durch dieselbe Methode `commitSaved`
+   (Byte-Offsets abgleichen → `markSaved` → Änderungsmarker-Baseline). Vorher existierte die
+   Reihenfolge doppelt (`persistSaved`, `acknowledgeSaved`).
+5. **`isDirty` bleibt ein Feld am Dokument-Snapshot, wird aber nur noch abgeleitet**
+   (`commandBus.isDirty()` bei jedem Command und nach jedem Speichern), nie unabhängig gesetzt.
+6. **CommandBus-Abos sind nach CommandBus geschlüsselt statt nach Dateipfad** — „Speichern unter“
+   muss dadurch keine Abo-Tabelle mehr umschlüsseln.
+

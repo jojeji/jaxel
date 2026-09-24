@@ -76,6 +76,12 @@ dafür keine Knoten, weil ein Dokument genau eine Wurzel hat. Kommentare darin e
 schreibgeschützte Zeilen über bzw. unter der Wurzel.
 _Avoid_: Header/Footer, Vorspann, Dokumentkopf.
 
+**Workspace**:
+Alle aktuell geladenen Dokumente und ihre Tabs (Vollansicht und Fokus-Tabs) samt aktivem Tab.
+Ein Dokument bleibt geladen, solange mindestens ein Tab darauf zeigt. Im Code die Klasse
+`Workspace` (`apps/editor/src/state/workspace.ts`).
+_Avoid_: Store, Session (das sind die beim Start wiederhergestellten Tabs).
+
 **Zuletzt geöffnete Dateien**:
 Die vom Benutzer zuletzt geöffneten Pfade, die auf dem Startscreen und im Datei-Menü als
 schnelle Wiedereinstiege angeboten werden. Ihre maximale Anzahl ist einstellbar; `0` bedeutet,
