@@ -503,6 +503,25 @@ export function App(): React.ReactElement {
    * operate on. Single selection is just its one-element case. */
   const selectedRows = useMemo<TreeRow[]>(() => selectedRowsInOrder(selection, rows), [selection, rows]);
 
+  /**
+   * The node "Nur im ausgewählten Unterbaum" searches in: the last single node the USER selected
+   * — not the live selection. The search's own tree filter can hide the selected row, which
+   * prunes the selection (below); reading the live selection, the search then silently widened
+   * to the whole document while the checkbox stayed ticked (docs/entscheidungen.md 2026-07-18 #2:
+   * the scope only falls back when there is no selection). So while a filter is active, an
+   * emptied selection keeps the anchor; without a filter, "nothing selected" clears it.
+   */
+  const [searchScopeId, setSearchScopeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedRow) setSearchScopeId(selectedRow.node.id);
+    else if (!filterMatches) setSearchScopeId(null);
+  }, [selectedRow, filterMatches]);
+  const searchScopeNode = useMemo(
+    () => (searchScopeId && root ? findNodeById(root, searchScopeId) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates after mutations
+    [searchScopeId, root, revision],
+  );
+
   // Forget selected nodes that are no longer among the visible rows — collapsed away, filtered
   // out by the search panel, or deleted. Without this a bulk action could still carry ids the
   // user can no longer see. `pruneSelection` returns the same object when nothing changed, so
@@ -1179,9 +1198,10 @@ export function App(): React.ReactElement {
 
   /** "Whole document" defaults to the tab's own visible root — in a focus tab that's the
    * focused subtree, not the real document root (see docs/entscheidungen.md 2026-07-18 #1).
-   * "Subtree only" follows the CURRENT tree selection live (same rule for search and replace). */
+   * "Subtree only" follows the user's selection live via `searchScopeNode` (same rule for search and
+   * replace) — see there for why that is not simply the current selection. */
   function resolveSearchRoot(documentRoot: DocNode, subtreeOnly: boolean): DocNode {
-    return subtreeOnly && selectedRow ? selectedRow.node : documentRoot;
+    return subtreeOnly && searchScopeNode ? searchScopeNode : documentRoot;
   }
 
   function handleSearch(options: SearchOptions, subtreeOnly: boolean): SearchMatch[] {
@@ -1592,8 +1612,8 @@ export function App(): React.ReactElement {
         showNamespaces={settings.searchShowNamespaces}
         onClose={handleSearchClose}
         focusRequest={searchFocusRequest}
-        hasSelection={selectedRow !== null}
-        selectedNodeId={selectedRow?.node.id ?? null}
+        hasSelection={searchScopeNode !== null}
+        selectedNodeId={searchScopeNode?.id ?? null}
         documentRevision={revision}
         dockSide={dock}
         onToggleDock={handleToggleSearchDock}

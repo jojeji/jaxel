@@ -824,3 +824,14 @@ Rust-Test belegt:
 Die Rundreise ist in `io.rs` getestet: lesen → unverändert speichern → Bytes identisch (UTF-16
 LE/BE, UTF-8 mit/ohne BOM, ISO-8859-1).
 
+## 2026-09-25 — Die Suche hat einen eigenen Unterbaum-Anker
+
+Aus dem vierten Architektur-Review (nur Strong). „Nur im ausgewählten Unterbaum“ las den Bereich
+aus der aktuellen Baumauswahl. Der eigene Filter der Suche kann die ausgewählte Zeile ausblenden;
+dann räumt der Baum die Auswahl auf, und die Suche lief — bei weiter gesetztem Haken — über das
+ganze Dokument, „Alle ersetzen“ eingeschlossen (per Test belegt). Das widersprach 18.07. #2.
+
+1. **`searchScopeNode` in `App.tsx` ist der Anker:** der letzte Einzelknoten, den der Nutzer
+   ausgewählt hat. Eine leere Auswahl löscht ihn nur, solange kein Filter aktiv ist.
+2. Suche, „Alle ersetzen“ und die Aktivierung der Checkbox richten sich nach dem Anker.
+

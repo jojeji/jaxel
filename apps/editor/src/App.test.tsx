@@ -970,6 +970,26 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     expect(await screen.findAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
   });
 
+  it("'Nur im ausgewählten Unterbaum' bleibt mit Filter im Unterbaum, auch ohne Treffer darin", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // P-1 auswählen
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByRole("checkbox", { name: "Nur im ausgewählten Unterbaum" }));
+    await user.click(screen.getByRole("checkbox", { name: "Filtern" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "Hamburg"); // steht nur in P-2
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(screen.queryByText("Hamburg", { selector: ".tree-row__preview" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Nur im ausgewählten Unterbaum" })).toBeChecked();
+
+    // „Alle ersetzen“ darf in diesem Zustand nichts außerhalb des Unterbaums anfassen.
+    await user.type(screen.getByPlaceholderText("Ersetzen durch…"), "Bremen");
+    await user.click(screen.getByRole("button", { name: "Alle ersetzen" }));
+    await user.click(screen.getByRole("checkbox", { name: "Filtern" }));
+    await user.click(screen.getAllByText("person")[1]!); // P-2 aufklappen
+    expect(await screen.findByText("Hamburg", { selector: ".tree-row__preview" })).toBeInTheDocument();
+  });
+
   it("'Alle ersetzen' mit Regex kombiniert mit 'Nur im ausgewaehlten Unterbaum' ist ebenfalls rueckgaengig machbar", async () => {
     const user = await openSampleFile();
     await user.click(screen.getAllByText("person")[0]!); // P-1 selektieren + aufklappen

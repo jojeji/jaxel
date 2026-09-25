@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- „Nur im ausgewählten Unterbaum“ blieb mit eingeschaltetem Filter nicht im Unterbaum, wenn dort
+  nichts gefunden wurde: Die Suche lief dann still über das ganze Dokument, „Alle ersetzen“
+  ersetzte auch außerhalb.
 - Dateikodierung bleibt beim Speichern erhalten: UTF-16-Dateien wurden bisher als UTF-8
   geschrieben und waren danach nicht mehr lesbar; UTF-8-Dateien verloren ihren BOM;
   ISO-8859-1-Dateien mit Umlauten nahe am Dateianfang wurden als UTF-8 gelesen und verloren beim

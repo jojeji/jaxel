@@ -1895,3 +1895,8 @@ einbindet — der Tauri-Crate selbst lässt sich in dieser Umgebung nicht bauen 
 WebKit-Bibliotheken). `lib.rs` ist deshalb nur syntaktisch geprüft (`rustfmt --check`), nicht
 kompiliert: vor dem Release `cargo test`/`cargo check` lokal laufen lassen.
 
+## Nachtrag 2026-09-25 — Unterbaum-Anker der Suche (Review 4, Kandidat 2)
+
+`searchScopeNode` in `App.tsx` statt `selectedRow` für „Nur im ausgewählten Unterbaum“. Test: ein
+UI-Test (vorher rot), der auch „Alle ersetzen“ in diesem Zustand prüft.
+
