@@ -68,6 +68,13 @@ Menüeinträge aus und stoppt das Tastenkürzel. Hier wird auch der Schreibschut
 auskommentierten Teilbaums durchgesetzt.
 _Avoid_: Handler, Menüaktion (das ist nur der Einstiegspunkt).
 
+**App-Aktion**:
+Etwas, das der Benutzer über mehr als einen Einstieg auslösen kann (Tastatur, Menüleiste,
+Kontextmenü, Toolbar) — Speichern, Suchen, Knoten kopieren, auch die Baumaktionen. Bezeichnung,
+angezeigtes Tastenkürzel und Aktiv-Regel stehen genau einmal in `apps/editor/src/actions.ts`.
+_Avoid_: Command (das ist die rückgängig machbare Mutation auf dem CommandBus), Menüpunkt (nur ein
+Einstieg).
+
 **Prolog / Epilog**:
 Alles vor dem öffnenden Wurzel-Tag (XML-Deklaration, DOCTYPE, Kommentare,
 Verarbeitungsanweisungen) bzw. alles nach dem schließenden. Wird als Rohtext am Dokument
