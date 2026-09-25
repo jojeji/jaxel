@@ -988,3 +988,41 @@ drei Stellen einzeln; ein Kommentar, der auf „-“ endete, wurde als `<!--text
 2. Auskommentieren prüft weiter den Inhalt des Knotens auf „--“ (`commentOutBlocker`); sein
    Kommentartext ist von Leerzeichen umgeben und kann nie auf „-“ enden.
 
+## 2026-09-25 — JSON-Arrays werden am Knoten markiert (Ergänzung zu #4)
+
+Aus dem sechsten Architektur-Review. Der Export erkannte „Array im Array“ (Regel 4) allein daran,
+dass alle Kinder wie der Knoten selbst heißen. Ein gewöhnliches Objekt unter einem gleichnamigen
+Schlüssel passte genauso: `{"data":{"data":[1,2]}}` wurde beim bloßen Öffnen und Speichern zu
+`{"data":[1,2]}`, und die XML→JSON-Konvertierung machte aus `<div><div/></div>` ein Array.
+
+1. **`DocNode.jsonArray`**: json-import setzt es an jedem Knoten, dessen Kinder die Elemente EINES
+   JSON-Arrays sind (Array im Array, Array auf oberster Ebene, einzelner Wurzelschlüssel mit
+   mehrelementigem oder leerem Array). json-export schreibt nur solche Knoten als `[...]`.
+2. Ohne Markierung bilden Kinder immer ein Objekt (gleichnamige Kinder werden wie bisher zu einer
+   Array-Eigenschaft). Im Editor neu angelegte oder aus XML konvertierte Knoten tragen die
+   Markierung nie.
+3. Die bekannten Einschränkungen aus dem Eintrag vom 2026-07-17 (Ein-Element-Array, leeres Array
+   als Eigenschaft) bleiben; ein leeres Array auf oberster Ebene oder in einem Array bleibt jetzt `[]`.
+
+## 2026-09-25 — Kein Kind an einem Knoten mit Wert (PO-Entscheidung)
+
+Aus dem sechsten Architektur-Review. „Wert XOR Kinder“ galt im Modell, wurde aber nicht
+durchgesetzt: XML-Export behält die Kinder (der Text verschwindet), JSON-Export den Wert (das
+Kind verschwindet). Der PO hat „sperren“ gegen „Wert im selben Schritt leeren“ entschieden.
+
+1. **Neuer Sperrgrund `has-value`** für Kind/Kommentar als Kind hinzufügen, Einfügen und
+   Hinzufügen an der sichtbaren Wurzel und das Hineinziehen, wenn der Zielknoten einen
+   nicht-leeren Wert hat.
+2. Ein leerer Wert (`<a/>`, `"a": ""`) ist kein Inhalt: Er wird im selben Undo-Schritt entfernt,
+   der Knoten wird zum Container.
+
+## 2026-09-25 — Undeklarierte Nicht-UTF-8-Dateien sind Windows-1252 (Ergänzung zu #9)
+
+Aus dem sechsten Architektur-Review. Ohne BOM und ohne Deklaration fiel `io.rs` immer auf UTF-8
+zurück; ungültige Bytes wurden still durch U+FFFD ersetzt, und das Speichern schrieb diese
+Ersatzzeichen für die ganze Datei.
+
+1. **Sind die Bytes kein gültiges UTF-8, liest und schreibt Jaxel die Datei als windows-1252**
+   (Obermenge von Latin-1 im druckbaren Bereich, so schreiben ältere Windows-Werkzeuge XML und
+   JSON). Eine Deklaration geht weiterhin vor.
+

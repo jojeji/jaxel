@@ -89,7 +89,8 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   Fokus-Ansicht fragt nicht, solange das Dokument in einem anderen Tab geöffnet bleibt —
   dabei geht nichts verloren.
 - **Extern geänderte Dateien**: Wurde eine offene Datei von einem anderen Programm verändert,
-  fragt Jaxel beim nächsten Zurückwechseln ins Fenster nach, ob neu geladen werden soll (Namen,
+  fragt Jaxel beim nächsten Zurückwechseln ins Fenster oder beim Wechsel auf ihren Tab nach, ob
+  neu geladen werden soll (Namen,
   Werte, Attribute — der komplette Baum wird neu eingelesen; die Auswahl und aufgeklappte
   Knoten bleiben dabei so gut wie möglich erhalten, sofern sie noch existieren). Gibt es zu
   diesem Zeitpunkt eigene, ungespeicherte Änderungen, erscheint der Dialog **immer** — ein
@@ -183,7 +184,10 @@ Standardmäßig ausgeschaltet, in den Einstellungen unter „Baum" aktivierbar:
 - **Name ändern**: Doppelklick auf den Namen oder `F2`.
 - **Wert ändern**: Doppelklick auf den Wert oder `Enter` (bei Blattknoten).
 - **Kind anlegen**: `Strg` + `+` oder Menü „Bearbeiten" → „Kind hinzufügen" — der neue Knoten
-  steht sofort im Namens-Editor, einfach lostippen und mit `Enter` bestätigen.
+  steht sofort im Namens-Editor, einfach lostippen und mit `Enter` bestätigen. Ein Knoten mit
+  Text bzw. JSON-Wert kann keine Kinder bekommen (die Aktion ist ausgegraut, Hineinziehen nicht
+  möglich) — beides zusammen lässt sich nicht speichern, eines ginge verloren. Ein leerer Knoten
+  (`<a/>`, `"a": ""`) wird durch das erste Kind zum Container.
 - **Duplizieren**: `Strg+D` oder Menü „Bearbeiten" → „Duplizieren" — kopiert den Knoten samt
   Unterbaum direkt darunter. Mit mehreren ausgewählten Knoten wird jeder von ihnen dupliziert.
 - **Löschen**: `Entf` oder Menü „Bearbeiten" → „Löschen" (die Wurzel ist nicht löschbar). Mit
