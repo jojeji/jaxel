@@ -268,7 +268,7 @@ function objectToNode(name: string, entries: Array<[string, JVal]>): DocNode {
 function arrayElementToNode(name: string, val: JVal): DocNode {
   if (val.kind === "object") return objectToNode(name, val.entries);
   if (val.kind === "array") {
-    return createNode({ name, children: val.items.map((item) => arrayElementToNode(name, item)) });
+    return createNode({ name, jsonArray: true, children: val.items.map((item) => arrayElementToNode(name, item)) });
   }
   return primitiveNode(name, val);
 }
@@ -315,7 +315,8 @@ export function parseJson(source: string): { root: DocNode } {
       if (nodes.length === 1) {
         return { root: nodes[0]! };
       }
-      return { root: createNode({ name: key, synthetic: true, children: nodes }) };
+      // `nodes` is not exactly one node only for an array value (empty or several elements).
+      return { root: createNode({ name: key, synthetic: true, jsonArray: true, children: nodes }) };
     }
     return {
       root: createNode({
@@ -331,6 +332,7 @@ export function parseJson(source: string): { root: DocNode } {
       root: createNode({
         name: "$root",
         synthetic: true,
+        jsonArray: true,
         children: rootVal.items.map((item) => arrayElementToNode("$root", item)),
       }),
     };
