@@ -26,6 +26,7 @@ fn current_portable_data_directory() -> Option<PathBuf> {
 struct FileContent {
     content: String,
     encoding: String,
+    bom: bool,
     mtime_ms: u64,
     size: u64,
 }
@@ -87,6 +88,7 @@ fn read_text_file(path: String) -> Result<FileContent, InvokeError> {
         .map(|decoded| FileContent {
             content: decoded.content,
             encoding: decoded.encoding,
+            bom: decoded.bom,
             mtime_ms: decoded.stat.mtime_ms,
             size: decoded.stat.size,
         })
@@ -94,8 +96,13 @@ fn read_text_file(path: String) -> Result<FileContent, InvokeError> {
 }
 
 #[tauri::command]
-fn write_text_file(path: String, content: String, encoding: String) -> Result<FileStatResult, InvokeError> {
-    io::write_text_file(&PathBuf::from(&path), &content, &encoding)
+fn write_text_file(
+    path: String,
+    content: String,
+    encoding: String,
+    bom: Option<bool>,
+) -> Result<FileStatResult, InvokeError> {
+    io::write_text_file(&PathBuf::from(&path), &content, &encoding, bom.unwrap_or(false))
         .map(FileStatResult::from)
         .map_err(|error| log_io_error("write_text_file", &path, error))
 }

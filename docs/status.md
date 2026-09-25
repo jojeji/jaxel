@@ -1882,3 +1882,16 @@ Tabs bleibt in `App.tsx` als verwaister Eintrag im Speicher (klein, nur bis zum 
 Offen aus Review 3: Kandidat 5 (VS-Code-Anbindung an das Host-Dokument binden) und die
 fest verdrahteten deutschen Texte (Invariante #7) sind nicht Teil dieses Pakets.
 
+## Nachtrag 2026-09-25 — Kodierung byte-genau (Review 4, Kandidat 1)
+
+`io.rs`: eigenes `encode` (UTF-16 mit BOM, UTF-8-BOM erhalten), `DecodedFile.bom`, Deklaration
+wird nur noch als Deklaration gelesen; `lib.rs` reicht `bom` durch (`write_text_file` nimmt es
+optional); `host.ts`/`workspace.ts` führen es am Dokument mit. Tests: sechs neue Rust-Tests
+(fünf Rundreisen, vier davon vorher rot, darunter der zusätzlich gefundene Latin-1-Fehler) und
+zwei Node-Fälle.
+
+**Einschränkung der Prüfung:** Die Rust-Tests liefen über ein Hilfsprojekt, das `io.rs` per Pfad
+einbindet — der Tauri-Crate selbst lässt sich in dieser Umgebung nicht bauen (keine
+WebKit-Bibliotheken). `lib.rs` ist deshalb nur syntaktisch geprüft (`rustfmt --check`), nicht
+kompiliert: vor dem Release `cargo test`/`cargo check` lokal laufen lassen.
+

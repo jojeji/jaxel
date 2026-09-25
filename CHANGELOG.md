@@ -13,6 +13,10 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Dateikodierung bleibt beim Speichern erhalten: UTF-16-Dateien wurden bisher als UTF-8
+  geschrieben und waren danach nicht mehr lesbar; UTF-8-Dateien verloren ihren BOM;
+  ISO-8859-1-Dateien mit Umlauten nahe am Dateianfang wurden als UTF-8 gelesen und verloren beim
+  Speichern jeden Umlaut.
 - „Speichern unter“ auf eine Datei, die in einem anderen Tab offen ist, schließt diesen Tab.
   Bisher blieben zwei Tabs für denselben Pfad offen, und ein späteres Speichern im alten Tab
   konnte den neuen Inhalt überschreiben.

@@ -29,6 +29,9 @@ export interface OpenDocumentState {
   /** Raw text as last read from (or written to) disk — the baseline for XML's minimal-invasive save. */
   sourceText: string;
   encoding: string;
+  /** The file had a byte order mark when it was read; saving writes it back (docs/entscheidungen.md
+   * #9 — the original encoding, BOM included, is kept). */
+  bom: boolean;
   /** True for a brand-new document that has never been saved — `filePath` is a placeholder
    * ("Unbenannt-N"), not a real path. Saving must go through "save as" first. */
   isUntitled?: boolean;
@@ -193,7 +196,14 @@ export class Workspace {
     const doc: OpenDocumentState = {
       filePath: path,
       format,
-      ...this.loadDocument(format, parseDocument(format, result.content), result.encoding, result.content, result),
+      ...this.loadDocument(
+        format,
+        parseDocument(format, result.content),
+        result.encoding,
+        result.bom ?? false,
+        result.content,
+        result,
+      ),
     };
     this.update({ docs: [...current.docs, doc], tabs: [...current.tabs, this.fullViewTab(path)], activeKey: key }, true);
   };
@@ -204,7 +214,7 @@ export class Workspace {
     const target = this.findDoc(targetPath);
     if (!target) return;
     const text = serializeForSave(target);
-    const stat = await this.host.writeTextFile(target.filePath, text, target.encoding);
+    const stat = await this.host.writeTextFile(target.filePath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei gespeichert: ${target.filePath}`);
     this.commitSaved(target, text, stat);
   };
@@ -215,7 +225,7 @@ export class Workspace {
     const target = this.findDoc(currentPath);
     if (!target) return;
     const text = serializeForSave(target);
-    const stat = await this.host.writeTextFile(newPath, text, target.encoding);
+    const stat = await this.host.writeTextFile(newPath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei gespeichert: ${newPath}`);
     this.commitSaved(target, text, stat);
     this.closeReplacedDocument(newPath, target);
@@ -261,7 +271,7 @@ export class Workspace {
       indent: target.document.indent,
       encoding: target.encoding,
     });
-    const stat = await this.host.writeTextFile(newPath, text, target.encoding);
+    const stat = await this.host.writeTextFile(newPath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei konvertiert nach ${targetFormat} und gespeichert: ${newPath}`);
     this.closeReplacedDocument(newPath, target);
 
@@ -271,6 +281,7 @@ export class Workspace {
       newFilePath: newPath,
       newFormat: targetFormat,
       encoding: target.encoding,
+      bom: target.bom,
       sourceText: text,
       mtimeMs: stat.mtimeMs,
       size: stat.size,
@@ -291,7 +302,7 @@ export class Workspace {
       filePath: path,
       format,
       isUntitled: true,
-      ...this.loadDocument(format, parsed, "UTF-8", text, { mtimeMs: 0, size: 0 }),
+      ...this.loadDocument(format, parsed, "UTF-8", false, text, { mtimeMs: 0, size: 0 }),
     };
     this.update(
       { docs: [...current.docs, doc], tabs: [...current.tabs, this.fullViewTab(path)], activeKey: tabKey(path, null) },
@@ -446,6 +457,7 @@ export class Workspace {
       ...parsed,
       filePath,
       encoding: result.encoding,
+      bom: result.bom ?? false,
       sourceText: result.content,
       mtimeMs: result.mtimeMs,
       size: result.size,
@@ -525,6 +537,7 @@ export class Workspace {
     format: DocFormat,
     parsed: { root: DocNode } & XmlFraming,
     encoding: string,
+    bom: boolean,
     sourceText: string,
     stat: Pick<HostFileContent, "mtimeMs" | "size">,
   ): Omit<OpenDocumentState, "filePath" | "format" | "isUntitled"> {
@@ -549,6 +562,7 @@ export class Workspace {
       commandBus,
       sourceText,
       encoding,
+      bom,
       isDirty: false,
       changeBaseline: captureChangeBaseline(parsed.root),
       lastKnownMtimeMs: stat.mtimeMs,
@@ -596,6 +610,7 @@ export class Workspace {
       newFormat?: DocFormat;
       root: DocNode;
       encoding: string;
+      bom: boolean;
       sourceText: string;
       mtimeMs: number;
       size: number;
@@ -641,7 +656,7 @@ export class Workspace {
     };
 
     const format = params.newFormat ?? target?.format ?? "xml";
-    const loaded = this.loadDocument(format, params, params.encoding, params.sourceText, params);
+    const loaded = this.loadDocument(format, params, params.encoding, params.bom, params.sourceText, params);
     if (target) this.detach(target.commandBus); // drop the pre-swap subscription
 
     const current = this.snapshot;

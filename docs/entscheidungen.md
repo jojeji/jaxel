@@ -803,3 +803,24 @@ veralteten Inhalt über den neuen geschrieben.
 2. **Durchgesetzt im Workspace** (`closeReplacedDocument`) für „Speichern unter“ und für die
    Konvertierung, jeweils erst nach erfolgreichem Schreiben.
 
+## 2026-09-25 — Kodierung: Rundreise byte-genau (BOM, UTF-16, Deklaration)
+
+Aus dem vierten Architektur-Review (nur Strong). Entscheidung #9 verlangt, dass die
+Ursprungskodierung beim Speichern erhalten bleibt. Drei Fehler in `io.rs` brachen das, alle per
+Rust-Test belegt:
+
+1. **UTF-16 wurde als UTF-8 geschrieben** (encoding_rs kodiert UTF-16 nicht, sondern liefert
+   UTF-8), die Datei deklarierte aber weiter UTF-16 und war für Jaxel danach unlesbar. `io.rs`
+   kodiert UTF-16 LE/BE jetzt selbst und **immer mit BOM** — ohne BOM könnte `detect_encoding`
+   die eigene Datei nicht wiedererkennen.
+2. **Der BOM ging verloren.** Lesen meldet jetzt `bom`, der Workspace merkt es sich am Dokument
+   (`OpenDocumentState.bom`) und gibt es beim Speichern, „Speichern unter“ und Konvertieren an
+   `write_text_file` zurück. Fehlt das Feld (ältere Aufrufer, VS-Code-Host), gilt „kein BOM“.
+3. **Die Deklaration wurde übersehen, sobald in den ersten 200 Bytes ein Nicht-ASCII-Zeichen
+   stand** (die Prüfung verlangte gültiges UTF-8 für den ganzen Block). Eine ISO-8859-1-Datei
+   mit Umlaut direkt nach der Deklaration wurde als UTF-8 gelesen und verlor beim Speichern jeden
+   Umlaut. Nur die Deklaration selbst wird jetzt als Text gelesen.
+
+Die Rundreise ist in `io.rs` getestet: lesen → unverändert speichern → Bytes identisch (UTF-16
+LE/BE, UTF-8 mit/ohne BOM, ISO-8859-1).
+

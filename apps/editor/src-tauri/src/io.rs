@@ -30,16 +30,21 @@ fn stat_of(path: &Path) -> Result<FileStat, String> {
 pub struct DecodedFile {
     pub content: String,
     pub encoding: String,
+    /// The file started with a byte order mark. Decoding strips it from `content`; saving puts it
+    /// back (see `write_text_file`), so a save without edits reproduces the file byte for byte.
+    pub bom: bool,
     pub stat: FileStat,
 }
 
 fn sniff_xml_declared_encoding(bytes: &[u8]) -> Option<&'static Encoding> {
     // Die XML-Deklaration ist reines ASCII und steht immer am Dateianfang;
-    // ein einfacher Byte-Scan der ersten 200 Bytes reicht.
+    // ein einfacher Byte-Scan der ersten 200 Bytes reicht. Nur die Deklaration selbst wird als
+    // Text gelesen: Was danach kommt, ist in der deklarierten Kodierung (etwa ein Latin-1-„ä“)
+    // und kein gültiges UTF-8 — prüfte man die ganzen 200 Bytes, fiele eine solche Datei still
+    // auf UTF-8 zurück und verlöre beim Speichern jeden Umlaut.
     let head = &bytes[..bytes.len().min(200)];
-    let head_str = std::str::from_utf8(head).ok()?;
-    let decl_end = head_str.find("?>")?;
-    let decl = &head_str[..decl_end];
+    let decl_end = head.windows(2).position(|pair| pair == b"?>")?;
+    let decl = std::str::from_utf8(&head[..decl_end]).ok()?;
     let key = "encoding=";
     let start = decl.find(key)? + key.len();
     let quote = decl.as_bytes().get(start).copied()?;
@@ -58,22 +63,41 @@ fn detect_encoding(bytes: &[u8]) -> &'static Encoding {
     sniff_xml_declared_encoding(bytes).unwrap_or(encoding_rs::UTF_8)
 }
 
+/// Text → bytes in `encoding`, with a BOM if `bom`. encoding_rs cannot do this alone: its
+/// `encode` writes UTF-8 when asked for UTF-16 (it only decodes UTF-16) and never writes a BOM.
+fn encode(content: &str, encoding: &'static Encoding, bom: bool) -> Vec<u8> {
+    if encoding == encoding_rs::UTF_16LE || encoding == encoding_rs::UTF_16BE {
+        let little_endian = encoding == encoding_rs::UTF_16LE;
+        // Always with BOM: without one, `detect_encoding` could not recognise UTF-16 again (the
+        // XML declaration would not be ASCII bytes), so Jaxel could not reopen its own file.
+        let mut bytes = if little_endian { vec![0xFF, 0xFE] } else { vec![0xFE, 0xFF] };
+        for unit in content.encode_utf16() {
+            bytes.extend_from_slice(&if little_endian { unit.to_le_bytes() } else { unit.to_be_bytes() });
+        }
+        return bytes;
+    }
+    let mut bytes = if bom && encoding == encoding_rs::UTF_8 { vec![0xEF, 0xBB, 0xBF] } else { Vec::new() };
+    bytes.extend_from_slice(&encoding.encode(content).0);
+    bytes
+}
+
 pub fn read_text_file(path: &Path) -> Result<DecodedFile, String> {
     let bytes = fs::read(path).map_err(|error| error.to_string())?;
     let encoding = detect_encoding(&bytes);
+    let bom = Encoding::for_bom(&bytes).is_some();
     let (content, _actual_encoding, _had_errors) = encoding.decode(&bytes);
     let stat = stat_of(path)?;
     Ok(DecodedFile {
         content: content.into_owned(),
         encoding: encoding.name().to_string(),
+        bom,
         stat,
     })
 }
 
-pub fn write_text_file(path: &Path, content: &str, encoding_name: &str) -> Result<FileStat, String> {
+pub fn write_text_file(path: &Path, content: &str, encoding_name: &str, bom: bool) -> Result<FileStat, String> {
     let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(encoding_rs::UTF_8);
-    let (bytes, _actual_encoding, _had_unmappable) = encoding.encode(content);
-    fs::write(path, bytes).map_err(|error| error.to_string())?;
+    fs::write(path, encode(content, encoding, bom)).map_err(|error| error.to_string())?;
     stat_of(path)
 }
 
@@ -104,6 +128,12 @@ mod tests {
     fn sniffs_declared_encoding_from_xml_prolog() {
         let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><root/>";
         assert_eq!(detect_encoding(bytes).name(), "windows-1252"); // encoding_rs' ISO-8859-1 alias
+    }
+
+    #[test]
+    fn sniffs_the_declaration_even_when_non_ascii_text_follows_within_200_bytes() {
+        let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a>\xE4\xF6\xFC</a>";
+        assert_eq!(detect_encoding(bytes).name(), "windows-1252");
     }
 
     #[test]
@@ -153,4 +183,56 @@ mod tests {
         bytes.extend_from_slice(b"<?xml version=\"1.0\" encoding=\"UTF-16\"?><root/>");
         assert_eq!(detect_encoding(&bytes).name(), "UTF-8");
     }
+
+    /// Writes `bytes`, reads them like Jaxel does, saves the text back unchanged, and returns
+    /// what ended up on disk — a save without edits must reproduce the file byte for byte.
+    fn round_trip(name: &str, bytes: &[u8]) -> Vec<u8> {
+        let path = std::env::temp_dir().join(format!("jaxel-io-{}-{name}", std::process::id()));
+        fs::write(&path, bytes).unwrap();
+        let decoded = read_text_file(&path).unwrap();
+        write_text_file(&path, &decoded.content, &decoded.encoding, decoded.bom).unwrap();
+        let written = fs::read(&path).unwrap();
+        fs::remove_file(&path).ok();
+        written
+    }
+
+    fn utf16(text: &str, little_endian: bool) -> Vec<u8> {
+        let mut bytes = if little_endian { vec![0xFF, 0xFE] } else { vec![0xFE, 0xFF] };
+        for unit in text.encode_utf16() {
+            bytes.extend_from_slice(&if little_endian { unit.to_le_bytes() } else { unit.to_be_bytes() });
+        }
+        bytes
+    }
+
+    #[test]
+    fn keeps_utf16le_with_its_bom() {
+        let original = utf16("<?xml version=\"1.0\" encoding=\"UTF-16\"?><a>ä€</a>", true);
+        assert_eq!(round_trip("u16le.xml", &original), original);
+    }
+
+    #[test]
+    fn keeps_utf16be_with_its_bom() {
+        let original = utf16("<a>ä€</a>", false);
+        assert_eq!(round_trip("u16be.xml", &original), original);
+    }
+
+    #[test]
+    fn keeps_the_utf8_bom() {
+        let mut original = vec![0xEF, 0xBB, 0xBF];
+        original.extend_from_slice("<a>ä</a>".as_bytes());
+        assert_eq!(round_trip("u8bom.xml", &original), original);
+    }
+
+    #[test]
+    fn adds_no_bom_to_plain_utf8() {
+        let original = "<a>ä</a>".as_bytes().to_vec();
+        assert_eq!(round_trip("u8.xml", &original), original);
+    }
+
+    #[test]
+    fn keeps_a_declared_single_byte_encoding() {
+        let original = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a>\xE4</a>".to_vec();
+        assert_eq!(round_trip("latin1.xml", &original), original);
+    }
+
 }
