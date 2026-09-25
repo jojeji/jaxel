@@ -9,7 +9,7 @@ import type { DocNode } from "../model/node.js";
  *
  * `chain` is expected as [...ancestors, node] (root first, the changed node last).
  *
- * These three are pure primitives, deliberately not commands-specific: CommandBus is the
+ * These are pure primitives, deliberately not commands-specific: CommandBus is the
  * ONLY caller (see command-bus.ts) — it owns capturing/clearing/restoring for every
  * command's `byteRangeChain`, including the save-epoch check that decides whether a
  * restore is still safe. Individual commands (rename.ts, set-value.ts, ...) only declare
@@ -45,8 +45,29 @@ export function restoreByteRanges(chain: DocNode[], saved: DocNode["byteRange"][
  * left untouched — only the `byteRange` field is refreshed.
  */
 export function syncByteRangesAfterSave(existing: DocNode, fresh: DocNode): void {
-  existing.byteRange = fresh.byteRange;
-  for (let i = 0; i < existing.children.length; i++) {
-    syncByteRangesAfterSave(existing.children[i]!, fresh.children[i]!);
+  // "Guaranteed structurally identical" is the contract, but a model that serializes to
+  // something that parses differently must not leave half the tree synced to the new text and
+  // half to the old one (or throw half way): drop every range instead — the next save then
+  // rebuilds from the model, which is always safe.
+  if (!sameShape(existing, fresh)) {
+    stripByteRanges(existing);
+    return;
   }
+  copyByteRanges(existing, fresh);
+}
+
+function sameShape(a: DocNode, b: DocNode): boolean {
+  if (a.kind !== b.kind || a.name !== b.name || a.children.length !== b.children.length) return false;
+  return a.children.every((child, i) => sameShape(child, b.children[i]!));
+}
+
+function copyByteRanges(existing: DocNode, fresh: DocNode): void {
+  existing.byteRange = fresh.byteRange;
+  existing.children.forEach((child, i) => copyByteRanges(child, fresh.children[i]!));
+}
+
+/** Clears the byteRange of `node` and its whole subtree. */
+export function stripByteRanges(node: DocNode): void {
+  node.byteRange = undefined;
+  for (const child of node.children) stripByteRanges(child);
 }

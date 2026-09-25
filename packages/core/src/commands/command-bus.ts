@@ -1,7 +1,7 @@
 import type { JaxelDocument } from "../model/document.js";
 import type { DocNode } from "../model/node.js";
 import type { Command } from "./command.js";
-import { captureByteRanges, clearByteRanges, restoreByteRanges } from "./byte-range.js";
+import { captureByteRanges, clearByteRanges, restoreByteRanges, stripByteRanges } from "./byte-range.js";
 
 interface ByteRangeSnapshot {
   /** `saveEpoch` at capture time — see `markSaved`. */
@@ -21,6 +21,12 @@ interface ByteRangeSnapshot {
  * byteRange captured before a save is invalid the moment minimal-invasive save's reference
  * text changes, so restoring it verbatim would corrupt the NEXT save instead of just leaving
  * the node to be freshly rebuilt from the model (safe).
+ *
+ * The same holds for whole subtrees an undo/redo puts back into the tree (a deleted node, the
+ * comment an uncomment replaced, a duplicate): while they sat in the history they missed the
+ * save's `syncByteRangesAfterSave`, so their ranges still point into the previous file text.
+ * Any child of a chain node that was not there before the undo/redo is such a subtree; if a
+ * save happened since the command last ran, its ranges are dropped.
  */
 export class CommandBus {
   private readonly undoStack: Command[] = [];
@@ -32,6 +38,8 @@ export class CommandBus {
   /** Bumped by every `markSaved()`. See the class doc comment ("Save-Epoche"). */
   private saveEpoch = 0;
   private readonly byteRangeSnapshots = new WeakMap<Command, ByteRangeSnapshot>();
+  /** `saveEpoch` at the time each command last ran (do, undo or redo). */
+  private readonly lastRunEpoch = new WeakMap<Command, number>();
 
   constructor(private readonly doc: JaxelDocument) {}
 
@@ -78,6 +86,7 @@ export class CommandBus {
     clearByteRanges(command.byteRangeChain);
     this.doc.revision++;
 
+    this.lastRunEpoch.set(stackEntry, this.saveEpoch);
     if (isCoalesce) {
       this.undoStack[this.undoStack.length - 1] = stackEntry;
     } else {
@@ -98,7 +107,7 @@ export class CommandBus {
   undo(): void {
     const command = this.undoStack.pop();
     if (!command) return;
-    command.undo(this.doc);
+    this.runReattaching(command, () => command.undo(this.doc));
     this.doc.revision++;
     // Always clear first: whatever byteRange the chain carried belonged to the PRE-undo
     // value, which undo() above just changed — that byteRange is wrong now regardless of
@@ -116,7 +125,7 @@ export class CommandBus {
   redo(): void {
     const command = this.redoStack.pop();
     if (!command) return;
-    command.do(this.doc);
+    this.runReattaching(command, () => command.do(this.doc));
     clearByteRanges(command.byteRangeChain);
     this.doc.revision++;
     this.undoStack.push(command);
@@ -146,6 +155,21 @@ export class CommandBus {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** Runs an undo/redo of `command` and drops stale byteRanges from the subtrees it puts back
+   * (see the class doc comment). */
+  private runReattaching(command: Command, run: () => void): void {
+    const staleSinceLastRun = this.lastRunEpoch.get(command) !== this.saveEpoch;
+    const before = staleSinceLastRun
+      ? new Set(command.byteRangeChain.flatMap((node) => node.children))
+      : undefined;
+    run();
+    this.lastRunEpoch.set(command, this.saveEpoch);
+    if (!before) return;
+    for (const node of command.byteRangeChain) {
+      for (const child of node.children) if (!before.has(child)) stripByteRanges(child);
+    }
   }
 
   private notify(): void {
