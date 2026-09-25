@@ -49,7 +49,12 @@ export class CommandBus {
 
   execute(command: Command): void {
     const previous = this.undoStack[this.undoStack.length - 1];
-    const isCoalesce = command.coalesceKey !== undefined && previous?.coalesceKey === command.coalesceKey;
+    // Never merge into an entry at or below the saved baseline: the merged step would carry
+    // the change past the save while the stack depth stayed put, so `isDirty` would say clean.
+    const isCoalesce =
+      command.coalesceKey !== undefined &&
+      previous?.coalesceKey === command.coalesceKey &&
+      this.undoStack.length > this.savedDepth;
 
     let stackEntry: Command;
     if (isCoalesce) {

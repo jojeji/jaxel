@@ -263,9 +263,9 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
    * (Standalone has no such channel; there the host calls below are no-ops.) */
   const hostDoc = embedded ? (docs.find((doc) => doc.filePath === hostDocPath) ?? null) : activeDoc;
 
-  useEffect(() => host.onSaved((_revision, text, stat) => {
+  useEffect(() => host.onSaved((revision, text, stat) => {
     if (!hostDoc) return;
-    if (text !== undefined) acknowledgeSaved(hostDoc.filePath, text, stat);
+    if (text !== undefined) acknowledgeSaved(hostDoc.filePath, text, stat, revision);
     else hostDoc.commandBus.markSaved(); // Compatibility with older embedded bundles.
   }), [host, hostDoc, acknowledgeSaved]);
 

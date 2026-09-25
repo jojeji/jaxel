@@ -16,6 +16,8 @@ class InMemoryHost implements WorkspaceHost {
   readonly boms = new Set<string>();
   /** Encoding a file was last written in, and the one it reports when read. */
   readonly encodings = new Map<string, string>();
+  /** While set, writes wait for it — a slow disk, to edit in the middle of a save. */
+  writeGate?: Promise<void>;
   private clock = 1000;
 
   constructor(files: Record<string, string> = {}) {
@@ -30,6 +32,7 @@ class InMemoryHost implements WorkspaceHost {
   }
 
   async writeTextFile(path: string, content: string, encoding: string, bom?: boolean): Promise<HostFileStat> {
+    await this.writeGate;
     this.files.set(path, content);
     this.encodings.set(path, encoding);
     if (bom) this.boms.add(path);
@@ -333,6 +336,42 @@ describe("Dirty und Speichern", () => {
     setName(workspace, 1, "Benedikt");
     await workspace.saveFile();
     expect(host.files.get("/c.xml")).toBe(written.replace("<name>Ben</name>", "<name>Benedikt</name>"));
+  });
+
+  // An edit made while the write was still running was marked saved without being on disk, and
+  // the next save wrote the old value again (its byteRange came from the text written before).
+  it("bleibt geändert, wenn während des Schreibens bearbeitet wurde, und speichert die Änderung beim nächsten Mal", async () => {
+    const { host, workspace } = await openCatalog();
+    setName(workspace, 0, "Annabella");
+    let release!: () => void;
+    host.writeGate = new Promise((resolve) => (release = resolve));
+    const saving = workspace.saveFile();
+    setName(workspace, 1, "B-EDIT");
+    release();
+    await saving;
+    host.writeGate = undefined;
+
+    expect(active(workspace).doc.isDirty).toBe(true);
+    await workspace.saveFile();
+    expect(host.files.get("/c.xml")).toBe(
+      CATALOG.replace("<name>Anna</name>", "<name>Annabella</name>").replace("<name>Ben</name>", "<name>B-EDIT</name>"),
+    );
+    expect(active(workspace).doc.isDirty).toBe(false);
+  });
+
+  it("übernimmt eine Host-Speicherung eines älteren Stands nicht als Baseline (VS-Code-Modus)", async () => {
+    const { host, workspace } = await openCatalog();
+    setName(workspace, 0, "Annabella");
+    const revisionAtSave = active(workspace).doc.document.revision;
+    const written = CATALOG.replace("<name>Anna</name>", "<name>Annabella</name>");
+    setName(workspace, 1, "B-EDIT");
+
+    workspace.acknowledgeSaved("/c.xml", written, { mtimeMs: 5000, size: written.length }, revisionAtSave);
+
+    expect(active(workspace).doc.isDirty).toBe(true);
+    expect(active(workspace).doc.lastKnownMtimeMs).toBe(5000);
+    await workspace.saveFile();
+    expect(host.files.get("/c.xml")).toBe(written.replace("<name>Ben</name>", "<name>B-EDIT</name>"));
   });
 });
 
