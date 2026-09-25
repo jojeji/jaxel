@@ -922,3 +922,16 @@ das Element neu geschrieben (schon wenn nur ein Kind bearbeitet wurde), stand im
    („&x;“), wird es als solche geschrieben. Zeichenreferenzen („&#65;“) als getippter Text bleiben
    Text.
 
+## 2026-09-25 — JSON-Werttyp folgt dem bearbeiteten Text
+
+Aus dem fünften Architektur-Review (nur Strong). Bearbeiten und „Alle ersetzen“ behielten den
+JSON-Typ eines Werts unverändert bei; der Export schreibt Zahlen, Wahrheitswerte und null ohne
+Anführungszeichen. „42 items“ in einem Zahlenfeld ergab `"n": 42 items` — ungültiges JSON, das
+Jaxel selbst nicht mehr öffnen konnte (per Test belegt).
+
+1. **`jsonTypeAfterEdit` (neben `createSetValueCommand`) ist die eine Regel**, die Baumaktionen
+   und „Alle ersetzen“ benutzen: number/boolean/null bleiben es nur, solange der Text ein gültiges
+   Literal dieses Typs ist (Zahl nach JSON-Grammatik, `true`/`false`, `null`), sonst String.
+2. **Ein String bleibt ein String**, auch wenn Ziffern hineingetippt werden — das ist, was der
+   Nutzer geschrieben hat. Einen Typwechsel String → Zahl gibt es bewusst nicht implizit.
+

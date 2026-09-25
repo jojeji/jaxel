@@ -4,7 +4,7 @@ import { findAncestorChain } from "../format/path.js";
 import { planReplacements } from "../search/search.js";
 import type { SearchOptions } from "../search/search.js";
 import { createRenameCommand } from "./rename.js";
-import { createSetValueCommand } from "./set-value.js";
+import { createSetValueCommand, jsonTypeAfterEdit } from "./set-value.js";
 import { createSetAttributeCommand } from "./set-attribute.js";
 import { createCompositeCommand } from "./composite.js";
 
@@ -58,7 +58,7 @@ export function createReplaceAllCommand(
     if (plan.kind === "name") {
       commands.push(createRenameCommand(plan.node, plan.after, ancestors));
     } else if (plan.kind === "value") {
-      commands.push(createSetValueCommand(plan.node, plan.after, plan.node.jsonType, ancestors));
+      commands.push(createSetValueCommand(plan.node, plan.after, jsonTypeAfterEdit(plan.node.jsonType, plan.after), ancestors));
     } else if (plan.kind === "attribute" && plan.attributeName) {
       commands.push(createSetAttributeCommand(plan.node, plan.attributeName, plan.after, ancestors));
     }

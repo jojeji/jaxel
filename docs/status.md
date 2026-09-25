@@ -1939,3 +1939,8 @@ Neues Modul `xml-chars.ts`; `decodeEntities`/`escapeText`/`escapeAttr` ersetzt. 
 `tests/xml-chars.test.ts` (fünf Fälle, zwei vorher rot; der Klartext-Fall sichert, dass der neue
 Schreiber nichts zur Referenz macht).
 
+## Nachtrag 2026-09-25 — JSON-Werttyp (Review 5, Kandidat 1)
+
+`jsonTypeAfterEdit` in `commands/set-value.ts`, genutzt von `tree-actions.ts` und
+`replace-all.ts`. Tests: `tests/json-value-type.test.ts` (sieben Fälle, fünf vorher rot).
+

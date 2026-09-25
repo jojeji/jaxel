@@ -19,7 +19,7 @@ import type { Command } from "./command.js";
 import { createCompositeCommand } from "./composite.js";
 import { createInsertNodeCommand } from "./insert-node.js";
 import { createRenameCommand } from "./rename.js";
-import { createSetValueCommand } from "./set-value.js";
+import { createSetValueCommand, jsonTypeAfterEdit } from "./set-value.js";
 import { createSetAttributeCommand } from "./set-attribute.js";
 import { createRenameAttributeCommand } from "./rename-attribute.js";
 import { commentOutBlocker, createCommentOutCommand, createUncommentCommand } from "./comment.js";
@@ -280,7 +280,7 @@ function buildPlan(
       // longer parses. Rejected rather than escaped: XML resolves no entities in comments.
       if (sole.node.kind === "comment" && action.value.includes("--")) return { blocker: "contains-double-hyphen" };
       return {
-        command: createSetValueCommand(sole.node, action.value, sole.node.jsonType, sole.ancestors),
+        command: createSetValueCommand(sole.node, action.value, jsonTypeAfterEdit(sole.node.jsonType, action.value), sole.ancestors),
       };
     case "set-attribute":
       return {

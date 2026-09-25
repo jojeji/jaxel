@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- JSON: Wer in einen Zahlen-, Wahrheits- oder null-Wert Text eintippt (oder ihn per „Alle
+  ersetzen“ ändert), bekommt einen String. Bisher wurde der Text unverändert als Zahl geschrieben
+  (`"n": 42 items`), und die Datei ließ sich nicht wieder öffnen.
 - Unbekannte Entity-Referenzen (z. B. `&nbsp;` oder DTD-Entities) wurden beim Speichern zu
   `&amp;nbsp;` und verloren damit ihre Bedeutung — auch wenn nur ein benachbarter Knoten
   bearbeitet wurde. Sie bleiben jetzt erhalten.
