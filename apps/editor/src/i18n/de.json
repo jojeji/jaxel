@@ -17,6 +17,7 @@
   "attributes.add": "Attribut hinzufügen",
   "attributes.newName": "Name",
   "attributes.newValue": "Wert",
+  "attributes.readOnly": "Schreibgeschützt: liegt in einem auskommentierten Bereich.",
   "toolbar.addChild": "Kind hinzufügen",
   "toolbar.delete": "Löschen",
   "toolbar.search": "Suchen",

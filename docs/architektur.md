@@ -51,6 +51,7 @@ verfügbare RAM (bewusste Entscheidung, siehe `entscheidungen.md` #3).
 
 - Modellkern, Tests: `packages/core/`
 - UI, Tauri-App: `apps/editor/`
+- Offene Dokumente und Tabs (React-frei): `apps/editor/src/state/workspace.ts`
 - Entscheidungslog: `docs/entscheidungen.md`
 - Ist-Stand je Arbeitspaket: `docs/status.md`
 - Benutzerhandbuch: `docs/benutzerhandbuch.md`

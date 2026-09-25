@@ -59,6 +59,15 @@ Speichern den Originaltext durch und muss ihn nie reserialisieren. Ob ein Kommen
 entscheidet allein der Parse-Versuch beim Laden; es gibt keine Markierung in der Datei.
 _Avoid_: deaktivierter Knoten, stillgelegter Knoten (Umgangssprache ok), Kommentar-Block.
 
+**Baumaktion**:
+Eine Mutation, die der Benutzer an Baumzeilen auslöst: Knoten oder Kommentar anlegen, löschen,
+duplizieren, einfügen, verschieben, aus- oder einkommentieren sowie Name, Wert oder Attribute
+einer Zeile bearbeiten. Ob eine Baumaktion erlaubt ist und welcher Command sie ausführt,
+entscheidet allein `@jaxel/core` (`treeActionBlocker`/`planTreeAction`); dieselbe Antwort graut
+Menüeinträge aus und stoppt das Tastenkürzel. Hier wird auch der Schreibschutz des
+auskommentierten Teilbaums durchgesetzt.
+_Avoid_: Handler, Menüaktion (das ist nur der Einstiegspunkt).
+
 **Prolog / Epilog**:
 Alles vor dem öffnenden Wurzel-Tag (XML-Deklaration, DOCTYPE, Kommentare,
 Verarbeitungsanweisungen) bzw. alles nach dem schließenden. Wird als Rohtext am Dokument
@@ -66,6 +75,12 @@ mitgeführt und beim Speichern wörtlich wieder vorangestellt bzw. angehängt �
 dafür keine Knoten, weil ein Dokument genau eine Wurzel hat. Kommentare darin erscheinen als
 schreibgeschützte Zeilen über bzw. unter der Wurzel.
 _Avoid_: Header/Footer, Vorspann, Dokumentkopf.
+
+**Workspace**:
+Alle aktuell geladenen Dokumente und ihre Tabs (Vollansicht und Fokus-Tabs) samt aktivem Tab.
+Ein Dokument bleibt geladen, solange mindestens ein Tab darauf zeigt. Im Code die Klasse
+`Workspace` (`apps/editor/src/state/workspace.ts`).
+_Avoid_: Store, Session (das sind die beim Start wiederhergestellten Tabs).
 
 **Zuletzt geöffnete Dateien**:
 Die vom Benutzer zuletzt geöffneten Pfade, die auf dem Startscreen und im Datei-Menü als

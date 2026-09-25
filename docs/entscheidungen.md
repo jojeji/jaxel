@@ -654,3 +654,68 @@ Die vier bestätigten Punkte sind umgesetzt: Die Verlaufslänge ist in den Einst
 „Alles zuklappen“ über das Ansichtsmenü sowie NumPad `*` und NumPad `/`. `open_log` berücksichtigt
 die möglichen Schreibweisen der Logdatei, damit portable Windows-Installationen nicht wegen einer
 abweichenden Groß-/Kleinschreibung auf den falschen Zielpfad fallen.
+
+## 2026-09-24 — Baumaktionen: Erlaubnis und Command-Bau im Core
+
+Gefunden per Architektur-Review (`improve-codebase-architecture`, Kandidat „Schreibschutz für
+auskommentierte Teilbäume in den Core holen“). Der Schreibschutz des auskommentierten Teilbaums
+war nur im UI durchgesetzt, verteilt über sieben Prüfungen in `App.tsx`; Einfügen (`Strg+V`) und
+„Kind anlegen“ unter einem Kommentar hatten keine Prüfung, die eingefügten Knoten wären beim
+nächsten Speichern verloren gegangen (Tests belegen beides).
+
+1. **Ein Modul, zwei Fragen:** `packages/core/src/commands/tree-actions.ts` beantwortet für jede
+   Baumaktion, ob sie auf diesen Zeilen erlaubt ist (`treeActionBlocker`, billig genug für jeden
+   Menü-Render) und welcher Command samt Folgeauswahl/Aufklappen/Editor sie ausführt
+   (`planTreeAction`). `App.tsx` führt nur noch den Plan aus. Vorbild ist
+   `planReplacements`/`createReplaceAllCommand` (Save-Epoche-Eintrag).
+2. **Menüzustand und Ausführung fragen dieselbe Stelle.** Vorher prüften Menüleiste,
+   Kontextmenü und Handler unterschiedlich (Menüleiste: nur „etwas ausgewählt“), genau daraus
+   entstanden die Lücken.
+3. **Regel:** Nichts innerhalb eines Kommentars wird geändert, und ein Kommentar bekommt keine
+   Kinder. Der Kommentarknoten selbst bleibt editierbar (Text) und darf Geschwister bekommen.
+4. **Verschieben wird strenger:** Bisher prüfte das Ziehen nur die gezogene Zeile; lag ein
+   Kommentar oder ein Knoten aus einem Kommentar zusätzlich in der Mehrfachauswahl, wurde er
+   mitverschoben. Jetzt blockiert jede solche Zeile in der Auswahl. Für Knoten *aus* einem
+   Kommentar war das ein Datenfehler (der Kommentartext hätte ihn beim Speichern
+   wiederhergestellt, also verdoppelt).
+
+## 2026-09-24 — Workspace: Dokument- und Tab-Verwaltung ohne React
+
+Gefunden per Architektur-Review (Kandidat „Workspace aus dem React-Hook lösen“). Die
+meistgeänderte Zustandslogik (`useJaxelDocuments`, 16 Commits seit Juli) war ein React-Hook ohne
+eigene Tests; erreichbar nur über `App.test.tsx` im Browser mit gemockten Tauri-Modulen.
+
+1. **`Workspace` (`apps/editor/src/state/workspace.ts`) ist eine React-freie Klasse** mit
+   unveränderlichen Snapshots (`getSnapshot`/`subscribe`). `useJaxelDocuments` ist nur noch der
+   `useSyncExternalStore`-Adapter und behält seine bisherige Rückgabe — `App.tsx` blieb dadurch
+   unverändert.
+2. **Ort `apps/editor`, nicht `packages/core`:** Tabs, Fokus-Tabs und „Unbenannt-N“ sind
+   Editor-Zustand, kein Dokumentmodell. Wie `tree/selection.ts` ist es reines TypeScript und läuft
+   im Node-Projekt `logic` (Dateiendung `*.test.ts`, Entscheidung vom 26.07.).
+3. **Seam zum Host: `WorkspaceHost = Pick<JaxelHost, "readTextFile" | "writeTextFile" | "log">`.**
+   Zwei Adapter: der echte Host (Tauri/VS Code) und `InMemoryHost` in `workspace.test.ts`.
+4. **Ein Speicherabschluss für alle Wege:** eigenes Speichern, „Speichern unter“ und die
+   Bestätigung einer VS-Code-Speicherung laufen durch dieselbe Methode `commitSaved`
+   (Byte-Offsets abgleichen → `markSaved` → Änderungsmarker-Baseline). Vorher existierte die
+   Reihenfolge doppelt (`persistSaved`, `acknowledgeSaved`).
+5. **`isDirty` bleibt ein Feld am Dokument-Snapshot, wird aber nur noch abgeleitet**
+   (`commandBus.isDirty()` bei jedem Command und nach jedem Speichern), nie unabhängig gesetzt.
+6. **CommandBus-Abos sind nach CommandBus geschlüsselt statt nach Dateipfad** — „Speichern unter“
+   muss dadurch keine Abo-Tabelle mehr umschlüsseln.
+
+## 2026-09-24 — Kommentare verschiebbar, Attribute im Kommentar schreibgeschützt
+
+PO-Entscheidung auf die zwei offenen Punkte aus „Baumaktionen im Core“:
+
+1. **Kommentarknoten sind per Drag&Drop verschiebbar** (wie in CONTEXT.md „Kommentarknoten“
+   beschrieben), als Ganzes samt eines auskommentierten Teilbaums. Weiterhin gesperrt: Zeilen
+   *innerhalb* eines Kommentars ziehen, und irgendetwas in einen Kommentar hinein oder neben eine
+   Zeile im Kommentar ablegen. Die Zielregel steht einmal im Core (`moveTargetBlocker`) und wird
+   auch von der Drop-Anzeige (`tree/dnd.ts`) benutzt, damit beim Ziehen keine Ablage angezeigt
+   wird, die danach abgelehnt würde. Das ersetzt Punkt 4 des Eintrags „Baumaktionen“, soweit er
+   Kommentarknoten selbst betraf.
+2. **Das Attribute-Panel ist für Knoten im Kommentar schreibgeschützt** (Felder `readOnly`, kein
+   Entfernen, keine neue Zeile, Hinweistext) statt Eingaben stillschweigend zu verwerfen. Die
+   Entscheidung kommt aus derselben Core-Regel (`set-attribute`); am Kommentarknoten selbst sind
+   Umbenennen und Attribute ebenfalls gesperrt, weil ein Kommentar nur seinen Text speichert.
+

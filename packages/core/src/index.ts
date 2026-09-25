@@ -49,6 +49,15 @@ export {
   createBulkRemoveCommand,
   topmostRows,
 } from "./commands/bulk.js";
+export type {
+  TreeAction,
+  TreeActionBlocker,
+  TreeActionContext,
+  TreeActionKind,
+  TreeActionPlan,
+  TreeActionResult,
+} from "./commands/tree-actions.js";
+export { isInsideComment, moveTargetBlocker, planTreeAction, treeActionBlocker } from "./commands/tree-actions.js";
 
 export type { ParseXmlResult } from "./format/xml-import.js";
 export { parseXml } from "./format/xml-import.js";

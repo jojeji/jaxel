@@ -17,6 +17,7 @@
   "attributes.add": "Add attribute",
   "attributes.newName": "Name",
   "attributes.newValue": "Value",
+  "attributes.readOnly": "Read-only: inside a commented-out section.",
   "toolbar.addChild": "Add child",
   "toolbar.delete": "Delete",
   "toolbar.search": "Search",

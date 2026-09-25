@@ -189,6 +189,14 @@ Standardmäßig ausgeschaltet, in den Einstellungen unter „Baum" aktivierbar:
   Geschwister unter der Auswahl ein (bei ausgewählter Wurzel: als letztes Kind). Beides auch
   über Menü „Bearbeiten". Sind mehrere Knoten ausgewählt, landen sie alle hintereinander in der
   Zwischenablage und werden beim Einfügen auch wieder als mehrere Knoten eingesetzt.
+- **Auskommentierte Bereiche sind schreibgeschützt**: Knoten innerhalb eines auskommentierten
+  Teilbaums lassen sich ansehen und durchsuchen, aber nicht ändern, löschen, duplizieren,
+  verschieben oder als Einfügeposition nutzen; unter einen Kommentar lässt sich auch kein Kind
+  anlegen. Die betreffenden Menüeinträge sind dort ausgegraut, das Tastenkürzel bewirkt nichts.
+  Grund: Jaxel schreibt beim Speichern den Kommentartext unverändert zurück — eine Änderung darin
+  ginge verloren. Das Attribute-Panel zeigt solche Knoten mit dem Hinweis „Schreibgeschützt“ an.
+  Den Kommentar selbst kann man weiterhin bearbeiten (Text) und per Drag&Drop als Ganzes an eine
+  andere Stelle ziehen; ablegen lässt sich dabei nichts in einen Kommentar hinein.
 - **Rückgängig/Wiederholen**: `Strg+Z` / `Strg+Y`, Toolbar-Buttons oder Menü „Bearbeiten" — jede
   sichtbare Aktion ist genau ein Schritt, auch „Alle ersetzen".
 

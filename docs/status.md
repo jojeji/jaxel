@@ -1788,3 +1788,55 @@ bleiben Einstellungen, sonstige WebView-Daten und die Logdatei im portablen
 Verzeichnis; installierte Varianten verwenden weiterhin die normalen
 Windows-AppData-Pfade. Die portable Markierung ist nötig, weil beide Varianten
 bislang denselben EXE-Namen verwenden.
+
+## Nachtrag 2026-09-24 — Baumaktionen im Core (Architektur-Review, Kandidat 2)
+
+Die Entscheidung, ob eine Baumaktion (CONTEXT.md) erlaubt ist, und der Bau ihres Commands liegen
+jetzt in `packages/core/src/commands/tree-actions.ts` (`treeActionBlocker`, `planTreeAction`,
+`isInsideComment`); `App.tsx` ruft nur noch `runTreeAction` auf und übernimmt Auswahl,
+Aufklappen und Inline-Editor aus dem Plan. Dabei behoben: `Strg+V` hinter einer Zeile im
+auskommentierten Teilbaum und „Kind anlegen“/„Kommentar als Kind“ unter einem Kommentar fügten
+Knoten ein, die beim Speichern verloren gingen. Neue Node-Tests: `packages/core/tests/tree-actions.test.ts`
+(31 Fälle); zwei neue UI-Tests in `App.test.tsx` belegen die behobenen Lücken. Sichtbar geändert:
+„Einfügen“ ist im Kontextmenü ohne Auswahl bzw. im Kommentar ausgegraut, die Menüleiste graut
+„Kind hinzufügen“/„Geschwister hinzufügen“ im Kommentar aus.
+
+Offene Punkte: (1) CONTEXT.md nennt Kommentarknoten „verschiebbar“, das Ziehen einer
+Kommentarzeile war aber schon vorher gesperrt und bleibt es — PO-Entscheidung nötig, ob
+Kommentare per Drag&Drop verschiebbar sein sollen. (2) Das Attribute-Panel zeigt für Knoten im
+Kommentar weiterhin Eingabefelder; Änderungen werden verworfen statt die Felder zu sperren
+(unverändertes Verhalten, reine UI-Frage). Nicht in `npm run dev` ausprobiert: die Session läuft
+in einem Container ohne Desktop, Nachweis über die Browsertests in Chromium.
+
+## Nachtrag 2026-09-24 — Workspace ohne React (Architektur-Review, Kandidat 1)
+
+Die Dokument- und Tab-Verwaltung liegt jetzt in der React-freien Klasse `Workspace`
+(`apps/editor/src/state/workspace.ts`); `useJaxelDocuments` in `document-store.ts` ist nur noch
+der Adapter über `useSyncExternalStore`. Typen und Helfer (`OpenDocumentState`, `TabState`,
+`tabKey`, `formatOfExtension`, `serializeForSave`) sind mit umgezogen. Neue Node-Tests
+`workspace.test.ts` (21 Fälle) mit einem In-Memory-Host decken Öffnen/Deduplizieren,
+Tab-Schließen und Nachbarwahl, Fokus-Tab-Verschmelzen, Speichern (inkl. der Regressionen
+„Byte-Offsets nach dem Speichern“ und „Save-Epoche“, gegengeprüft per absichtlich eingebautem
+Defekt), Speichern unter, VS-Code-Speicherbestätigung, Neuladen mit Pfad-Auflösung und
+Konvertieren ab. Alle 276 bestehenden Editor-Tests liefen ohne Anpassung durch.
+
+Bewusste Vereinfachungen: `App.tsx` nutzt weiterhin den Hook in unveränderter Form; die
+Host-Injektion über React-Context (Kandidat 4) und das Modul für externe Dateiänderungen
+(Kandidat 3) sind nicht Teil dieses Pakets. Einzige Verhaltensänderung: Öffnen einer bereits
+geladenen Datei parst sie nicht mehr erneut (vorher geparst und verworfen).
+
+Offen: Der Kompatibilitätszweig in `App.tsx` (`host.onSaved` ohne Text, ältere
+Extension-Versionen) ruft weiterhin nur `markSaved()` auf; `isDirty` im Snapshot bleibt dort bis
+zum nächsten Command auf `true` stehen (Verhalten unverändert). Nicht in `npm run dev`
+ausprobiert (Container ohne Desktop); Nachweis über die Browsertests in Chromium.
+
+## Nachtrag 2026-09-24 — Kommentare ziehen, Attribute im Kommentar schreibgeschützt
+
+Beide offenen Punkte aus „Baumaktionen im Core“ nach PO-Entscheidung umgesetzt (siehe
+`docs/entscheidungen.md`): Kommentarzeilen lassen sich per Drag&Drop verschieben; Zeilen im
+Kommentar sind nicht mehr `draggable`, und die Drop-Anzeige nutzt die Core-Regel
+`moveTargetBlocker`. Das Attribute-Panel erhält `readOnly`, gesteuert über
+`treeActionBlocker(…, "set-attribute")`. Tests: drei neue UI-Tests in `App.test.tsx` (vorher rot),
+drei neue Core-Fälle in `tree-actions.test.ts`. Nicht in `npm run dev` ausprobiert (Container
+ohne Desktop).
+

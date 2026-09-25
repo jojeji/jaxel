@@ -1,7 +1,7 @@
 import React from "react";
 import { CaretLeft, CaretRight, List, MagnifyingGlass } from "@phosphor-icons/react";
 import { useI18n } from "../i18n/index.js";
-import type { TabState } from "../state/document-store.js";
+import type { TabState } from "../state/workspace.js";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu.js";
 
 interface TabBarProps {
