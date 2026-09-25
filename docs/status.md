@@ -1933,3 +1933,9 @@ Entscheidungen berührt): `open_log`-Rückfall auf eine beliebige `.log`-Datei (
 hinaus, PO-Frage), manuelles Neuladen ohne `canCommit`, „Meine Version behalten“ merkt ggf. einen
 neueren Dateistand, Fokus-Prüfung kurz vor dem eigenen Speichern, Core-Parsefehler nur Englisch.
 
+## Nachtrag 2026-09-25 — Codec für XML-Zeichendaten (Review 5, Kandidat 2)
+
+Neues Modul `xml-chars.ts`; `decodeEntities`/`escapeText`/`escapeAttr` ersetzt. Tests:
+`tests/xml-chars.test.ts` (fünf Fälle, zwei vorher rot; der Klartext-Fall sichert, dass der neue
+Schreiber nichts zur Referenz macht).
+

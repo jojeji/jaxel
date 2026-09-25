@@ -31,10 +31,12 @@
  *   there is no prefix-to-`xmlns`-URI resolution (per docs/entscheidungen.md #6).
  * - Unknown named entities (i.e. anything beyond the five XML-predefined entities
  *   and numeric character references) would require DTD support we don't have;
- *   they are left untouched verbatim rather than rejected or resolved.
+ *   they are left untouched verbatim rather than rejected or resolved — and written back
+ *   verbatim too (xml-chars.ts owns both directions).
  */
 
 import { createCommentNode, createNode, type DocAttribute, type DocNode } from "../model/node.js";
+import { decodeCharData } from "./xml-chars.js";
 
 export interface ParseXmlResult {
   root: DocNode;
@@ -52,30 +54,6 @@ export interface ParseXmlResult {
 const NAME_START = /[A-Za-z_:À-￿]/;
 const NAME_CHAR = /[A-Za-z0-9_:.\-À-￿]/;
 const WHITESPACE = /\s/;
-const ENTITY_RE = /&(#[xX][0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos);/g;
-
-/** Decodes the five XML-predefined entities plus numeric character references. */
-function decodeEntities(text: string): string {
-  return text.replace(ENTITY_RE, (match, body: string) => {
-    switch (body) {
-      case "amp":
-        return "&";
-      case "lt":
-        return "<";
-      case "gt":
-        return ">";
-      case "quot":
-        return '"';
-      case "apos":
-        return "'";
-      default: {
-        const isHex = body[1] === "x" || body[1] === "X";
-        const code = isHex ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
-        return Number.isNaN(code) ? match : String.fromCodePoint(code);
-      }
-    }
-  });
-}
 
 /**
  * Builds a char-index -> UTF-8-byte-offset lookup table for `source`.
@@ -260,7 +238,7 @@ export function parseXml(source: string): ParseXmlResult {
       const valueStart = i + 1;
       const closeQuote = source.indexOf(quote, valueStart);
       if (closeQuote === -1) fail(`unterminated attribute value for "${attrName}"`, i);
-      attributes.push({ name: attrName, value: decodeEntities(source.slice(valueStart, closeQuote)) });
+      attributes.push({ name: attrName, value: decodeCharData(source.slice(valueStart, closeQuote)) });
       i = closeQuote + 1;
     }
     return { attributes, end: i };
@@ -350,7 +328,7 @@ export function parseXml(source: string): ParseXmlResult {
       }
       const next = source.indexOf("<", p);
       const stop = next === -1 ? len : next;
-      text += decodeEntities(source.slice(p, stop));
+      text += decodeCharData(source.slice(p, stop));
       p = stop;
     }
   }

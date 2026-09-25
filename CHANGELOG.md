@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Unbekannte Entity-Referenzen (z. B. `&nbsp;` oder DTD-Entities) wurden beim Speichern zu
+  `&amp;nbsp;` und verloren damit ihre Bedeutung — auch wenn nur ein benachbarter Knoten
+  bearbeitet wurde. Sie bleiben jetzt erhalten.
 - Auf Englisch erscheinen keine deutschen Texte mehr: neue Dokumente heißen „Untitled-1“,
   Fehlermeldungen aus dem Programmkern (Ordner öffnen, Base64, Logdatei) und aus dem
   VS-Code-Modus sind übersetzt.

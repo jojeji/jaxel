@@ -904,3 +904,21 @@ Anzeigename und Erkennungsmerkmal war (`TabBar.tsx` prüfte per Regex).
    Übersicht, Titelzeile, Schließen-/Konvertieren-Dialog, Vorschlag bei „Speichern unter“).
    `TabBar` erfährt „unbenannt“ über `untitledNames` statt über das Pfadformat.
 
+## 2026-09-25 — Ein Codec für XML-Zeichendaten
+
+Aus dem fünften Architektur-Review (nur Strong). Der Import ließ unbekannte Entity-Referenzen
+(`&nbsp;`, DTD-Entities) wörtlich im Modell stehen, der Export maskierte aber jedes `&` — wurde
+das Element neu geschrieben (schon wenn nur ein Kind bearbeitet wurde), stand im Attribut
+`a="&amp;c;"` statt `a="&c;"`: stille Bedeutungsänderung (per Test belegt).
+
+1. **`packages/core/src/format/xml-chars.ts` besitzt beide Richtungen** (`decodeCharData`,
+   `encodeText`, `encodeAttribute`); `xml-import.ts`/`xml-export.ts` nutzen nur noch das.
+2. **Regel, symmetrisch:** Ein `&`, das wie eine Entity-Referenz aussieht (`&name;`), bleibt in
+   beide Richtungen stehen; jedes andere `&` ist das Zeichen „&“. Ein maskiertes `&amp;` direkt vor
+   `name;` wird beim Lesen deshalb NICHT dekodiert (bleibt `&amp;`), sonst würde aus dem Klartext
+   „&nbsp;“ beim Schreiben eine echte Referenz. Folge: Dieser seltene Klartext erscheint im Baum
+   als `&amp;nbsp;`.
+3. **Bewusst in Kauf genommen:** Tippt ein Nutzer etwas, das wie eine Entity-Referenz aussieht
+   („&x;“), wird es als solche geschrieben. Zeichenreferenzen („&#65;“) als getippter Text bleiben
+   Text.
+

@@ -23,17 +23,10 @@
 
 import type { XmlFraming } from "../model/document.js";
 import type { DocNode } from "../model/node.js";
-
-function escapeText(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeAttr(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-}
+import { encodeAttribute, encodeText } from "./xml-chars.js";
 
 function serializeAttributes(node: DocNode): string {
-  return node.attributes.map((a) => ` ${a.name}="${escapeAttr(a.value)}"`).join("");
+  return node.attributes.map((a) => ` ${a.name}="${encodeAttribute(a.value)}"`).join("");
 }
 
 /** Reference bytes for the minimal-invasive verbatim-copy shortcut — absent for `serializeXml`,
@@ -63,7 +56,7 @@ function serializeNode(node: DocNode, indent: string, depth: number, byteSource?
   if (text === "") {
     return `${pad}<${node.name}${attrs}/>`;
   }
-  return `${pad}<${node.name}${attrs}>${escapeText(text)}</${node.name}>`;
+  return `${pad}<${node.name}${attrs}>${encodeText(text)}</${node.name}>`;
 }
 
 /** Puts the verbatim prolog/epilog captured by `parseXml` back around the serialized body.
