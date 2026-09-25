@@ -114,10 +114,13 @@ fn stat_file(path: String) -> Result<FileStatResult, InvokeError> {
         .map_err(|error| log_io_error("stat_file", &path, error))
 }
 
+// User-facing errors of the commands below are reported as "<i18n key>|<detail>" rather than a
+// finished (German) sentence: the frontend translates the key (errors.ts, hostErrorMessage), so
+// the message appears in the user's language (CLAUDE.md invariant #7).
 #[tauri::command]
 fn open_parent_folder(path: String) -> Result<String, InvokeError> {
     let file = PathBuf::from(&path);
-    let parent = file.parent().ok_or_else(|| InvokeError::from("Datei hat keinen übergeordneten Ordner"))?;
+    let parent = file.parent().ok_or_else(|| InvokeError::from("error.noParentFolder|"))?;
     #[cfg(target_os = "windows")]
     let result = std::process::Command::new("explorer").arg(format!("/select,{}", file.display())).spawn().map(|_| ());
     #[cfg(target_os = "macos")]
@@ -126,7 +129,7 @@ fn open_parent_folder(path: String) -> Result<String, InvokeError> {
     let result = open::that_detached(parent);
     result.map_err(|error| {
         log::error!("open_parent_folder fehlgeschlagen ({}): {error}", parent.display());
-        InvokeError::from(format!("Ordner konnte nicht geöffnet werden: {error}"))
+        InvokeError::from(format!("error.openFolderFailed|{error}"))
     })?;
     Ok(parent.to_string_lossy().into_owned())
 }
@@ -142,7 +145,7 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
     let compact: String = data_base64.chars().filter(|c| !c.is_whitespace()).collect();
     let bytes = base64::engine::general_purpose::STANDARD.decode(compact).map_err(|e| {
         log::error!("open_decoded_file: ungültiges Base64: {e}");
-        InvokeError::from(format!("Ungültiges Base64: {e}"))
+        InvokeError::from(format!("error.invalidBase64|{e}"))
     })?;
 
     // Extension comes from our own magic-byte sniffing, but sanitize anyway.
@@ -156,11 +159,11 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
 
     std::fs::write(&path, bytes).map_err(|e| {
         log::error!("open_decoded_file: Temp-Datei fehlgeschlagen ({}): {e}", path.display());
-        InvokeError::from(format!("Temp-Datei fehlgeschlagen: {e}"))
+        InvokeError::from(format!("error.tempFileFailed|{e}"))
     })?;
     open::that_detached(&path).map_err(|e| {
         log::error!("open_decoded_file: Öffnen fehlgeschlagen ({}): {e}", path.display());
-        InvokeError::from(format!("Öffnen fehlgeschlagen: {e}"))
+        InvokeError::from(format!("error.openFailed|{e}"))
     })?;
     Ok(path.to_string_lossy().into_owned())
 }
@@ -175,7 +178,7 @@ fn open_log(app: tauri::AppHandle) -> Result<String, InvokeError> {
     } else {
         app.path().app_log_dir().map_err(|e| {
             log::error!("open_log: Log-Verzeichnis unbekannt: {e}");
-            InvokeError::from(format!("Log-Verzeichnis unbekannt: {e}"))
+            InvokeError::from(format!("error.logDirUnknown|{e}"))
         })?
     };
     // tauri-plugin-log normally uses the package name, while older portable builds and
@@ -203,7 +206,7 @@ fn open_log(app: tauri::AppHandle) -> Result<String, InvokeError> {
         .unwrap_or(dir);
     open::that_detached(&target).map_err(|e| {
         log::error!("open_log: Öffnen fehlgeschlagen ({}): {e}", target.display());
-        InvokeError::from(format!("Öffnen fehlgeschlagen ({}): {e}", target.display()))
+        InvokeError::from(format!("error.openFailed|{}: {e}", target.display()))
     })?;
     Ok(target.to_string_lossy().into_owned())
 }

@@ -37,7 +37,7 @@ import {
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
 import { getJaxelHost, type JaxelHost } from "./host.js";
-import { conversionErrorMessage, toErrorMessage } from "./errors.js";
+import { conversionErrorMessage, hostErrorMessage, toErrorMessage } from "./errors.js";
 import { resolveShortcut } from "./shortcuts.js";
 import { ACTIONS, isActionEnabled, type ActionContext, type AppActionId } from "./actions.js";
 import { useJaxelDocuments } from "./state/document-store.js";
@@ -642,6 +642,23 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     return path.split(/[/\\]/).pop() ?? path;
   }
 
+  /** Display names of untitled documents by their internal placeholder path — translated
+   * ("Unbenannt-1" / "Untitled-1"), since the placeholder itself is never shown. */
+  const untitledNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const doc of docs) {
+      if (doc.untitledNumber !== undefined) {
+        names.set(doc.filePath, t("document.untitled").replace("{n}", String(doc.untitledNumber)));
+      }
+    }
+    return names;
+  }, [docs, t]);
+
+  /** What the user calls a document: its file name, or the translated name of an untitled one. */
+  function displayNameOf(path: string): string {
+    return untitledNames.get(path) ?? fileNameOf(path);
+  }
+
   /**
    * Re-reads `filePath` from disk (docs/entscheidungen.md 2026-07-18 #4). If it's the active
    * tab's document, the current selection and expanded nodes are captured as path SEGMENTS
@@ -836,10 +853,11 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
   async function promptSaveAs(doc: OpenDocumentState): Promise<string | null> {
     const extension = doc.format === "xml" ? "xml" : "json";
     const dir = getLastDir();
+    const suggestedName = `${displayNameOf(doc.filePath)}.${extension}`;
     const path = await host.pickSaveFile(doc.isUntitled
         ? dir
-          ? `${dir}/${doc.filePath}.${extension}`
-          : `${doc.filePath}.${extension}`
+          ? `${dir}/${suggestedName}`
+          : suggestedName
         : doc.filePath, ["xml", "json"]);
     if (typeof path !== "string") return null; // user cancelled the dialog
     const targetFormat = formatOfExtension(path);
@@ -1380,7 +1398,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
   function handleOpenTabParent(path: string): void {
     void host.openParentFolder(path).then(
       () => setStatus(t("tabs.parentOpened")),
-      (err) => setError(toErrorMessage(err)),
+      (err) => setError(hostErrorMessage(err, t)),
     );
   }
 
@@ -1460,8 +1478,8 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       return;
     }
     host.openDecodedFile(decoded).then(
-      (path) => setStatus(path ? t("base64.openedExternally").replace("{path}", path) : "PDF an VS Code übergeben."),
-      (err) => setError(toErrorMessage(err)),
+      (path) => setStatus(path ? t("base64.openedExternally").replace("{path}", path) : t("base64.handedToVscode")),
+      (err) => setError(hostErrorMessage(err, t)),
     );
   }
 
@@ -1501,7 +1519,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
   function handleOpenLog(): void {
     host.openLog().then(
       (path) => setStatus(t("about.logOpened").replace("{path}", path)),
-      (err) => setError(toErrorMessage(err)),
+      (err) => setError(hostErrorMessage(err, t)),
     );
   }
 
@@ -1674,7 +1692,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         <MenuBar
           menus={buildMenuBarMenus()}
           brand={<strong>{t("app.title")}</strong>}
-          trailing={<span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>}
+          trailing={<span>{activeDoc ? (untitledNames.get(activeDoc.filePath) ?? activeDoc.filePath) : t("app.tagline")}</span>}
         />
         <div className="app-toolbar">
           <IconButton icon={FilePlus} {...actionProps("newDocument")} />
@@ -1694,6 +1712,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         tabs={tabs}
         activeKey={activeTab?.key ?? null}
         dirtyPaths={dirtyPaths}
+        untitledNames={untitledNames}
         onActivate={activate}
         onClose={handleCloseTab}
         onCloseAll={handleCloseAllTabs}
@@ -1823,8 +1842,8 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         <CloseConfirmDialog
           fileNames={
             closePrompt.kind === "tabs"
-              ? closePrompt.dirtyPaths.map(fileNameOf)
-              : docs.filter((d) => d.isDirty).map((d) => fileNameOf(d.filePath))
+              ? closePrompt.dirtyPaths.map(displayNameOf)
+              : docs.filter((d) => d.isDirty).map((d) => displayNameOf(d.filePath))
           }
           onSave={() => void handleClosePromptSave()}
           onDiscard={handleClosePromptDiscard}
@@ -1833,7 +1852,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       )}
       {convertPrompt && (
         <ConvertDialog
-          fileName={fileNameOf(convertPrompt.filePath)}
+          fileName={displayNameOf(convertPrompt.filePath)}
           targetFormat={convertPrompt.targetFormat}
           onConfirm={() => void handleConvertConfirm()}
           onCancel={() => setConvertPrompt(null)}

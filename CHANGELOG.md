@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Auf Englisch erscheinen keine deutschen Texte mehr: neue Dokumente heißen „Untitled-1“,
+  Fehlermeldungen aus dem Programmkern (Ordner öffnen, Base64, Logdatei) und aus dem
+  VS-Code-Modus sind übersetzt.
 - VS-Code-Modus: Jaxel meldet Inhalt, Änderungsstand und Speicherbestätigung immer für das von
   VS Code geöffnete Dokument. „Als neuen Tab öffnen“ (Base64-Vorschau) wird dort nicht mehr
   angeboten — es hätte ein zweites, unerreichbares Dokument erzeugt, dessen Inhalt beim Speichern

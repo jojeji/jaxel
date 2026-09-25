@@ -1799,6 +1799,16 @@ describe("Neues Dokument anlegen", () => {
     expect(screen.getByText("root", { selector: ".tree-row__name" })).toBeInTheDocument();
   });
 
+  it("zeigt ein neues Dokument auf Englisch als 'Untitled-1'", async () => {
+    localStorage.setItem("jaxel.locale", "en");
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "New document" })[0]!);
+    await user.click(screen.getByRole("button", { name: "XML" }));
+
+    expect(await screen.findByText("Untitled-1", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+
   it("Klick auf die freie Fläche der Tab-Leiste öffnet den Formatwahl-Dialog", async () => {
     const user = await openSampleFile();
     const tabBar = document.querySelector(".tab-bar")!;

@@ -183,5 +183,15 @@
   "comment.doubleHyphenRejected": "An XML comment may not contain “--” — the change was discarded.",
   "search.skippedInComments": "{n} match(es) skipped inside commented-out sections.",
   "menu.addComment": "Insert comment",
-  "menu.addCommentChild": "Insert comment as child"
+  "menu.addCommentChild": "Insert comment as child",
+  "error.noParentFolder": "The file has no parent folder.",
+  "error.openFolderFailed": "Could not open the folder: {detail}",
+  "error.invalidBase64": "Invalid Base64: {detail}",
+  "error.tempFileFailed": "Could not create a temporary file: {detail}",
+  "error.openFailed": "Could not open: {detail}",
+  "error.logDirUnknown": "Log folder unknown: {detail}",
+  "vscode.pdfOnly": "Only PDF content can be handed to VS Code.",
+  "vscode.noLog": "Opening the log file is not available in VS Code mode.",
+  "base64.handedToVscode": "PDF handed to VS Code.",
+  "document.untitled": "Untitled-{n}"
 }

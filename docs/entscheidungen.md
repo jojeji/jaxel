@@ -889,3 +889,18 @@ gesetzte Ref. Er wird in einem Effekt neu registriert, der erst nach dem Zeichne
 Kürzel genau im Moment des Erscheinens eines Dialogs wirkte sonst noch dahinter (sichtbar als
 sporadisch roter Test aus dem Paket „Nichts läuft hinter einem Dialog“).
 
+## 2026-09-25 — Keine UI-Texte außerhalb von i18n (Invariante #7)
+
+Aus dem vierten Architektur-Review (nur Strong). Deutsche Texte standen fest im Code: eine
+Statusmeldung in `App.tsx`, Fehlermeldungen des VS-Code-Hosts (`host.ts`) und des Rust-Kerns
+(`lib.rs`), die bis in die Meldungen durchreichten, sowie „Unbenannt-N“, das zugleich
+Anzeigename und Erkennungsmerkmal war (`TabBar.tsx` prüfte per Regex).
+
+1. **Kern und Host melden Fehler als `"<i18n-Schlüssel>|<Detail>"`**, `hostErrorMessage`
+   (`errors.ts`) übersetzt; unbekannte Codes und gewöhnliche Meldungen bleiben unverändert. Die
+   Log-Einträge in Rust bleiben deutsch — sie sind Diagnose, keine UI.
+2. **Ein unbenanntes Dokument hat einen sprachneutralen Platzhalterpfad (`untitled-N`) und eine
+   Nummer (`untitledNumber`)**; angezeigt wird überall der übersetzte Name (Tab, Tooltip,
+   Übersicht, Titelzeile, Schließen-/Konvertieren-Dialog, Vorschlag bei „Speichern unter“).
+   `TabBar` erfährt „unbenannt“ über `untitledNames` statt über das Pfadformat.
+

@@ -262,11 +262,11 @@ function createVscodeHost(): JaxelHost {
     destroyWindow: async () => {},
     openParentFolder: async () => "",
     async openDecodedFile(decoded) {
-      if (decoded.kind !== "pdf") throw new Error("Nur PDF-Inhalte können an VS Code übergeben werden.");
+      if (decoded.kind !== "pdf") throw new Error("vscode.pdfOnly|"); // translated by hostErrorMessage (errors.ts)
       await request({ type: "openBase64Pdf", data: decoded.bytes }, "openBase64PdfResponse");
       return "";
     },
-    openLog: async () => { throw new Error("Das Öffnen der Logdatei ist im VS-Code-Modus nicht verfügbar."); },
+    openLog: async () => { throw new Error("vscode.noLog|"); },
     log: async (level, source, message) => {
       vscode.postMessage({ type: "log", level, source, message });
     },

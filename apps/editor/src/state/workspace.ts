@@ -32,9 +32,12 @@ export interface OpenDocumentState {
   /** The file had a byte order mark when it was read; saving writes it back (docs/entscheidungen.md
    * #9 — the original encoding, BOM included, is kept). */
   bom: boolean;
-  /** True for a brand-new document that has never been saved — `filePath` is a placeholder
-   * ("Unbenannt-N"), not a real path. Saving must go through "save as" first. */
+  /** True for a brand-new document that has never been saved — `filePath` is an internal
+   * placeholder ("untitled-N", never shown), not a real path. Saving must go through "save as". */
   isUntitled?: boolean;
+  /** For an untitled document, its running number — the UI shows it as a translated name
+   * ("Unbenannt-1" / "Untitled-1"). */
+  untitledNumber?: number;
   /** `commandBus.isDirty()` as of this snapshot (CONTEXT.md "Dirty"): derived by the workspace
    * on every command, never set independently. Drives the external-change conflict rule
    * (docs/entscheidungen.md 2026-07-18 #4): a reload may only happen automatically while this is
@@ -111,13 +114,8 @@ export function tabKey(filePath: string, focusNodeId: string | null): string {
   return focusNodeId ? `${filePath}#${focusNodeId}` : filePath;
 }
 
-function nextUntitledPath(docs: OpenDocumentState[]): string {
-  let max = 0;
-  for (const d of docs) {
-    const match = /^Unbenannt-(\d+)$/.exec(d.filePath);
-    if (match) max = Math.max(max, Number(match[1]));
-  }
-  return `Unbenannt-${max + 1}`;
+function nextUntitledNumber(docs: OpenDocumentState[]): number {
+  return Math.max(0, ...docs.map((d) => d.untitledNumber ?? 0)) + 1;
 }
 
 /** The format a path's extension asks for, or null for anything else (".txt", no extension).
@@ -238,7 +236,9 @@ export class Workspace {
       return { ...t, filePath: newPath, key: newKey };
     });
     this.update({
-      docs: current.docs.map((d) => (d.filePath === currentPath ? { ...d, filePath: newPath, isUntitled: false } : d)),
+      docs: current.docs.map((d) =>
+        d.filePath === currentPath ? { ...d, filePath: newPath, isUntitled: false, untitledNumber: undefined } : d,
+      ),
       tabs,
       activeKey: current.activeKey ? (keyRemap.get(current.activeKey) ?? current.activeKey) : null,
     });
@@ -290,18 +290,20 @@ export class Workspace {
     });
   };
 
-  /** Creates a brand-new, unsaved document ("Unbenannt-N") and activates its full-view tab.
+  /** Creates a brand-new, unsaved document (shown as "Unbenannt-N") and activates its full-view tab.
    * `content` overrides the default skeleton (e.g. a decoded Base64 payload) and must parse in
    * the given format — the caller handles parse errors. */
   newDocument = (format: DocFormat, content?: string): void => {
     const text = content ?? NEW_DOCUMENT_SKELETON[format];
     const parsed = parseDocument(format, text);
     const current = this.snapshot;
-    const path = nextUntitledPath(current.docs);
+    const untitledNumber = nextUntitledNumber(current.docs);
+    const path = `untitled-${untitledNumber}`;
     const doc: OpenDocumentState = {
       filePath: path,
       format,
       isUntitled: true,
+      untitledNumber,
       ...this.loadDocument(format, parsed, "UTF-8", false, text, { mtimeMs: 0, size: 0 }),
     };
     this.update(
@@ -662,7 +664,7 @@ export class Workspace {
     const current = this.snapshot;
     const docs = current.docs.map((d) =>
       d.filePath === filePath
-        ? { ...d, ...loaded, filePath: newPath, ...(params.newFormat ? { format: params.newFormat, isUntitled: false } : {}) }
+        ? { ...d, ...loaded, filePath: newPath, ...(params.newFormat ? { format: params.newFormat, isUntitled: false, untitledNumber: undefined } : {}) }
         : d,
     );
     const keyRemap = new Map<string, string>();

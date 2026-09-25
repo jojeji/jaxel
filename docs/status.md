@@ -1920,3 +1920,16 @@ Tastatur-Ref (siehe `docs/entscheidungen.md`): danach drei vollständige Testlä
 sporadische Fehlschlag damit sicher weg ist, ist nicht beweisbar, die gefundene Ursache ist
 behoben.
 
+## Nachtrag 2026-09-25 — i18n-Invariante (Review 4, Kandidat 6)
+
+`hostErrorMessage` + Fehlercodes in `lib.rs`/`host.ts`, neue Schlüssel `error.*`, `vscode.*`,
+`base64.handedToVscode`, `document.untitled`; `untitled-N` + `untitledNumber` im Workspace,
+`untitledNames` für `TabBar`. Tests: drei Node-Fälle in `errors.test.ts`, ein UI-Test auf Englisch
+(vorher rot). Ein Scan nach deutschen String-Literalen außerhalb von i18n findet nur noch
+Kommentare. `lib.rs` nur syntaktisch geprüft (siehe Kandidat 1).
+
+Offen aus Review 4, bewusst nicht umgesetzt (unter der Latte, keine Fehler belegt oder bewusste
+Entscheidungen berührt): `open_log`-Rückfall auf eine beliebige `.log`-Datei (geht über 14.09.
+hinaus, PO-Frage), manuelles Neuladen ohne `canCommit`, „Meine Version behalten“ merkt ggf. einen
+neueren Dateistand, Fokus-Prüfung kurz vor dem eigenen Speichern, Core-Parsefehler nur Englisch.
+

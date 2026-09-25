@@ -151,13 +151,13 @@ describe("Öffnen und Tabs", () => {
     expect(active(workspace).tab.key).toBe("/c.xml");
   });
 
-  it("zählt neue Dokumente als Unbenannt-N hoch", () => {
+  it("nummeriert neue Dokumente fortlaufend, mit sprachneutralem Platzhalterpfad", () => {
     const workspace = new Workspace(new InMemoryHost());
     workspace.newDocument("xml");
     workspace.newDocument("json");
-    expect(workspace.getSnapshot().docs.map((d) => [d.filePath, d.format, d.isUntitled])).toEqual([
-      ["Unbenannt-1", "xml", true],
-      ["Unbenannt-2", "json", true],
+    expect(workspace.getSnapshot().docs.map((d) => [d.filePath, d.untitledNumber, d.format, d.isUntitled])).toEqual([
+      ["untitled-1", 1, "xml", true],
+      ["untitled-2", 2, "json", true],
     ]);
   });
 });
@@ -211,7 +211,7 @@ describe("Stabile Tab-Identität", () => {
     const workspace = new Workspace(host);
     workspace.newDocument("xml");
     const id = active(workspace).tab.id;
-    await workspace.saveFileAs("Unbenannt-1", "/x.xml");
+    await workspace.saveFileAs("untitled-1", "/x.xml");
     expect(active(workspace).tab.key).toBe("/x.xml");
     expect(active(workspace).tab.id).toBe(id);
   });
@@ -309,7 +309,7 @@ describe("Dirty und Speichern", () => {
     const host = new InMemoryHost();
     const workspace = new Workspace(host);
     workspace.newDocument("json");
-    await workspace.saveFileAs("Unbenannt-1", "/x.json");
+    await workspace.saveFileAs("untitled-1", "/x.json");
     expect(active(workspace).doc.isUntitled).toBe(false);
     expect(host.files.get("/x.json")).toBe("{}");
   });
