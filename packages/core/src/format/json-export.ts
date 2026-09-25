@@ -36,21 +36,18 @@ function nodeToJsonText(node: DocNode, indent: string, level: number): string {
   if (node.value !== null) {
     return formatPrimitive(node.value, node.jsonType);
   }
-  if (node.children.length === 0) {
-    // An object with no properties (rule 1 applied to `{}`). An empty JSON array as a property
-    // value is indistinguishable from this at the tree level (it contributes zero sibling nodes
-    // on import, see rule 2/3) — a known, accepted lossy edge of this mapping convention.
-    return "{}";
-  }
-  // All children sharing this node's own name is the signature of rule 4 (array-of-arrays name
-  // propagation): this node's value is a bare JSON array of its children's values.
-  const isArrayContinuation = node.children.every((child) => child.name === node.name);
-  if (isArrayContinuation) {
+  if (node.jsonArray) {
     return arrayText(
       node.children.map((child) => nodeToJsonText(child, indent, level + 1)),
       indent,
       level,
     );
+  }
+  if (node.children.length === 0) {
+    // An object with no properties (rule 1 applied to `{}`). An empty JSON array as a property
+    // value is indistinguishable from this at the tree level (it contributes zero sibling nodes
+    // on import, see rule 2/3) — a known, accepted lossy edge of this mapping convention.
+    return "{}";
   }
   const groups = groupByName(node.children);
   const entries: Array<[string, string]> = groups.map(([name, group]) => {

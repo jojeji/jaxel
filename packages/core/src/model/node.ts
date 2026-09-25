@@ -50,6 +50,14 @@ export interface DocNode {
   byteRange?: [number, number];
   /** True for a virtual root Jaxel had to invent (JSON root that is a multi-key object, an array, or a primitive). */
   synthetic?: boolean;
+  /**
+   * JSON only: `children` are the elements of ONE JSON array held by this node itself — an array
+   * inside an array (mapping rule 4), a top-level array, or a single root key whose array did not
+   * collapse to one node. Set by json-import; json-export writes such a node as `[...]`. Without
+   * the flag, children always form an object (same-named children fold into an array property),
+   * so an object nested under a key of the same name (`{"a":{"a":1}}`) stays an object.
+   */
+  jsonArray?: boolean;
 }
 
 let nextId = 1;
@@ -70,6 +78,7 @@ export function createNode(partial: Omit<Partial<DocNode>, "id"> & { name: strin
     children: partial.children ?? [],
     byteRange: partial.byteRange,
     synthetic: partial.synthetic,
+    jsonArray: partial.jsonArray,
   };
 }
 
@@ -125,5 +134,6 @@ export function cloneSubtree(node: DocNode): DocNode {
     jsonType: node.jsonType,
     children: node.children.map((child) => cloneSubtree(child)),
     synthetic: node.synthetic,
+    jsonArray: node.jsonArray,
   };
 }

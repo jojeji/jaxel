@@ -13,6 +13,23 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Löschen (oder Einkommentieren, Duplizieren), Speichern, Rückgängig und erneut Speichern schrieb
+  eine kaputte XML-Datei. Der wiederhergestellte Knoten wird jetzt korrekt geschrieben.
+- Den Text eines auskommentierten Teilbaums zu bearbeiten ging beim übernächsten Speichern und
+  beim Einkommentieren verloren; die Suche fand den neuen Text nicht.
+- Wer nach dem Speichern im selben Attributfeld weitertippte, bekam keinen „ungespeichert“-Stand,
+  und Schließen fragte nicht nach. Ebenso galt eine Änderung während eines laufenden Speicherns
+  als gespeichert.
+- JSON: Gleichnamige verschachtelte Objekte (`{"data":{"data":[1,2]}}`) wurden beim Speichern und
+  Konvertieren zu Arrays, eine Ebene ging verloren. Leere Arrays auf oberster Ebene bleiben `[]`.
+- Ein Kind unter einem Knoten mit Text ließ beim Speichern den Text (XML) bzw. das Kind (JSON)
+  verschwinden. Solche Knoten nehmen jetzt keine Kinder mehr an.
+- Dateien ohne Kodierungsangabe, die nicht UTF-8 sind (Latin-1/Windows-1252), verloren beim
+  Speichern alle Umlaute. Sie werden jetzt als Windows-1252 gelesen und geschrieben.
+- Eine externe Änderung an einer Datei in einem Hintergrund-Tab wird beim Wechsel auf den Tab
+  gemeldet, statt beim Speichern überschrieben zu werden.
+- Rückgängig nach dem Entfernen eines Attributs stellt dessen alte Position wieder her.
+- „Alle ersetzen“ im Namensbereich benennt keine Kommentare und kein erfundenes `$root` mehr um.
 - Ein Kommentartext, der auf „-“ endet, wird abgelehnt (beim Bearbeiten und bei „Alle ersetzen“).
   Bisher entstand `<!--text--->`, was kein gültiges XML ist.
 - XML-Dateien, die `encoding="utf-16"` angeben, tatsächlich aber UTF-8 sind (so schreibt sie z. B.

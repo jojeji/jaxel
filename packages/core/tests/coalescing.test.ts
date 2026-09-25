@@ -59,4 +59,18 @@ describe("createRenameAttributeCommand", () => {
     bus.undo();
     expect(root.attributes.map((a) => a.name)).toEqual(["x", "y"]);
   });
+
+  // Typing on in the same field after a save merged into the entry from before the save: the
+  // stack depth stayed at the saved baseline, so the tab looked clean and closing did not ask.
+  it("verschmilzt nicht über ein Speichern hinweg", () => {
+    const { root, bus } = setup('<a k="v"/>');
+    const key = `attr-value:${root.id}:0`;
+    bus.execute(createSetAttributeCommand(root, "k", "v1", [], key));
+    bus.markSaved();
+    bus.execute(createSetAttributeCommand(root, "k", "v12", [], key));
+    expect(bus.isDirty()).toBe(true);
+    bus.undo();
+    expect(root.attributes).toEqual([{ name: "k", value: "v1" }]);
+    expect(bus.isDirty()).toBe(false);
+  });
 });

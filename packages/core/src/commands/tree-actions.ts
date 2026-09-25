@@ -84,7 +84,10 @@ export type TreeActionBlocker =
   | "no-change"
   /** XML only: the new element or attribute name is not a valid XML name ("my item", "1st") —
    * saved, it would make a file no XML parser, Jaxel included, can open again. */
-  | "invalid-name";
+  | "invalid-name"
+  /** The node holds a text or JSON value: a child next to it would make one of the two vanish
+   * on save (XML keeps the children, JSON the value), so it cannot receive children. */
+  | "has-value";
 
 export interface TreeActionContext {
   format: DocFormat;
@@ -115,9 +118,32 @@ function acceptsChildren(row: BulkRow): boolean {
   return row.node.kind !== "comment" && !isInsideComment(row);
 }
 
+/**
+ * True when `node` carries a non-empty value — the "value XOR children" rule (node.ts) then
+ * forbids giving it children. An empty value ("<a/>", `"a": ""`) is no content to lose: the
+ * insert clears it in the same step (`withValueCleared`) and the node becomes a container.
+ */
+function holdsValue(node: DocNode): boolean {
+  return node.kind === "element" && node.value !== null && node.value !== "";
+}
+
+/** Blocker for anything that lands as a child of `row` — or next to it, which at the tab's
+ * visible root also means inside it. */
+function childBlocker(row: BulkRow): TreeActionBlocker | null {
+  if (!acceptsChildren(row)) return "read-only";
+  return holdsValue(row.node) ? "has-value" : null;
+}
+
 /** Where add-sibling/paste would insert: next to the row, or into it at the tab's visible root. */
-function acceptsSibling(row: BulkRow): boolean {
-  return row.ancestors.length === 0 ? acceptsChildren(row) : !isInsideComment(row);
+function siblingBlocker(row: BulkRow): TreeActionBlocker | null {
+  return row.ancestors.length === 0 ? childBlocker(row) : isInsideComment(row) ? "read-only" : null;
+}
+
+/** `command` inserts into `parent`; an empty value there is cleared first, in the same undo step,
+ * so the node stays "value XOR children" (see `holdsValue`). */
+function withValueCleared(parent: DocNode, parentAncestors: DocNode[], command: Command): Command {
+  if (parent.kind !== "element" || parent.value === null) return command;
+  return createCompositeCommand(command.label, [createSetValueCommand(parent, null, undefined, parentAncestors), command]);
 }
 
 /**
@@ -134,18 +160,18 @@ export function treeActionBlocker(
   switch (kind) {
     case "add-child":
       if (!sole) return "no-selection";
-      return acceptsChildren(sole) ? null : "read-only";
+      return childBlocker(sole);
     case "add-sibling":
       if (!sole) return "no-selection";
-      return acceptsSibling(sole) ? null : "read-only";
+      return siblingBlocker(sole);
     case "add-comment":
       if (context.format !== "xml") return "xml-only";
       if (!sole) return "no-selection";
-      return acceptsSibling(sole) ? null : "read-only";
+      return siblingBlocker(sole);
     case "add-comment-child":
       if (context.format !== "xml") return "xml-only";
       if (!sole) return "no-selection";
-      return acceptsChildren(sole) ? null : "read-only";
+      return childBlocker(sole);
     case "delete":
     case "duplicate":
       if (rows.length === 0) return "no-selection";
@@ -174,7 +200,7 @@ export function treeActionBlocker(
     case "paste": {
       const anchor = rows[rows.length - 1];
       if (!anchor) return "no-selection";
-      return acceptsSibling(anchor) ? null : "read-only";
+      return siblingBlocker(anchor);
     }
     case "move":
       if (rows.length === 0) return "no-selection";
@@ -201,6 +227,7 @@ export function treeActionBlocker(
 export function moveTargetBlocker(target: BulkRow, position: DropPosition): TreeActionBlocker | null {
   if (isInsideComment(target)) return "read-only";
   if (position === "into" && target.node.kind === "comment") return "read-only";
+  if (position === "into" && holdsValue(target.node)) return "has-value";
   return null;
 }
 
@@ -265,7 +292,7 @@ function buildPlan(
       const command = createBulkInsertCommand(plan.parent, plan.index, action.fragments, plan.parentAncestors);
       if (!command) return { blocker: "invalid-fragment" };
       return {
-        command,
+        command: withValueCleared(plan.parent, plan.parentAncestors, command),
         select: action.fragments.map((fragment) => fragment.id),
         expand: plan.insertedAsChild ? plan.parent.id : undefined,
       };
@@ -277,7 +304,7 @@ function buildPlan(
       const command = createBulkMoveCommand(rows, target, position);
       if (!command) return { blocker: "invalid-target" };
       return {
-        command,
+        command: position === "into" ? withValueCleared(target.node, target.ancestors, command) : command,
         select: rows.map((row) => row.node.id),
         expand: position === "into" ? target.node.id : undefined,
       };
@@ -312,7 +339,7 @@ function buildPlan(
 /** Append `node` as the last child of `row` and reveal it. */
 function appendChild(row: BulkRow, node: DocNode, edit: "name" | "value"): TreeActionPlan {
   return {
-    command: createInsertNodeCommand(row.node, row.node.children.length, node, row.ancestors),
+    command: withValueCleared(row.node, row.ancestors, createInsertNodeCommand(row.node, row.node.children.length, node, row.ancestors)),
     select: [node.id],
     expand: row.node.id,
     edit,
@@ -324,7 +351,7 @@ function insertRelativeTo(row: BulkRow, node: DocNode, edit: "name" | "value"): 
   const plan = planInsertRelativeToRow(row);
   if (!plan) return { blocker: "no-selection" }; // stale row from an earlier render
   return {
-    command: createInsertNodeCommand(plan.parent, plan.index, node, plan.parentAncestors),
+    command: withValueCleared(plan.parent, plan.parentAncestors, createInsertNodeCommand(plan.parent, plan.index, node, plan.parentAncestors)),
     select: [node.id],
     expand: plan.insertedAsChild ? plan.parent.id : undefined,
     edit,

@@ -232,9 +232,10 @@ export class Workspace {
     const target = this.findDoc(targetPath);
     if (!target) return;
     const text = serializeForSave(target);
+    const revision = target.document.revision;
     const stat = await this.host.writeTextFile(target.filePath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei gespeichert: ${target.filePath}`);
-    this.commitSaved(target, text, stat);
+    this.commitSaved(target, text, stat, revision);
   };
 
   /** Writes a document to `newPath` and renames its tab identity there — every tab (full view +
@@ -243,9 +244,10 @@ export class Workspace {
     const target = this.findDoc(currentPath);
     if (!target) return;
     const text = serializeForSave(target);
+    const revision = target.document.revision;
     const stat = await this.host.writeTextFile(newPath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei gespeichert: ${newPath}`);
-    this.commitSaved(target, text, stat);
+    this.commitSaved(target, text, stat, revision);
     this.closeReplacedDocument(newPath, target);
     const current = this.snapshot;
     const keyRemap = new Map<string, string>();
@@ -445,9 +447,9 @@ export class Workspace {
 
   /** Acknowledges a save the host performed (VS Code writes the file itself) and refreshes all
    * baselines used by the next edit/save — the same step as after our own save. */
-  acknowledgeSaved = (filePath: string, text: string, stat?: HostFileStat): void => {
+  acknowledgeSaved = (filePath: string, text: string, stat?: HostFileStat, revision?: number): void => {
     const target = this.findDoc(filePath);
-    if (target) this.commitSaved(target, text, stat);
+    if (target) this.commitSaved(target, text, stat, revision);
   };
 
   /**
@@ -539,8 +541,18 @@ export class Workspace {
    * undo baseline (CommandBus.markSaved, CONTEXT.md "Baseline"), and recapture the change
    * markers' baseline. Kept in one place because two critical bugs already came from this
    * ordering breaking (also "Save-Epoche").
+   *
+   * `revision` is the document revision `text` was serialized at. If the document changed while
+   * the write was running, `text` is not the current state: only the file stamp is taken over
+   * (it is our own write, not an external change). Tree, byteRanges and `sourceText` stay as
+   * they were, still consistent with each other, and the document stays dirty — the next save
+   * writes the whole current state.
    */
-  private commitSaved(target: OpenDocumentState, text: string, stat?: HostFileStat): void {
+  private commitSaved(target: OpenDocumentState, text: string, stat?: HostFileStat, revision?: number): void {
+    if (revision !== undefined && revision !== target.document.revision) {
+      if (stat) this.patchDoc(target.filePath, { lastKnownMtimeMs: stat.mtimeMs, lastKnownSize: stat.size });
+      return;
+    }
     if (target.format === "xml") {
       syncByteRangesAfterSave(target.document.root, parseXml(text).root);
     }

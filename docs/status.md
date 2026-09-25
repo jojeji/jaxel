@@ -1972,3 +1972,52 @@ geschrieben. Lese-/Schreibfehler beim Speichern erscheinen als rohe Betriebssyst
 i18n-Schlüssel `comment.doubleHyphenRejected` → `comment.invalidText`. Tests:
 `tests/comment-text.test.ts` (drei Fälle, vorher rot).
 
+
+## Nachtrag 2026-09-25 — Sechstes Architektur-Review (nur Strong), alles umgesetzt
+
+Drei Sub-Agents (Format-Layer, Commands, Editor/Tauri) haben mit ausgeführten Proben gesucht; A, C1
+und E wurden zusätzlich unabhängig nachgestellt. Jeder Fix hat einen vorher roten Test.
+
+- **A — Byte-Bereiche wieder eingehängter Teilbäume** (`command-bus.ts`, `byte-range.ts`): Ein
+  Knoten, der während eines Speicherns nur im Undo-Verlauf lag (gelöscht, ersetzter Kommentar,
+  Duplikat), behielt Bereiche in den alten Dateitext; nach Rückgängig/Wiederholen schrieb das
+  nächste Speichern kaputtes XML. Der CommandBus merkt sich je Command die Save-Epoche seines
+  letzten Laufs und entfernt bei Undo/Redo die Bereiche aller Teilbäume, die neu unter einem
+  Knoten der `byteRangeChain` hängen, wenn seither gespeichert wurde. `syncByteRangesAfterSave`
+  verwirft bei Strukturabweichung alle Bereiche (nächstes Speichern baut aus dem Modell), statt
+  mittendrin zu werfen. Tests: `tests/reattached-byte-ranges.test.ts` (vier, vorher rot).
+- **B — Kommentartext leitet Kinder neu ab** (`set-value.ts`, `parseCommentedOutSubtree` jetzt
+  exportiert): Tests `tests/commented-subtree-edit.test.ts` (drei von vier vorher rot).
+- **C — ehrlicher Dirty-Stand**: (1) `CommandBus.execute` verschmilzt nie in einen Eintrag auf oder
+  unter der gespeicherten Tiefe (Test in `coalescing.test.ts`). (2) `Workspace.commitSaved` nimmt
+  die Revision, zu der serialisiert wurde; hat sich das Dokument während des Schreibens geändert,
+  wird nur der Dateistempel übernommen, das Dokument bleibt geändert und das nächste Speichern
+  schreibt alles. Gilt auch für `acknowledgeSaved` (VS Code). **Annahme:** Die Extension sendet in
+  `saved` die Revision zurück, die sie mit `currentContentResponse` bekommen hat; sendet sie
+  keine, bleibt das alte Verhalten. Zwei Workspace-Tests (vorher rot).
+- **E — JSON-Array-Markierung** (`DocNode.jsonArray`, siehe `entscheidungen.md`): Tests
+  `tests/json-array-marker.test.ts`. Bewusste Vereinfachung: Wird ein anders benannter Knoten in
+  ein markiertes Array gezogen, zählt er als weiteres Element (sein Name geht in JSON verloren) —
+  vorher war das Ergebnis ebenfalls verlustbehaftet, nur anders.
+- **D — `has-value`** (`tree-actions.ts`, PO-Entscheidung „sperren“): Tests
+  `tests/value-xor-children.test.ts`; der UI-Test zu Strg+Shift+Plus nutzt jetzt ein Element mit
+  Kindern, ein neuer UI-Test prüft die Sperre am Blatt mit Text. Die Aktion ist ausgegraut, ohne
+  eigenen Tooltip (wie bei `read-only`).
+- **F — windows-1252-Rückfall** (`io.rs`): zwei Rust-Tests, gelaufen über das Hilfsprojekt (Tauri-
+  Crate hier nicht baubar). `rustfmt --check` meldet in `io.rs` schon vor dieser Änderung
+  Abweichungen; CI prüft das nicht.
+- **G — Prüfung beim Tab-Wechsel** (`App.tsx`): dieselbe Prüfung wie beim Fensterfokus, sobald ein
+  schon offenes Dokument aktiv wird (frisch geöffnete nicht — sie wurden gerade gelesen). Ein
+  UI-Test (vorher rot); der Test zum veralteten Prüfergebnis antwortet jetzt je Pfad.
+- **H** — Undo einer Attribut-Entfernung setzt die alte Position (`set-attribute.ts`); die
+  Namenssuche übergeht erfundene Namen (`#comment`, synthetisches `$root` samt geerbtem Namen der
+  Array-Elemente), `search.ts`. Tests `attribute-order-undo.test.ts`,
+  `invented-names-search.test.ts`.
+
+Offen aus Review 6 (unter der Latte): Änderungsmarker zeigen Verschiebungen nicht, ein Grabstein
+kann nach einer Verschiebung verschwinden (`diff.ts`); Groß-/Kleinschreibung-ignorierendes Ersetzen
+mit längenändernder Kleinschreibung („İ“); CDATA-Inhalt in Entity-Form wird beim Neuaufbau des
+Elements verändert; JSON→XML kann Steuerzeichen/Entity-förmigen Text nicht wohlgeformt schreiben;
+Parser akzeptiert Inhalt nach dem Wurzelelement und doppelte Attribute; relativer Startpfad beim
+ersten Start (`lib.rs`); Schließen-Dialog + Konvertieren-Dialog gleichzeitig mit Erfolgsmeldung
+ohne Schreiben.
