@@ -779,11 +779,13 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     }
   }
 
-  // External-change detection (docs/entscheidungen.md 2026-07-18 #4): checked only when the
-  // window regains focus (no background file watcher), only for the active tab's document
-  // (a background tab is checked lazily once the user switches to it), and via cheap
-  // metadata (mtime+size) rather than re-reading the file — see stat_file in src-tauri.
+  // External-change detection (docs/entscheidungen.md 2026-07-18 #4): checked when the window
+  // regains focus (no background file watcher) and when a tab becomes active, only for the
+  // active tab's document (a background tab is checked once the user switches to it), and via
+  // cheap metadata (mtime+size) rather than re-reading the file — see stat_file in src-tauri.
+  const checkExternalChangeRef = useRef<() => void>(() => {});
   useEffect(() => {
+    checkExternalChangeRef.current = handleFocus;
     function handleFocus(): void {
       // In VS Code, VS Code owns file I/O and notices external changes itself
       // (docs/entscheidungen.md 2026-09-14); the host would only hand back the cached start text.
@@ -810,6 +812,16 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     }
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
+  });
+  // Declared after the effect above, so it runs with this render's check (effects run in order).
+  // A document that was not open before has just been read from disk — nothing to check yet.
+  const activeFilePath = activeDoc?.filePath;
+  const openPathsRef = useRef<string[]>([]);
+  useEffect(() => {
+    if (activeFilePath !== undefined && openPathsRef.current.includes(activeFilePath)) checkExternalChangeRef.current();
+  }, [activeFilePath]);
+  useEffect(() => {
+    openPathsRef.current = docs.map((doc) => doc.filePath);
   });
 
   async function handleOpen(): Promise<void> {

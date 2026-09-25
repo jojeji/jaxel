@@ -513,8 +513,7 @@ describe("Knoten einfuegen/loeschen/duplizieren", () => {
 
   it("Strg+Shift+Plus fügt bei einem Nicht-Wurzel-Knoten ein Kind eine Ebene tiefer ein", async () => {
     const user = await openSampleFile();
-    await user.click(screen.getAllByText("person")[0]!); // aufklappen
-    await user.click(screen.getByText("Anna")); // Blattknoten "name" auswählen
+    await user.click(screen.getAllByText("person")[0]!); // Nicht-Wurzel-Knoten "person" auswählen
     fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true });
     const input = screen.getByDisplayValue("node");
     await user.clear(input);
@@ -522,8 +521,17 @@ describe("Knoten einfuegen/loeschen/duplizieren", () => {
     await user.keyboard("{Enter}");
 
     const extraRow = screen.getByText("extra", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
-    const nameRow = screen.getByText("name", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
-    expect(parseInt(extraRow.style.paddingLeft, 10)).toBe(parseInt(nameRow.style.paddingLeft, 10) + 16);
+    const personRow = screen.getAllByText("person", { selector: ".tree-row__name" })[0]!.closest(".tree-row") as HTMLElement;
+    expect(parseInt(extraRow.style.paddingLeft, 10)).toBe(parseInt(personRow.style.paddingLeft, 10) + 16);
+  });
+
+  it("Strg+Shift+Plus tut bei einem Knoten mit Text nichts (der Text ginge beim Speichern verloren)", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // aufklappen
+    await user.click(screen.getByText("Anna")); // Blattknoten "name" auswählen
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true });
+    expect(screen.queryByDisplayValue("node")).not.toBeInTheDocument();
+    expect(screen.getByText("Anna")).toBeInTheDocument();
   });
 
   it("Strg+D dupliziert den ausgewaehlten Knoten samt Unterbaum als naechstes Geschwister", async () => {
@@ -2450,6 +2458,25 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
     expect(screen.getByText("inventory")).toBeInTheDocument();
   });
 
+  // Only the active document was checked, only on window focus: an external change to a
+  // background tab went unnoticed after switching to it, and saving overwrote it.
+  it("prüft beim Wechsel auf einen Tab, ob seine Datei extern geändert wurde", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("inventory");
+
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      const path = (args as { path?: string } | undefined)?.path;
+      if (cmd === "stat_file") return path === "/fake/sample.xml" ? { mtimeMs: 2000, size: 999 } : { mtimeMs: 1000, size: 100 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
+
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+  });
+
   it("ignoriert ein Prüfergebnis, wenn inzwischen ein anderes Dokument aktiv ist", async () => {
     const user = await openSampleFile();
     vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
@@ -2458,8 +2485,12 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
     await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
 
     const pendingStat = deferred<{ mtimeMs: number; size: number }>();
-    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
-      if (cmd === "stat_file") return pendingStat.promise;
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      // Switching tabs checks second.xml too (unchanged); only sample.xml's check is pending.
+      if (cmd === "stat_file") {
+        const path = (args as { path?: string } | undefined)?.path;
+        return path === "/fake/sample.xml" ? pendingStat.promise : { mtimeMs: 1000, size: 100 };
+      }
       if (cmd === "take_pending_open_paths") return [];
       throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
     });
