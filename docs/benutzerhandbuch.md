@@ -241,7 +241,9 @@ Entscheidungsdialog behält dagegen bewusst den Fokus.
   an den rechten Rand — dort teilt sie sich mit dem Eigenschaften-Panel eine Sidebar mit zwei
   Tabs („Eigenschaften"/„Suchen"), deren Breite ebenfalls ziehbar ist. `Esc` oder `×` wechseln in
   diesem Modus nur zum Eigenschaften-Tab zurück (Suchbegriff und Trefferliste bleiben im
-  Hintergrund erhalten); `Strg+F` schaltet wieder aktiv auf den Suchen-Tab. Größe, Breite und die
+  Hintergrund erhalten); `Strg+F` schaltet wieder aktiv auf den Suchen-Tab. Der Button „Suchen“ in
+  der Toolbar (und im Menü „Ansicht“) wechselt hier zwischen Suchen- und Eigenschaften-Tab, am
+  unteren Rand blendet er das Suchpanel ein und aus. Größe, Breite und die
   gewählte Seite werden gemerkt. Das Umschalten der Seite selbst startet dagegen eine neue,
   leere Suche.
 

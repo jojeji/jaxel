@@ -17,6 +17,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
   Kommentar sind gesperrt. Bisher gingen die eingefügten Knoten beim nächsten Speichern verloren.
 - Das Attribute-Panel zeigt Knoten in einem auskommentierten Bereich schreibgeschützt an, statt
   Eingaben anzunehmen und stillschweigend zu verwerfen.
+- „Suchen“ in Toolbar und Menü wirkt jetzt auch, wenn die Suche rechts angedockt ist.
+- „Knoten kopieren“ in der Menüleiste ist bei Mehrfachauswahl nicht mehr ausgegraut, genau wie
+  `Strg+C` und das Kontextmenü.
 
 ### Geändert
 

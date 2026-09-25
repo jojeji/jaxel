@@ -1840,3 +1840,16 @@ Kommentar sind nicht mehr `draggable`, und die Drop-Anzeige nutzt die Core-Regel
 drei neue Core-Fälle in `tree-actions.test.ts`. Nicht in `npm run dev` ausprobiert (Container
 ohne Desktop).
 
+## Nachtrag 2026-09-25 — App-Aktionen (Architektur-Review 2, Kandidat 1)
+
+Neue Tabelle `apps/editor/src/actions.ts` (20 App-Aktionen) mit Node-Test `actions.test.ts`
+(Beschriftung in beiden Sprachen vorhanden, keine doppelten Kürzel, Aktiv-Regeln). Menüleiste,
+Kontextmenü und Toolbar erzeugen ihre Einträge über `actionProps(id)`, die Tastatur leitet alle
+Tabellen-Aktionen über `runAction(id)`. Behoben (zwei UI-Tests, vorher rot): „Suchen“ in Toolbar
+und Menü bei rechts angedockter Suche, „Knoten kopieren“ in der Menüleiste bei Mehrfachauswahl.
+`App.tsx` schrumpft um 50 Zeilen (1752 → 1702).
+
+Bewusst nicht Teil: die Kommentar-Menüeinträge (nur im Kontextmenü, mit eigenem Tooltip-Grund)
+und „Fokus hier öffnen“/„Base64 dekodieren“ (nur ein Einstieg). Nicht in `npm run dev`
+ausprobiert (Container ohne Desktop).
+

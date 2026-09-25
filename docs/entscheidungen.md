@@ -719,3 +719,24 @@ PO-Entscheidung auf die zwei offenen Punkte aus „Baumaktionen im Core“:
    Entscheidung kommt aus derselben Core-Regel (`set-attribute`); am Kommentarknoten selbst sind
    Umbenennen und Attribute ebenfalls gesperrt, weil ein Kommentar nur seinen Text speichert.
 
+## 2026-09-25 — App-Aktionen: eine Tabelle für alle Einstiege
+
+Gefunden per zweitem Architektur-Review (Kandidat „Eine Aktionstabelle“). Beschriftung,
+Tastenkürzel-Hinweis und Aktiv-Regel jeder Aktion standen je Einstieg (Tastatur, Menüleiste,
+Kontextmenü, Toolbar) separat in `App.tsx` und waren auseinandergelaufen: „Suchen“ in Menü und
+Toolbar wirkte bei rechts angedockter Suche nicht, „Knoten kopieren“ war in der Menüleiste bei
+Mehrfachauswahl ausgegraut, obwohl `Strg+C` mehrere Knoten kopiert.
+
+1. **`apps/editor/src/actions.ts` ist die einzige Quelle** für Beschriftung, Kürzel-Hinweis und
+   Aktiv-Regel. Die Regeln lesen nur Werte (`ActionContext`), sind also in Node testbar; für
+   Baumaktionen fragen sie die Core-Regel (`treeActionBlocker`).
+2. **Was eine Aktion tut, bleibt in `App.tsx` (`runAction`)**, weil sie React-Zustand schreibt.
+   `runAction` prüft die Aktiv-Regel selbst, damit Tastatur und Menü nie verschieden entscheiden.
+3. **Nur Aktionen mit mehr als einem Einstieg stehen in der Tabelle.** Pfeiltasten, F2,
+   „Logdatei öffnen“ und „Über“ haben nichts, das auseinanderlaufen könnte.
+4. **`Strg+F` bleibt ein Fokus-Shortcut** (Eintrag 2026-07-21): Er öffnet immer und setzt den
+   Fokus; Toolbar und Menü schalten die Suche dagegen um — unten ein/aus, im Rechts-Dock zwischen
+   Suchen- und Eigenschaften-Tab. Beide teilen sich Beschriftung, Kürzel und Aktiv-Regel.
+5. **`Strg+O`/`Strg+N` werden nur beansprucht, solange die Aktion aktiv ist** — im VS-Code-Modus
+   bleiben sie Tastenkürzel von VS Code (Verhalten unverändert).
+

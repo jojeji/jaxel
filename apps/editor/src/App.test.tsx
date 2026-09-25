@@ -665,6 +665,20 @@ describe("Mehrfachauswahl im Baum", () => {
     fireEvent.contextMenu(rowOf("person", 1));
     expect(selectedRowCount()).toBe(2);
   });
+
+  it("Menüleiste: Knoten kopieren wirkt auch bei Mehrfachauswahl, wie Strg+C", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(rowOf("person", 0));
+    fireEvent.click(rowOf("person", 1), { ctrlKey: true });
+
+    await clickMenuItem(user, "Bearbeiten", "Knoten kopieren Strg+C");
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const copied = writeText.mock.calls[0]![0] as string;
+    expect(copied).toContain('<person id="P-1">');
+    expect(copied).toContain('<person id="P-2">');
+  });
 });
 
 describe("Knoten kopieren/einfuegen ueber die System-Zwischenablage", () => {
@@ -1047,6 +1061,19 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     await user.click(screen.getByRole("tab", { name: "Suchen" }));
     expect(screen.getByPlaceholderText("Suchbegriff…")).toHaveValue("person");
     expect(screen.getByText("1/2")).toBeInTheDocument();
+  });
+
+  it("Toolbar-Suchen schaltet auch im Rechts-Dock zwischen Suche und Attributen um", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByRole("button", { name: "Suche an den rechten Rand andocken" }));
+    await user.click(screen.getByRole("tab", { name: "Attribute" }));
+
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    expect(screen.getByRole("tab", { name: "Suchen" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    expect(screen.getByRole("tab", { name: "Attribute" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("Ziehen am linken Rand der rechten Sidebar aendert deren Breite", async () => {

@@ -38,6 +38,7 @@ import { installGlobalErrorLogging, logError } from "./logging.js";
 import { getJaxelHost } from "./host.js";
 import { conversionErrorMessage, toErrorMessage } from "./errors.js";
 import { resolveShortcut } from "./shortcuts.js";
+import { ACTIONS, isActionEnabled, type ActionContext, type AppActionId } from "./actions.js";
 import { useJaxelDocuments } from "./state/document-store.js";
 import { formatOfExtension, serializeForSave, tabKey, type OpenDocumentState } from "./state/workspace.js";
 import { useSettings } from "./state/settings-store.js";
@@ -496,6 +497,26 @@ export function App(): React.ReactElement {
   const actionBlocked = (kind: TreeActionKind): boolean => actionBlocker(kind) !== null;
   const canUndo = activeDoc?.commandBus.canUndo() ?? false;
   const canRedo = activeDoc?.commandBus.canRedo() ?? false;
+  const actionContext: ActionContext = {
+    hasDocument: activeDoc !== null,
+    embedded,
+    selectionCount: selectedRows.length,
+    canUndo,
+    canRedo,
+    treeActionBlocked: actionBlocked,
+  };
+
+  /** Label, shortcut hint and enabled state of an App-Aktion from the one table in actions.ts —
+   * the same props for a menu bar entry, a context menu entry and a toolbar button. */
+  function actionProps(id: AppActionId): { label: string; shortcut?: string; disabled: boolean; onClick: () => void } {
+    const spec = ACTIONS[id];
+    return {
+      label: t(spec.labelKey),
+      shortcut: spec.shortcut?.({ ctrl: t("key.ctrl"), delete: t("key.delete") }),
+      disabled: !isActionEnabled(id, actionContext),
+      onClick: () => runAction(id),
+    };
+  }
 
   function toggleRow(row: TreeRow): void {
     setExpanded((prev) => {
@@ -929,6 +950,89 @@ export function App(): React.ReactElement {
     applyArrowIntent(planArrowLeft(selectedRow, expanded));
   }
 
+  /** Toolbar/menu "Suchen": shows or hides the search in whichever dock it lives. (Strg+F is
+   * different on purpose: it always opens and focuses, see the keyboard handler.) */
+  function toggleSearch(): void {
+    if (searchDockSide === "right") {
+      if (sidebarTab === "search") {
+        handleSearchClose();
+      } else {
+        setSidebarTab("search");
+        setSearchFocusRequest((request) => request + 1);
+      }
+      return;
+    }
+    setSearchOpen((prevOpen) => !prevOpen);
+  }
+
+  /** Runs an App-Aktion from actions.ts, if its enabled rule allows it right now. Every entry point
+   * (keyboard, menu bar, context menu, toolbar) ends up here. */
+  function runAction(id: AppActionId): void {
+    if (!isActionEnabled(id, actionContext)) return;
+    switch (id) {
+      case "newDocument":
+        setNewDocOpen(true);
+        break;
+      case "openFile":
+        void handleOpen();
+        break;
+      case "save":
+        void handleSave();
+        break;
+      case "saveAs":
+        void handleSaveAs();
+        break;
+      case "undo":
+        handleUndo();
+        break;
+      case "redo":
+        handleRedo();
+        break;
+      case "addChild":
+        handleSelectionAction("add-child");
+        break;
+      case "addSibling":
+        handleSelectionAction("add-sibling");
+        break;
+      case "duplicate":
+        handleSelectionAction("duplicate");
+        break;
+      case "delete":
+        handleSelectionAction("delete");
+        break;
+      case "copyPathFull":
+        handleCopyPath("full");
+        break;
+      case "copyPath":
+        handleCopyPath("indexed");
+        break;
+      case "copyPathStatic":
+        handleCopyPath("static");
+        break;
+      case "copyNode":
+        handleCopyNode();
+        break;
+      case "pasteNode":
+        void handlePasteNode();
+        break;
+      case "expandAll":
+        expandAllTree();
+        break;
+      case "collapseAll":
+        collapseAllTree();
+        break;
+      case "search":
+        toggleSearch();
+        break;
+      case "toggleAttributesPanel":
+        setSettings({ showAttributesPanel: !settings.showAttributesPanel });
+        break;
+      case "settings":
+        setSettingsOpen(true);
+        break;
+    }
+  }
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const ctrl = event.ctrlKey || event.metaKey;
@@ -949,19 +1053,20 @@ export function App(): React.ReactElement {
       }
       if (ctrl && event.altKey && event.key.toLowerCase() === "a") {
         event.preventDefault();
-        setSettings({ showAttributesPanel: !settings.showAttributesPanel });
+        runAction("toggleAttributesPanel");
         return;
       }
       if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
 
-      if (!embedded && ctrl && event.key.toLowerCase() === "o") {
+      // Only claimed while enabled: embedded in VS Code, Ctrl+O/N stay VS Code's own shortcuts.
+      if (ctrl && event.key.toLowerCase() === "o" && isActionEnabled("openFile", actionContext)) {
         event.preventDefault();
-        void handleOpen();
+        runAction("openFile");
         return;
       }
-      if (!embedded && ctrl && event.key.toLowerCase() === "n") {
+      if (ctrl && event.key.toLowerCase() === "n" && isActionEnabled("newDocument", actionContext)) {
         event.preventDefault();
-        setNewDocOpen(true);
+        runAction("newDocument");
         return;
       }
       if (!activeDoc) return;
@@ -975,26 +1080,11 @@ export function App(): React.ReactElement {
       if (!action) return;
       event.preventDefault();
       switch (action) {
-        case "save":
-          void handleSave();
-          break;
-        case "saveAs":
-          if (!embedded) void handleSaveAs();
-          break;
-        case "undo":
-          handleUndo();
-          break;
-        case "redo":
-          handleRedo();
-          break;
         case "renameStart":
           if (selectedRow) setEditingField({ nodeId: selectedRow.node.id, field: "name" });
           break;
         case "editValueStart":
           if (selectedRow) setEditingField({ nodeId: selectedRow.node.id, field: "value" });
-          break;
-        case "delete":
-          handleSelectionAction("delete");
           break;
         case "moveDown":
           moveSelection(1);
@@ -1014,30 +1104,10 @@ export function App(): React.ReactElement {
         case "arrowLeft":
           handleArrowLeft();
           break;
-        case "duplicate":
-          handleSelectionAction("duplicate");
-          break;
-        case "copyPathFull":
-          handleCopyPath("full");
-          break;
-        case "copyNode":
-          handleCopyNode();
-          break;
-        case "pasteNode":
-          void handlePasteNode();
-          break;
-        case "addChild":
-          handleSelectionAction("add-child");
-          break;
-        case "addSibling":
-          handleSelectionAction("add-sibling");
-          break;
-        case "expandAll":
-          expandAllTree();
-          break;
-        case "collapseAll":
-          collapseAllTree();
-          break;
+        default:
+          // Every other shortcut is an App-Aktion from actions.ts, under the same enabled rule as
+          // its menu entry.
+          runAction(action);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -1331,16 +1401,11 @@ export function App(): React.ReactElement {
   }
 
   function buildContextMenuItems(): ContextMenuItem[] {
-    const ctrl = t("key.ctrl");
     const isVisibleRoot = !selectedRow || (root !== null && selectedRow.node === root);
     return [
-      {
-        label: t("toolbar.copyPathFull"),
-        shortcut: `${ctrl}+Shift+C`,
-        onClick: () => handleCopyPath("full"),
-      },
-      { label: t("toolbar.copyPath"), onClick: () => handleCopyPath("indexed") },
-      { label: t("toolbar.copyPathStatic"), onClick: () => handleCopyPath("static") },
+      actionProps("copyPathFull"),
+      actionProps("copyPath"),
+      actionProps("copyPathStatic"),
       "separator",
       { label: t("focus.openHere"), disabled: isVisibleRoot, onClick: handleOpenFocus },
       {
@@ -1352,42 +1417,21 @@ export function App(): React.ReactElement {
         },
       },
       "separator",
-      {
-        label: t("toolbar.addChild"),
-        shortcut: `${ctrl}+Shift++`,
-        disabled: actionBlocked("add-child"),
-        onClick: () => handleSelectionAction("add-child"),
-      },
-      {
-        label: t("toolbar.duplicate"),
-        shortcut: `${ctrl}+D`,
-        disabled: actionBlocked("duplicate"),
-        onClick: () => handleSelectionAction("duplicate"),
-      },
+      actionProps("addChild"),
+      actionProps("duplicate"),
       "separator",
       ...commentMenuEntries(),
       "separator",
-      { label: t("menu.copyNode"), shortcut: `${ctrl}+C`, onClick: handleCopyNode },
-      {
-        label: t("menu.pasteNode"),
-        shortcut: `${ctrl}+V`,
-        disabled: actionBlocked("paste"),
-        onClick: () => void handlePasteNode(),
-      },
+      actionProps("copyNode"),
+      actionProps("pasteNode"),
       "separator",
-      {
-        label: t("toolbar.delete"),
-        shortcut: t("key.delete"),
-        disabled: actionBlocked("delete"),
-        onClick: () => handleSelectionAction("delete"),
-      },
+      actionProps("delete"),
     ];
   }
 
   /** Klassische Menüleiste (Vorschlag B der UI-Skizze): dieselben Aktionen wie die kompakte
    * Toolbar und das Kontextmenü, nur über einen anderen Einstiegspunkt — keine eigene Logik. */
   function buildMenuBarMenus(): MenuBarMenu[] {
-    const ctrl = t("key.ctrl");
     const recentFiles = embedded ? [] : getRecentFiles(settings.recentFilesLimit);
     const recentEntries: MenuBarEntry[] =
       recentFiles.length > 0
@@ -1401,100 +1445,41 @@ export function App(): React.ReactElement {
       {
         label: t("menuBar.file"),
         items: [
-          { label: t("welcome.newDocument"), shortcut: `${ctrl}+N`, disabled: embedded, onClick: () => setNewDocOpen(true) },
-          { label: t("welcome.openFile"), shortcut: `${ctrl}+O`, disabled: embedded, onClick: () => void handleOpen() },
+          actionProps("newDocument"),
+          actionProps("openFile"),
           ...recentEntries,
           "separator",
-          { label: t("welcome.save"), shortcut: `${ctrl}+S`, disabled: !activeDoc, onClick: () => void handleSave() },
-          {
-            label: t("menuBar.saveAs"),
-            shortcut: `${ctrl}+Shift+S`,
-            disabled: !activeDoc || embedded,
-            onClick: () => void handleSaveAs(),
-          },
+          actionProps("save"),
+          actionProps("saveAs"),
         ],
       },
       {
         label: t("menuBar.edit"),
         items: [
-          { label: t("menuBar.undo"), shortcut: `${ctrl}+Z`, disabled: !canUndo, onClick: handleUndo },
-          { label: t("menuBar.redo"), shortcut: `${ctrl}+Y`, disabled: !canRedo, onClick: handleRedo },
+          actionProps("undo"),
+          actionProps("redo"),
           "separator",
-          {
-            label: t("toolbar.addChild"),
-            shortcut: `${ctrl}+Shift++`,
-            disabled: actionBlocked("add-child"),
-            onClick: () => handleSelectionAction("add-child"),
-          },
-          {
-            label: t("shortcut.addSibling"),
-            shortcut: `${ctrl}++`,
-            disabled: actionBlocked("add-sibling"),
-            onClick: () => handleSelectionAction("add-sibling"),
-          },
-          {
-            label: t("toolbar.duplicate"),
-            shortcut: `${ctrl}+D`,
-            disabled: actionBlocked("duplicate"),
-            onClick: () => handleSelectionAction("duplicate"),
-          },
-          {
-            label: t("toolbar.delete"),
-            shortcut: t("key.delete"),
-            disabled: actionBlocked("delete"),
-            onClick: () => handleSelectionAction("delete"),
-          },
+          actionProps("addChild"),
+          actionProps("addSibling"),
+          actionProps("duplicate"),
+          actionProps("delete"),
           "separator",
-          {
-            label: t("toolbar.copyPathFull"),
-            shortcut: `${ctrl}+Shift+C`,
-            disabled: !selectedRow,
-            onClick: () => handleCopyPath("full"),
-          },
-          { label: t("toolbar.copyPath"), disabled: !selectedRow, onClick: () => handleCopyPath("indexed") },
-          {
-            label: t("toolbar.copyPathStatic"),
-            disabled: !selectedRow,
-            onClick: () => handleCopyPath("static"),
-          },
+          actionProps("copyPathFull"),
+          actionProps("copyPath"),
+          actionProps("copyPathStatic"),
           "separator",
-          { label: t("menu.copyNode"), shortcut: `${ctrl}+C`, disabled: !selectedRow, onClick: handleCopyNode },
-          {
-            label: t("menu.pasteNode"),
-            shortcut: `${ctrl}+V`,
-            disabled: actionBlocked("paste"),
-            onClick: () => void handlePasteNode(),
-          },
+          actionProps("copyNode"),
+          actionProps("pasteNode"),
         ],
       },
       {
         label: t("menuBar.view"),
-        items: [
-          {
-            label: t("menuBar.expandAll"),
-            shortcut: "NumPad *",
-            disabled: !activeDoc || !root,
-            onClick: expandAllTree,
-          },
-          {
-            label: t("menuBar.collapseAll"),
-            shortcut: "NumPad /",
-            disabled: !activeDoc || !root,
-            onClick: collapseAllTree,
-          },
-          "separator",
-          {
-            label: t("toolbar.search"),
-            shortcut: `${ctrl}+F`,
-            disabled: !activeDoc,
-            onClick: () => setSearchOpen((prevOpen) => !prevOpen),
-          },
-        ],
+        items: [actionProps("expandAll"), actionProps("collapseAll"), "separator", actionProps("search")],
       },
       {
         label: t("menuBar.tools"),
         items: [
-          { label: t("toolbar.settings"), onClick: () => setSettingsOpen(true) },
+          actionProps("settings"),
           { label: t("about.openLog"), onClick: handleOpenLog },
         ],
       },
@@ -1552,52 +1537,17 @@ export function App(): React.ReactElement {
           trailing={<span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>}
         />
         <div className="app-toolbar">
-          <IconButton
-            icon={FilePlus}
-            label={t("welcome.newDocument")}
-            shortcut={`${t("key.ctrl")}+N`}
-            disabled={embedded}
-            onClick={() => setNewDocOpen(true)}
-          />
-          <IconButton icon={FolderOpen} label={t("welcome.openFile")} shortcut={`${t("key.ctrl")}+O`} disabled={embedded} onClick={handleOpen} />
-          <IconButton
-            icon={FloppyDisk}
-            label={t("welcome.save")}
-            shortcut={`${t("key.ctrl")}+S`}
-            disabled={!activeDoc}
-            onClick={() => void handleSave()}
-          />
+          <IconButton icon={FilePlus} {...actionProps("newDocument")} />
+          <IconButton icon={FolderOpen} {...actionProps("openFile")} />
+          <IconButton icon={FloppyDisk} {...actionProps("save")} />
           <span className="app-toolbar__sep" />
-          <IconButton
-            icon={ArrowCounterClockwise}
-            label={t("menuBar.undo")}
-            shortcut={`${t("key.ctrl")}+Z`}
-            disabled={!canUndo}
-            onClick={handleUndo}
-          />
-          <IconButton
-            icon={ArrowClockwise}
-            label={t("menuBar.redo")}
-            shortcut={`${t("key.ctrl")}+Y`}
-            disabled={!canRedo}
-            onClick={handleRedo}
-          />
+          <IconButton icon={ArrowCounterClockwise} {...actionProps("undo")} />
+          <IconButton icon={ArrowClockwise} {...actionProps("redo")} />
           <span className="app-toolbar__sep" />
-          <IconButton
-            icon={MagnifyingGlass}
-            label={t("toolbar.search")}
-            shortcut={`${t("key.ctrl")}+F`}
-            disabled={!activeDoc}
-            onClick={() => setSearchOpen((prevOpen) => !prevOpen)}
-          />
-          <IconButton
-            icon={SidebarSimple}
-            label={t("settings.showAttributesPanel")}
-            shortcut={`${t("key.ctrl")}+Alt+A`}
-            onClick={() => setSettings({ showAttributesPanel: !settings.showAttributesPanel })}
-          />
+          <IconButton icon={MagnifyingGlass} {...actionProps("search")} />
+          <IconButton icon={SidebarSimple} {...actionProps("toggleAttributesPanel")} />
           <div className="app-toolbar__spacer" />
-          <IconButton icon={Gear} label={t("toolbar.settings")} onClick={() => setSettingsOpen(true)} />
+          <IconButton icon={Gear} {...actionProps("settings")} />
         </div>
       </header>
       {!embedded && <TabBar
