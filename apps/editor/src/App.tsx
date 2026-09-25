@@ -970,7 +970,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       [row],
       field === "name" ? { kind: "rename", name: newText } : { kind: "set-value", value: newText },
     );
-    if (blocker === "contains-double-hyphen") setError(t("comment.doubleHyphenRejected"));
+    if (blocker === "invalid-comment-text") setError(t("comment.invalidText"));
     if (blocker === "invalid-name") setError(t("edit.invalidXmlName").replace("{name}", newText));
   }
 

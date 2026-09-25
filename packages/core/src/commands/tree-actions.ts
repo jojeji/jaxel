@@ -22,7 +22,12 @@ import { createRenameCommand } from "./rename.js";
 import { createSetValueCommand, jsonTypeAfterEdit } from "./set-value.js";
 import { createSetAttributeCommand } from "./set-attribute.js";
 import { createRenameAttributeCommand } from "./rename-attribute.js";
-import { commentOutBlocker, createCommentOutCommand, createUncommentCommand } from "./comment.js";
+import {
+  commentOutBlocker,
+  createCommentOutCommand,
+  createUncommentCommand,
+  isValidCommentText,
+} from "./comment.js";
 import { findSiblingSlot, planInsertRelativeToRow } from "./sibling-slot.js";
 import {
   createBulkDuplicateCommand,
@@ -67,6 +72,8 @@ export type TreeActionBlocker =
   | "contains-comment"
   /** Comment-out, or a comment text edit: `--` is illegal inside an XML comment. */
   | "contains-double-hyphen"
+  /** Comment text edit: "--" inside, or "-" at the end — not well-formed XML (see isValidCommentText). */
+  | "invalid-comment-text"
   /** Uncomment: not every row is a commented-out subtree. */
   | "not-commented-subtree"
   /** Paste: nothing to insert, or a bare JSON array/primitive without a name. */
@@ -283,7 +290,7 @@ function buildPlan(
       if (action.value === (sole.node.value ?? "")) return { blocker: "no-change" };
       // A comment's text becomes `<!--…-->` verbatim, so "--" in it would produce a file that no
       // longer parses. Rejected rather than escaped: XML resolves no entities in comments.
-      if (sole.node.kind === "comment" && action.value.includes("--")) return { blocker: "contains-double-hyphen" };
+      if (sole.node.kind === "comment" && !isValidCommentText(action.value)) return { blocker: "invalid-comment-text" };
       return {
         command: createSetValueCommand(sole.node, action.value, jsonTypeAfterEdit(sole.node.jsonType, action.value), sole.ancestors),
       };

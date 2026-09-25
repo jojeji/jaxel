@@ -13,6 +13,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Ein Kommentartext, der auf „-“ endet, wird abgelehnt (beim Bearbeiten und bei „Alle ersetzen“).
+  Bisher entstand `<!--text--->`, was kein gültiges XML ist.
 - XML-Dateien, die `encoding="utf-16"` angeben, tatsächlich aber UTF-8 sind (so schreibt sie z. B.
   .NET), öffnen wieder korrekt statt als Zeichensalat.
 - „Speichern unter“ als JSON schreibt immer UTF-8. Bisher übernahm die JSON-Datei die Kodierung

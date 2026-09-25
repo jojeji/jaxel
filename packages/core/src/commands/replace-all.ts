@@ -7,6 +7,7 @@ import { createRenameCommand } from "./rename.js";
 import { createSetValueCommand, jsonTypeAfterEdit } from "./set-value.js";
 import { createSetAttributeCommand } from "./set-attribute.js";
 import { createCompositeCommand } from "./composite.js";
+import { isValidCommentText } from "./comment.js";
 import { isValidXmlName } from "../format/convert.js";
 import type { DocFormat } from "../model/document.js";
 
@@ -51,13 +52,14 @@ export function createReplaceAllCommand(
     // Read-only cases, both reported rather than silently skipped:
     // - anything INSIDE a commented-out subtree — the file carries the comment's raw text, so
     //   rewriting its parsed view would be dropped on the next save;
-    // - a replacement that would put "--" into a comment, which XML forbids and cannot escape.
+    // - a replacement that would make a comment's text ill-formed ("--" inside, "-" at the end),
+    //   which XML forbids and cannot escape (see isValidCommentText).
     // A plain prose comment stays replaceable: it is editable by hand too (grilling #5/#6).
     // Both the contents of a commented-out subtree AND the comment node carrying them are
     // read-only; only a prose comment (no parsed children) may be rewritten.
     const insideComment =
       ancestors.some((a) => a.kind === "comment") || isCommentedOutSubtree(plan.node);
-    const wouldBreakComment = plan.node.kind === "comment" && plan.kind === "value" && plan.after.includes("--");
+    const wouldBreakComment = plan.node.kind === "comment" && plan.kind === "value" && !isValidCommentText(plan.after);
     if (insideComment || wouldBreakComment) {
       skippedInComments += plan.count;
       continue;

@@ -976,3 +976,15 @@ Zeichensalat, die Datei war nicht zu öffnen (per Rust-Test belegt). Solche Date
    bevor die Deklaration überhaupt gelesen wird.
 2. Beim Speichern bleibt die Datei, wie sie war: UTF-8-Bytes, Deklaration unverändert.
 
+## 2026-09-25 — Eine Regel für gültigen Kommentartext
+
+Offener Punkt aus dem fünften Architektur-Review, auf Wunsch des PO umgesetzt. XML verbietet in
+Kommentaren „--“ und ein „-“ direkt vor dem schließenden „-->“. Geprüft wurde nur „--“, und das an
+drei Stellen einzeln; ein Kommentar, der auf „-“ endete, wurde als `<!--text--->` geschrieben.
+
+1. **`isValidCommentText` (`commands/comment.ts`) ist die eine Regel** für Textänderungen an
+   Kommentaren; Bearbeiten (Sperrgrund `invalid-comment-text`, Meldung `comment.invalidText`) und
+   „Alle ersetzen“ (Treffer werden übersprungen und gemeldet) nutzen sie.
+2. Auskommentieren prüft weiter den Inhalt des Knotens auf „--“ (`commentOutBlocker`); sein
+   Kommentartext ist von Leerzeichen umgeben und kann nie auf „-“ enden.
+

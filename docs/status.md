@@ -1965,3 +1965,10 @@ Offen aus Review 5 (unter der Latte): Kommentartext mit „-“ am Ende ergibt `
 `&#NNNN;` auch in Kommentaren/Namen. `&#10;` in Attributen wird als echter Zeilenumbruch
 geschrieben. Lese-/Schreibfehler beim Speichern erscheinen als rohe Betriebssystem-Meldung.
 
+## Nachtrag 2026-09-25 — Kommentartext wohlgeformt
+
+`isValidCommentText` in `comment.ts`, genutzt von `tree-actions.ts` (neuer Sperrgrund
+`invalid-comment-text`, ersetzt beim Bearbeiten `contains-double-hyphen`) und `replace-all.ts`;
+i18n-Schlüssel `comment.doubleHyphenRejected` → `comment.invalidText`. Tests:
+`tests/comment-text.test.ts` (drei Fälle, vorher rot).
+

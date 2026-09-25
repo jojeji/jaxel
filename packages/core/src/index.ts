@@ -34,6 +34,7 @@ export {
   commentOutBlocker,
   createCommentOutCommand,
   createUncommentCommand,
+  isValidCommentText,
 } from "./commands/comment.js";
 export type { DropPosition, MovePlan } from "./commands/move-node.js";
 export { createMoveNodeCommand, planMove } from "./commands/move-node.js";

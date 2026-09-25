@@ -294,7 +294,7 @@ describe("Pläne für erlaubte Baumaktionen", () => {
     const { bus, root } = load();
     expect(run(bus, [rowAt(root, ...PROSE)], { kind: "set-value", value: "A--B" })).toEqual({
       ok: false,
-      blocker: "contains-double-hyphen",
+      blocker: "invalid-comment-text",
     });
     expect(run(bus, [rowAt(root, ...PERSON)], { kind: "rename", name: "person" })).toEqual({
       ok: false,
