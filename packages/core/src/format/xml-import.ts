@@ -125,7 +125,7 @@ const COMMENT_PROBE_WRAPPER = "jaxel-comment-probe";
  * dropped because they are offsets into the comment text, not into the file — leaving them
  * would let the minimal-invasive save copy from entirely wrong positions.
  */
-function parseCommentedOutSubtree(text: string): DocNode[] | undefined {
+export function parseCommentedOutSubtree(text: string): DocNode[] | undefined {
   const trimmed = text.trim();
   if (!trimmed.startsWith("<") || !trimmed.endsWith(">")) return undefined;
   try {

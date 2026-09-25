@@ -1,4 +1,5 @@
 import type { DocNode, JsonPrimitiveType } from "../model/node.js";
+import { parseCommentedOutSubtree } from "../format/xml-import.js";
 import type { Command } from "./command.js";
 
 const JSON_NUMBER = /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/;
@@ -27,7 +28,13 @@ export function jsonTypeAfterEdit(
   }
 }
 
-/** `ancestors`: chain from root to `node`'s direct parent (root first, `node` not included). See rename.ts for why the whole chain's byteRange must be invalidated. */
+/**
+ * `ancestors`: chain from root to `node`'s direct parent (root first, `node` not included). See rename.ts for why the whole chain's byteRange must be invalidated.
+ *
+ * On a comment, `children` is the parsed view of its text (a commented-out subtree, see
+ * node.ts) — it is re-derived here in the same step, so "Einkommentieren", the search and the
+ * byte-range sync after saving all see the text that is actually written.
+ */
 export function createSetValueCommand(
   node: DocNode,
   newValue: string | null,
@@ -36,6 +43,9 @@ export function createSetValueCommand(
 ): Command {
   const previousValue = node.value;
   const previousJsonType = node.jsonType;
+  const previousChildren = node.children;
+  const newChildren =
+    node.kind === "comment" ? (parseCommentedOutSubtree(newValue ?? "") ?? []) : previousChildren;
 
   return {
     label: "set-value",
@@ -43,10 +53,12 @@ export function createSetValueCommand(
     do() {
       node.value = newValue;
       node.jsonType = newJsonType;
+      node.children = newChildren;
     },
     undo() {
       node.value = previousValue;
       node.jsonType = previousJsonType;
+      node.children = previousChildren;
     },
   };
 }
