@@ -42,6 +42,9 @@ export interface ActionContext {
   selectionCount: number;
   canUndo: boolean;
   canRedo: boolean;
+  /** A modal dialog is on screen: nothing behind it may run (docs/entscheidungen.md 2026-07-21 —
+   * e.g. Strg+S behind the reload question would overwrite the external version unasked). */
+  modalOpen: boolean;
   /** Whether @jaxel/core's tree-actions blocks this Baumaktion on the current selection. */
   treeActionBlocked: (kind: TreeActionKind) => boolean;
 }
@@ -117,5 +120,5 @@ export const ACTIONS: Record<AppActionId, ActionSpec> = {
 };
 
 export function isActionEnabled(id: AppActionId, context: ActionContext): boolean {
-  return ACTIONS[id].enabled(context);
+  return !context.modalOpen && ACTIONS[id].enabled(context);
 }

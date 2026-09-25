@@ -189,9 +189,26 @@ export function App(): React.ReactElement {
   const externalCheckIdRef = useRef(0);
   const performReloadRef = useRef<(filePath: string, onlyIfClean?: boolean) => Promise<void>>(() => Promise.resolve());
   const keepMinePendingRef = useRef(false);
-  const otherDialogOpen = settingsOpen || newDocOpen || closePrompt !== null || aboutOpen || base64Preview !== null;
   const reloadPromptDoc = reloadPrompt ? (docs.find((doc) => doc.filePath === reloadPrompt.filePath) ?? null) : null;
-  const modalDialogOpen = otherDialogOpen || reloadPromptDoc !== null;
+  /** The one modal dialog on screen, or null. EVERY dialog state belongs in this list — it is
+   * what blocks all App-Aktionen and keyboard shortcuts behind a dialog, and it keeps dialogs
+   * from stacking: the reload question comes last because it waits ("vorgemerkt") until no other
+   * dialog is open (docs/entscheidungen.md 2026-07-21). */
+  const visibleDialog = settingsOpen
+    ? "settings"
+    : newDocOpen
+      ? "newDocument"
+      : closePrompt
+        ? "close"
+        : convertPrompt
+          ? "convert"
+          : aboutOpen
+            ? "about"
+            : base64Preview
+              ? "base64"
+              : reloadPromptDoc
+                ? "reload"
+                : null;
   const visibleToasts = [errorToast, statusToast]
     .filter((toast): toast is ToastEntry => toast !== null)
     .sort((a, b) => b.id - a.id);
@@ -508,6 +525,7 @@ export function App(): React.ReactElement {
     selectionCount: selectedRows.length,
     canUndo,
     canRedo,
+    modalOpen: visibleDialog !== null,
     treeActionBlocked: actionBlocked,
   };
 
@@ -1041,11 +1059,13 @@ export function App(): React.ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const ctrl = event.ctrlKey || event.metaKey;
+      if (visibleDialog !== null) {
+        // Nothing behind a dialog runs — no save, no edit, no tree navigation. Strg+F is still
+        // swallowed so the webview's own find bar does not open over the dialog.
+        if (ctrl && event.key.toLowerCase() === "f") event.preventDefault();
+        return;
+      }
       if (ctrl && event.key.toLowerCase() === "f") {
-        if (modalDialogOpen) {
-          event.preventDefault();
-          return;
-        }
         if (!activeDoc) return;
         event.preventDefault();
         if (searchDockSide === "right") {
@@ -1674,7 +1694,7 @@ export function App(): React.ReactElement {
       {aboutOpen && (
         <AboutDialog version={appVersion} onOpenLog={handleOpenLog} onClose={() => setAboutOpen(false)} />
       )}
-      {reloadPrompt && reloadPromptDoc && !otherDialogOpen && (
+      {reloadPrompt && reloadPromptDoc && visibleDialog === "reload" && (
         <ReloadDialog
           fileName={fileNameOf(reloadPrompt.filePath)}
           isDirty={reloadPromptDoc.isDirty}

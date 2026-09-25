@@ -1860,3 +1860,9 @@ Workspace-Methoden `planClose`/`closeTabs`, `closeTabSet` in `App.tsx` fragt ein
 geänderten Dokumente. Tests: vier Node-Fälle in `workspace.test.ts`, zwei UI-Tests in
 `App.test.tsx` (gegen den alten Code rot, gegengeprüft).
 
+## Nachtrag 2026-09-25 — Nichts läuft hinter einem Dialog (Review 3, Kandidat 2)
+
+`visibleDialog` ersetzt `otherDialogOpen`/`modalDialogOpen` (jetzt inkl. Konvertieren-Dialog),
+`ActionContext.modalOpen` sperrt alle App-Aktionen, die Tastatur kehrt hinter einem Dialog sofort
+zurück. Tests: zwei UI-Tests (vorher rot), ein Node-Fall in `actions.test.ts`.
+

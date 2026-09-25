@@ -13,6 +13,7 @@ function context(overrides: Partial<ActionContext> = {}): ActionContext {
     selectionCount: 1,
     canUndo: true,
     canRedo: true,
+    modalOpen: false,
     treeActionBlocked: () => false,
     ...overrides,
   };
@@ -67,6 +68,11 @@ describe("Aktionstabelle", () => {
     for (const id of documentScoped) expect(isActionEnabled(id, empty), id).toBe(false);
     expect(isActionEnabled("openFile", empty)).toBe(true);
     expect(isActionEnabled("settings", empty)).toBe(true);
+  });
+
+  it("sperrt jede Aktion, solange ein Dialog offen ist", () => {
+    const behindDialog = context({ modalOpen: true });
+    for (const id of IDS) expect(isActionEnabled(id, behindDialog), id).toBe(false);
   });
 
   it("fragt für Baumaktionen die Core-Regel", () => {

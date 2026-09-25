@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Solange ein Dialog offen ist, wirken keine Tastenkürzel mehr dahinter. Bisher speicherte z. B.
+  `Strg+S` hinter der Frage „Datei wurde extern geändert“ und überschrieb die externe Version
+  ohne Entscheidung. Die Neu-laden-Frage legt sich auch nicht mehr über den Konvertieren-Dialog.
 - „Alle Tabs schließen“ (und „Alle anderen“, „links/rechts schließen“) verwarf ungespeicherte
   Änderungen ohne Nachfrage, wenn ein Dokument zugleich in Vollansicht und Fokus-Tab offen war.
   Mehrere geänderte Dokumente werden jetzt in einem Dialog abgefragt, statt beim ersten

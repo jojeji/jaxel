@@ -757,3 +757,19 @@ hielt jeder Schritt den jeweils anderen Tab für offen — beide schlossen ohne 
 3. **Die schließenden Tabs merkt sich der Dialog als Dokument + Fokus, nicht als Schlüssel**, weil
    Speichern eines unbenannten Dokuments dessen Pfad und damit jeden Schlüssel ändert.
 
+## 2026-09-25 — Nichts läuft hinter einem Dialog
+
+Aus dem dritten Architektur-Review (nur Strong). Offene Dialoge wurden über eine von Hand
+gepflegte Oder-Kette erkannt, in der der Konvertieren-Dialog fehlte, und nur `Strg+F` fragte
+sie ab. `Strg+S` hinter der Neu-laden-Frage schrieb die Datei und überschrieb die externe
+Version ohne die ausdrückliche Entscheidung aus dem Eintrag vom 21.07. (per Test belegt).
+
+1. **`visibleDialog` in `App.tsx` ist die eine Stelle, die alle Dialogzustände kennt** und sagt,
+   welcher Dialog gerade sichtbar ist. Die Neu-laden-Frage steht darin zuletzt, weil sie
+   vorgemerkt wartet, bis kein anderer Dialog offen ist. Ein neuer Dialog muss nur hier
+   eingetragen werden.
+2. **Die Aktionstabelle kennt `modalOpen`** und sperrt dann jede App-Aktion, egal über welchen
+   Einstieg. Die Tastatur verwirft hinter einem Dialog alle Kürzel, auch die Baum-Navigation.
+3. **Getrennte Zustände je Dialog bleiben** statt eines einzigen Zustandswerts: Die
+   Neu-laden-Frage muss neben einem anderen Dialog vorgemerkt existieren können.
+

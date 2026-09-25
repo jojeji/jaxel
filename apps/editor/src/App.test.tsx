@@ -2052,6 +2052,43 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
     expect(screen.getByText(/wurde von einem anderen Programm geändert\. Jetzt neu laden\?/)).toBeInTheDocument();
   });
 
+  it("Tastenkürzel wirken nicht hinter dem Reload-Dialog (Strg+S überschreibt die externe Version nicht)", async () => {
+    await openSampleFile();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "write_text_file") return { mtimeMs: 3000, size: 100 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    fireEvent(window, new Event("focus"));
+    expect(await screen.findByText("Datei wurde extern geändert")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "Delete" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "write_text_file")).toBe(false);
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+
+  it("der Reload-Dialog legt sich nicht über den Konvertieren-Dialog", async () => {
+    const user = await openSampleFile();
+    vi.mocked(save).mockResolvedValue("/fake/sample.json");
+    await user.keyboard("{Control>}{Shift>}s{/Shift}{/Control}");
+    expect(await screen.findByText("Nach JSON konvertieren?")).toBeInTheDocument();
+
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    fireEvent(window, new Event("focus"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+    expect(screen.getByText("Nach JSON konvertieren?")).toBeInTheDocument();
+  });
+
   it("unveränderte mtime/Größe lösen gar nichts aus", async () => {
     await openSampleFile();
     vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
