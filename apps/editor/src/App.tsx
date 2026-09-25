@@ -19,6 +19,7 @@ import {
   type PathSegment,
   type SearchMatch,
   type SearchOptions,
+  type CommandBus,
   type TreeAction,
   type TreeActionBlocker,
   type TreeActionKind,
@@ -35,8 +36,8 @@ import {
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
-import { getJaxelHost } from "./host.js";
-import { conversionErrorMessage, toErrorMessage } from "./errors.js";
+import { getJaxelHost, type JaxelHost } from "./host.js";
+import { conversionErrorMessage, hostErrorMessage, toErrorMessage } from "./errors.js";
 import { resolveShortcut } from "./shortcuts.js";
 import { ACTIONS, isActionEnabled, type ActionContext, type AppActionId } from "./actions.js";
 import { useJaxelDocuments } from "./state/document-store.js";
@@ -113,8 +114,9 @@ interface ToastEntry {
 const STATUS_TOAST_DURATION_MS = 4_000;
 const ERROR_TOAST_DURATION_MS = 8_000;
 
-export function App(): React.ReactElement {
-  const host = getJaxelHost();
+/** `host` is injectable so tests can drive the app as VS Code would (App.vscode.test.tsx);
+ * production always uses the host detected at startup. */
+export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React.ReactElement {
   const embedded = host.mode === "vscode";
   const { t } = useI18n();
   const { settings, setSettings } = useSettings();
@@ -167,7 +169,11 @@ export function App(): React.ReactElement {
   const [filterMatches, setFilterMatches] = useState<SearchMatch[] | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [reloadPrompt, setReloadPrompt] = useState<{ filePath: string } | null>(null);
+  /** A pending "extern geändert" question, bound to the DOCUMENT (its CommandBus), not to a
+   * path: it may wait behind another dialog, and if that dialog closes the document, the
+   * question must go with it — a later reopen of the same path is a fresh document with nothing
+   * to ask about. A "Speichern unter" keeps the document, so the question follows it. */
+  const [reloadPrompt, setReloadPrompt] = useState<{ commandBus: CommandBus } | null>(null);
   /** Set while the user is being asked to confirm an XML<->JSON conversion triggered by the
    * extension they picked in "Speichern unter". Nothing is written until they confirm. */
   const [convertPrompt, setConvertPrompt] = useState<{
@@ -190,7 +196,12 @@ export function App(): React.ReactElement {
   const externalCheckIdRef = useRef(0);
   const performReloadRef = useRef<(filePath: string, onlyIfClean?: boolean) => Promise<void>>(() => Promise.resolve());
   const keepMinePendingRef = useRef(false);
-  const reloadPromptDoc = reloadPrompt ? (docs.find((doc) => doc.filePath === reloadPrompt.filePath) ?? null) : null;
+  const reloadPromptDoc = reloadPrompt
+    ? (docs.find((doc) => doc.commandBus === reloadPrompt.commandBus) ?? null)
+    : null;
+  useEffect(() => {
+    if (reloadPrompt && !reloadPromptDoc) setReloadPrompt(null); // its document was closed
+  }, [reloadPrompt, reloadPromptDoc]);
   /** The one modal dialog on screen, or null. EVERY dialog state belongs in this list — it is
    * what blocks all App-Aktionen and keyboard shortcuts behind a dialog, and it keeps dialogs
    * from stacking: the reload question comes last because it waits ("vorgemerkt") until no other
@@ -210,6 +221,12 @@ export function App(): React.ReactElement {
               : reloadPromptDoc
                 ? "reload"
                 : null;
+  /** `visibleDialog` for the window-level keyboard listener, set during render — i.e. before the
+   * dialog is painted. The listener itself is re-registered in an effect, which runs only AFTER
+   * the paint; reading the closure value, a key pressed in that gap (e.g. Strg+S right as the
+   * reload question appears) would still act behind the dialog. */
+  const visibleDialogRef = useRef(visibleDialog);
+  visibleDialogRef.current = visibleDialog;
   const visibleToasts = [errorToast, statusToast]
     .filter((toast): toast is ToastEntry => toast !== null)
     .sort((a, b) => b.id - a.id);
@@ -230,32 +247,39 @@ export function App(): React.ReactElement {
 
   // VS Code supplies exactly one document to an embedded Jaxel instance. The
   // provider remains responsible for the CustomDocument and disk writes.
+  const [hostDocPath, setHostDocPath] = useState<string | null>(null);
   useEffect(() => {
     if (!embedded) return;
     let cancelled = false;
     void host.getInitialDocument().then((initial) => {
-      if (!cancelled && initial) void openFile(initial.path);
+      if (cancelled || !initial) return;
+      setHostDocPath(initial.path);
+      void openFile(initial.path);
     });
     return () => { cancelled = true; };
   }, [embedded, host, openFile]);
+  /** The document the host talks about: in VS Code the one it opened — never simply the active
+   * tab, so content, dirty state and save acknowledgements can never reach another document.
+   * (Standalone has no such channel; there the host calls below are no-ops.) */
+  const hostDoc = embedded ? (docs.find((doc) => doc.filePath === hostDocPath) ?? null) : activeDoc;
 
   useEffect(() => host.onSaved((_revision, text, stat) => {
-    if (!activeDoc) return;
-    if (text !== undefined) acknowledgeSaved(activeDoc.filePath, text, stat);
-    else activeDoc.commandBus.markSaved(); // Compatibility with older embedded bundles.
-  }), [host, activeDoc, acknowledgeSaved]);
+    if (!hostDoc) return;
+    if (text !== undefined) acknowledgeSaved(hostDoc.filePath, text, stat);
+    else hostDoc.commandBus.markSaved(); // Compatibility with older embedded bundles.
+  }), [host, hostDoc, acknowledgeSaved]);
 
   useEffect(() => {
-    host.notifyDirty(activeDoc?.isDirty ?? false);
-  }, [host, activeDoc?.isDirty, activeDoc?.document.revision]);
+    host.notifyDirty(hostDoc?.isDirty ?? false);
+  }, [host, hostDoc?.isDirty, hostDoc?.document.revision]);
 
   useEffect(() => {
     const stopContent = host.onRequestCurrentContent((requestId) => {
-      if (activeDoc) host.respondCurrentContent(requestId, serializeForSave(activeDoc), activeDoc.document.revision);
+      if (hostDoc) host.respondCurrentContent(requestId, serializeForSave(hostDoc), hostDoc.document.revision);
     });
     const stopSession = host.onRequestSession((requestId) => host.respondSession(requestId, null));
     return () => { stopContent(); stopSession(); };
-  }, [host, activeDoc]);
+  }, [host, hostDoc]);
 
   // Globale Absturzspuren (AP15 Story 2, 3): window.onerror/unhandledrejection landen im Log.
   useEffect(() => installGlobalErrorLogging(), []);
@@ -368,7 +392,7 @@ export function App(): React.ReactElement {
   // queues its paths too and pings us via event; the running window then opens them as well.
   // openPath (defined below) is reached through a ref so the once-registered listener always
   // sees the current closure.
-  const openPathRef = useRef<(path: string) => Promise<void>>(() => Promise.resolve());
+  const openPathRef = useRef<(path: string) => Promise<boolean>>(() => Promise.resolve(false));
   useEffect(() => {
     openPathRef.current = openPath;
   });
@@ -421,13 +445,14 @@ export function App(): React.ReactElement {
             setDragOver(false);
           } else if (event.type === "drop") {
             setDragOver(false);
-            for (const path of event.paths) void openPath(path);
+            // Through the ref: the listener is registered once, and the current openPath carries
+            // the current settings (e.g. the "Zuletzt geöffnet" limit).
+            for (const path of event.paths) void openPathRef.current(path);
           }
         });
     return () => {
       stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- openPath only wraps the stable openFile
   }, [host]);
 
   // Restore the per-tab EXPANDED set whenever the active TAB changes (not just the document —
@@ -502,6 +527,25 @@ export function App(): React.ReactElement {
   /** All selected rows in visible order — what the bulk actions (delete, duplicate, copy, drag)
    * operate on. Single selection is just its one-element case. */
   const selectedRows = useMemo<TreeRow[]>(() => selectedRowsInOrder(selection, rows), [selection, rows]);
+
+  /**
+   * The node "Nur im ausgewählten Unterbaum" searches in: the last single node the USER selected
+   * — not the live selection. The search's own tree filter can hide the selected row, which
+   * prunes the selection (below); reading the live selection, the search then silently widened
+   * to the whole document while the checkbox stayed ticked (docs/entscheidungen.md 2026-07-18 #2:
+   * the scope only falls back when there is no selection). So while a filter is active, an
+   * emptied selection keeps the anchor; without a filter, "nothing selected" clears it.
+   */
+  const [searchScopeId, setSearchScopeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedRow) setSearchScopeId(selectedRow.node.id);
+    else if (!filterMatches) setSearchScopeId(null);
+  }, [selectedRow, filterMatches]);
+  const searchScopeNode = useMemo(
+    () => (searchScopeId && root ? findNodeById(root, searchScopeId) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates after mutations
+    [searchScopeId, root, revision],
+  );
 
   // Forget selected nodes that are no longer among the visible rows — collapsed away, filtered
   // out by the search panel, or deleted. Without this a bulk action could still carry ids the
@@ -598,6 +642,23 @@ export function App(): React.ReactElement {
     return path.split(/[/\\]/).pop() ?? path;
   }
 
+  /** Display names of untitled documents by their internal placeholder path — translated
+   * ("Unbenannt-1" / "Untitled-1"), since the placeholder itself is never shown. */
+  const untitledNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const doc of docs) {
+      if (doc.untitledNumber !== undefined) {
+        names.set(doc.filePath, t("document.untitled").replace("{n}", String(doc.untitledNumber)));
+      }
+    }
+    return names;
+  }, [docs, t]);
+
+  /** What the user calls a document: its file name, or the translated name of an untitled one. */
+  function displayNameOf(path: string): string {
+    return untitledNames.get(path) ?? fileNameOf(path);
+  }
+
   /**
    * Re-reads `filePath` from disk (docs/entscheidungen.md 2026-07-18 #4). If it's the active
    * tab's document, the current selection and expanded nodes are captured as path SEGMENTS
@@ -661,20 +722,30 @@ export function App(): React.ReactElement {
     setReloadPrompt(null);
     const isActiveDoc = activeDoc?.filePath === filePath;
     const captured = captureViewSegments(filePath);
-    const reloadResult = await reloadFile(
-      filePath,
-      captured.selectionSegments,
-      captured.expandedSegmentsList,
-      onlyIfClean
-        ? () => {
-            const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
-            return activeFilePathRef.current === filePath && currentDoc?.isDirty === false;
-          }
-        : undefined,
-    );
+    let reloadResult: Awaited<ReturnType<typeof reloadFile>>;
+    try {
+      reloadResult = await reloadFile(
+        filePath,
+        captured.selectionSegments,
+        captured.expandedSegmentsList,
+        onlyIfClean
+          ? () => {
+              const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
+              return activeFilePathRef.current === filePath && currentDoc?.isDirty === false;
+            }
+          : undefined,
+      );
+    } catch (err) {
+      // Unreadable or no longer parseable: the old tree stays, and the user is told why instead
+      // of the dialog just closing.
+      setError(t("reload.failed").replace("{name}", fileNameOf(filePath)).replace("{error}", toErrorMessage(err)));
+      return;
+    }
     if (!reloadResult) {
       const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
-      if (activeFilePathRef.current === filePath && currentDoc?.isDirty) setReloadPrompt({ filePath });
+      if (activeFilePathRef.current === filePath && currentDoc?.isDirty) {
+        setReloadPrompt({ commandBus: currentDoc.commandBus });
+      }
       return;
     }
     const { selectedId: newSelectedId } = reloadResult;
@@ -694,6 +765,7 @@ export function App(): React.ReactElement {
   async function handleKeepMine(filePath: string): Promise<void> {
     if (keepMinePendingRef.current) return;
     keepMinePendingRef.current = true;
+    const promptedBus = docsRef.current.find((doc) => doc.filePath === filePath)?.commandBus;
     try {
       const stat = await host.statFile(filePath);
       if (docsRef.current.some((doc) => doc.filePath === filePath)) {
@@ -703,7 +775,7 @@ export function App(): React.ReactElement {
       // Keeping the in-memory version remains valid even if the file vanished meanwhile.
     } finally {
       keepMinePendingRef.current = false;
-      setReloadPrompt((current) => (current?.filePath === filePath ? null : current));
+      setReloadPrompt((current) => (current?.commandBus === promptedBus ? null : current));
     }
   }
 
@@ -713,7 +785,9 @@ export function App(): React.ReactElement {
   // metadata (mtime+size) rather than re-reading the file — see stat_file in src-tauri.
   useEffect(() => {
     function handleFocus(): void {
-      if (!activeDoc || activeDoc.isUntitled) return;
+      // In VS Code, VS Code owns file I/O and notices external changes itself
+      // (docs/entscheidungen.md 2026-09-14); the host would only hand back the cached start text.
+      if (embedded || !activeDoc || activeDoc.isUntitled) return;
       const { filePath } = activeDoc;
       const checkId = ++externalCheckIdRef.current;
       host.statFile(filePath)
@@ -726,7 +800,7 @@ export function App(): React.ReactElement {
           if (!currentDoc.isDirty && settingsRef.current.autoReloadOnExternalChange) {
             void performReloadRef.current(filePath, true);
           } else {
-            setReloadPrompt({ filePath });
+            setReloadPrompt({ commandBus: currentDoc.commandBus });
           }
         })
         .catch(() => {
@@ -751,10 +825,20 @@ export function App(): React.ReactElement {
     }
   }
 
-  async function openPath(path: string): Promise<void> {
-    await openFile(path);
+  /** The one way a file gets opened — dialog, recent files, drag&drop, "Öffnen mit": opens it,
+   * remembers it, and REPORTS a failure (missing file, broken XML) instead of letting it vanish
+   * as an unhandled rejection. Resolves to whether it opened, so a queue of several paths keeps
+   * going past a failing one. */
+  async function openPath(path: string): Promise<boolean> {
+    try {
+      await openFile(path);
+    } catch (err) {
+      setError(t("open.failed").replace("{name}", fileNameOf(path)).replace("{error}", toErrorMessage(err)));
+      return false;
+    }
     rememberLastDir(path);
     addRecentFile(path, settings.recentFilesLimit);
+    return true;
   }
 
   /** Always shows the OS "save as" dialog — for an untitled document's first save AND for the
@@ -769,10 +853,11 @@ export function App(): React.ReactElement {
   async function promptSaveAs(doc: OpenDocumentState): Promise<string | null> {
     const extension = doc.format === "xml" ? "xml" : "json";
     const dir = getLastDir();
+    const suggestedName = `${displayNameOf(doc.filePath)}.${extension}`;
     const path = await host.pickSaveFile(doc.isUntitled
         ? dir
-          ? `${dir}/${doc.filePath}.${extension}`
-          : `${doc.filePath}.${extension}`
+          ? `${dir}/${suggestedName}`
+          : suggestedName
         : doc.filePath, ["xml", "json"]);
     if (typeof path !== "string") return null; // user cancelled the dialog
     const targetFormat = formatOfExtension(path);
@@ -819,7 +904,7 @@ export function App(): React.ReactElement {
    * the OS "save as" dialog first. Returns the document's (possibly new) path, or null if
    * the user cancelled that dialog. */
   async function saveDoc(doc: OpenDocumentState): Promise<string | null> {
-    if (doc.isUntitled) return promptSaveAs(doc);
+    if (doc.isUntitled) return embedded ? null : promptSaveAs(doc); // VS Code owns "save as"
     await saveFile(doc.filePath);
     return doc.filePath;
   }
@@ -1097,7 +1182,7 @@ export function App(): React.ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const ctrl = event.ctrlKey || event.metaKey;
-      if (visibleDialog !== null) {
+      if (visibleDialogRef.current !== null) {
         // Nothing behind a dialog runs — no save, no edit, no tree navigation. Strg+F is still
         // swallowed so the webview's own find bar does not open over the dialog.
         if (ctrl && event.key.toLowerCase() === "f") event.preventDefault();
@@ -1179,9 +1264,10 @@ export function App(): React.ReactElement {
 
   /** "Whole document" defaults to the tab's own visible root — in a focus tab that's the
    * focused subtree, not the real document root (see docs/entscheidungen.md 2026-07-18 #1).
-   * "Subtree only" follows the CURRENT tree selection live (same rule for search and replace). */
+   * "Subtree only" follows the user's selection live via `searchScopeNode` (same rule for search and
+   * replace) — see there for why that is not simply the current selection. */
   function resolveSearchRoot(documentRoot: DocNode, subtreeOnly: boolean): DocNode {
-    return subtreeOnly && selectedRow ? selectedRow.node : documentRoot;
+    return subtreeOnly && searchScopeNode ? searchScopeNode : documentRoot;
   }
 
   function handleSearch(options: SearchOptions, subtreeOnly: boolean): SearchMatch[] {
@@ -1312,7 +1398,7 @@ export function App(): React.ReactElement {
   function handleOpenTabParent(path: string): void {
     void host.openParentFolder(path).then(
       () => setStatus(t("tabs.parentOpened")),
-      (err) => setError(toErrorMessage(err)),
+      (err) => setError(hostErrorMessage(err, t)),
     );
   }
 
@@ -1392,15 +1478,15 @@ export function App(): React.ReactElement {
       return;
     }
     host.openDecodedFile(decoded).then(
-      (path) => setStatus(path ? t("base64.openedExternally").replace("{path}", path) : "PDF an VS Code übergeben."),
-      (err) => setError(toErrorMessage(err)),
+      (path) => setStatus(path ? t("base64.openedExternally").replace("{path}", path) : t("base64.handedToVscode")),
+      (err) => setError(hostErrorMessage(err, t)),
     );
   }
 
   /** "Als neuen Tab öffnen" in the Base64 preview: the decoded text becomes a fresh untitled
    * document — deliberately detached from its source node (read-only view, no write-back). */
   function handleOpenDecodedAsTab(): void {
-    if (!base64Preview?.format) return;
+    if (embedded || !base64Preview?.format) return; // VS Code mode: exactly one document
     try {
       newDocument(base64Preview.format, base64Preview.text);
       setBase64Preview(null);
@@ -1433,7 +1519,7 @@ export function App(): React.ReactElement {
   function handleOpenLog(): void {
     host.openLog().then(
       (path) => setStatus(t("about.logOpened").replace("{path}", path)),
-      (err) => setError(toErrorMessage(err)),
+      (err) => setError(hostErrorMessage(err, t)),
     );
   }
 
@@ -1592,8 +1678,8 @@ export function App(): React.ReactElement {
         showNamespaces={settings.searchShowNamespaces}
         onClose={handleSearchClose}
         focusRequest={searchFocusRequest}
-        hasSelection={selectedRow !== null}
-        selectedNodeId={selectedRow?.node.id ?? null}
+        hasSelection={searchScopeNode !== null}
+        selectedNodeId={searchScopeNode?.id ?? null}
         documentRevision={revision}
         dockSide={dock}
         onToggleDock={handleToggleSearchDock}
@@ -1606,7 +1692,7 @@ export function App(): React.ReactElement {
         <MenuBar
           menus={buildMenuBarMenus()}
           brand={<strong>{t("app.title")}</strong>}
-          trailing={<span>{activeDoc ? activeDoc.filePath : t("app.tagline")}</span>}
+          trailing={<span>{activeDoc ? (untitledNames.get(activeDoc.filePath) ?? activeDoc.filePath) : t("app.tagline")}</span>}
         />
         <div className="app-toolbar">
           <IconButton icon={FilePlus} {...actionProps("newDocument")} />
@@ -1626,6 +1712,7 @@ export function App(): React.ReactElement {
         tabs={tabs}
         activeKey={activeTab?.key ?? null}
         dirtyPaths={dirtyPaths}
+        untitledNames={untitledNames}
         onActivate={activate}
         onClose={handleCloseTab}
         onCloseAll={handleCloseAllTabs}
@@ -1733,19 +1820,21 @@ export function App(): React.ReactElement {
       {aboutOpen && (
         <AboutDialog version={appVersion} onOpenLog={handleOpenLog} onClose={() => setAboutOpen(false)} />
       )}
-      {reloadPrompt && reloadPromptDoc && visibleDialog === "reload" && (
+      {reloadPromptDoc && visibleDialog === "reload" && (
         <ReloadDialog
-          fileName={fileNameOf(reloadPrompt.filePath)}
+          fileName={fileNameOf(reloadPromptDoc.filePath)}
           isDirty={reloadPromptDoc.isDirty}
-          onReload={() => void performReload(reloadPrompt.filePath)}
-          onKeepMine={() => void handleKeepMine(reloadPrompt.filePath)}
+          onReload={() => void performReload(reloadPromptDoc.filePath)}
+          onKeepMine={() => void handleKeepMine(reloadPromptDoc.filePath)}
         />
       )}
       {base64Preview && (
         <Base64PreviewDialog
           text={base64Preview.text}
           format={base64Preview.format}
-          onOpenAsTab={handleOpenDecodedAsTab}
+          // In VS Code, Jaxel edits exactly one document — a second one would be unreachable
+          // (no tab bar) and would take over the connection to VS Code.
+          onOpenAsTab={embedded ? undefined : handleOpenDecodedAsTab}
           onClose={() => setBase64Preview(null)}
         />
       )}
@@ -1753,8 +1842,8 @@ export function App(): React.ReactElement {
         <CloseConfirmDialog
           fileNames={
             closePrompt.kind === "tabs"
-              ? closePrompt.dirtyPaths.map(fileNameOf)
-              : docs.filter((d) => d.isDirty).map((d) => fileNameOf(d.filePath))
+              ? closePrompt.dirtyPaths.map(displayNameOf)
+              : docs.filter((d) => d.isDirty).map((d) => displayNameOf(d.filePath))
           }
           onSave={() => void handleClosePromptSave()}
           onDiscard={handleClosePromptDiscard}
@@ -1763,7 +1852,7 @@ export function App(): React.ReactElement {
       )}
       {convertPrompt && (
         <ConvertDialog
-          fileName={fileNameOf(convertPrompt.filePath)}
+          fileName={displayNameOf(convertPrompt.filePath)}
           targetFormat={convertPrompt.targetFormat}
           onConfirm={() => void handleConvertConfirm()}
           onCancel={() => setConvertPrompt(null)}

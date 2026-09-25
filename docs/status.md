@@ -1882,3 +1882,54 @@ Tabs bleibt in `App.tsx` als verwaister Eintrag im Speicher (klein, nur bis zum 
 Offen aus Review 3: Kandidat 5 (VS-Code-Anbindung an das Host-Dokument binden) und die
 fest verdrahteten deutschen Texte (Invariante #7) sind nicht Teil dieses Pakets.
 
+## Nachtrag 2026-09-25 — Kodierung byte-genau (Review 4, Kandidat 1)
+
+`io.rs`: eigenes `encode` (UTF-16 mit BOM, UTF-8-BOM erhalten), `DecodedFile.bom`, Deklaration
+wird nur noch als Deklaration gelesen; `lib.rs` reicht `bom` durch (`write_text_file` nimmt es
+optional); `host.ts`/`workspace.ts` führen es am Dokument mit. Tests: sechs neue Rust-Tests
+(fünf Rundreisen, vier davon vorher rot, darunter der zusätzlich gefundene Latin-1-Fehler) und
+zwei Node-Fälle.
+
+**Einschränkung der Prüfung:** Die Rust-Tests liefen über ein Hilfsprojekt, das `io.rs` per Pfad
+einbindet — der Tauri-Crate selbst lässt sich in dieser Umgebung nicht bauen (keine
+WebKit-Bibliotheken). `lib.rs` ist deshalb nur syntaktisch geprüft (`rustfmt --check`), nicht
+kompiliert: vor dem Release `cargo test`/`cargo check` lokal laufen lassen.
+
+## Nachtrag 2026-09-25 — Unterbaum-Anker der Suche (Review 4, Kandidat 2)
+
+`searchScopeNode` in `App.tsx` statt `selectedRow` für „Nur im ausgewählten Unterbaum“. Test: ein
+UI-Test (vorher rot), der auch „Alle ersetzen“ in diesem Zustand prüft.
+
+## Nachtrag 2026-09-25 — Fehler beim Öffnen/Neuladen melden (Review 4, Kandidat 3)
+
+`openPath` fängt und meldet, Drop nutzt `openPathRef`, `performReload` fängt und meldet. Neue
+i18n-Schlüssel `open.failed`, `reload.failed`. Tests: zwei UI-Tests (vorher rot).
+
+## Nachtrag 2026-09-25 — Neu-laden-Frage am Dokument (Review 4, Kandidat 4)
+
+`reloadPrompt` hält `{ commandBus }` statt `{ filePath }`; ein Effekt verwirft die Frage, sobald
+ihr Dokument fehlt. Test: ein UI-Test (vorher rot). Die Bindung lebt in `App.tsx`, nicht im
+Workspace: Die Frage ist UI-Zustand, und die CommandBus-Identität reicht für die Zuordnung.
+
+## Nachtrag 2026-09-25 — VS-Code-Modus an das Host-Dokument gebunden (Review 4, Kandidat 5)
+
+`hostDoc` statt `activeDoc` für die VS-Code-Verbindung, „Als neuen Tab öffnen“ im VS-Code-Modus
+ausgeblendet, kein Fokus-Check dort, `App({ host })` injizierbar. Neue Testdatei
+`App.vscode.test.tsx` mit nachgebautem VS-Code-Host (drei Tests, zwei davon vorher rot). Dazu die
+Tastatur-Ref (siehe `docs/entscheidungen.md`): danach drei vollständige Testläufe grün; dass der
+sporadische Fehlschlag damit sicher weg ist, ist nicht beweisbar, die gefundene Ursache ist
+behoben.
+
+## Nachtrag 2026-09-25 — i18n-Invariante (Review 4, Kandidat 6)
+
+`hostErrorMessage` + Fehlercodes in `lib.rs`/`host.ts`, neue Schlüssel `error.*`, `vscode.*`,
+`base64.handedToVscode`, `document.untitled`; `untitled-N` + `untitledNumber` im Workspace,
+`untitledNames` für `TabBar`. Tests: drei Node-Fälle in `errors.test.ts`, ein UI-Test auf Englisch
+(vorher rot). Ein Scan nach deutschen String-Literalen außerhalb von i18n findet nur noch
+Kommentare. `lib.rs` nur syntaktisch geprüft (siehe Kandidat 1).
+
+Offen aus Review 4, bewusst nicht umgesetzt (unter der Latte, keine Fehler belegt oder bewusste
+Entscheidungen berührt): `open_log`-Rückfall auf eine beliebige `.log`-Datei (geht über 14.09.
+hinaus, PO-Frage), manuelles Neuladen ohne `canCommit`, „Meine Version behalten“ merkt ggf. einen
+neueren Dateistand, Fokus-Prüfung kurz vor dem eigenen Speichern, Core-Parsefehler nur Englisch.
+

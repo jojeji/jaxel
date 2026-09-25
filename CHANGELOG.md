@@ -13,6 +13,29 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Auf Englisch erscheinen keine deutschen Texte mehr: neue Dokumente heißen „Untitled-1“,
+  Fehlermeldungen aus dem Programmkern (Ordner öffnen, Base64, Logdatei) und aus dem
+  VS-Code-Modus sind übersetzt.
+- VS-Code-Modus: Jaxel meldet Inhalt, Änderungsstand und Speicherbestätigung immer für das von
+  VS Code geöffnete Dokument. „Als neuen Tab öffnen“ (Base64-Vorschau) wird dort nicht mehr
+  angeboten — es hätte ein zweites, unerreichbares Dokument erzeugt, dessen Inhalt beim Speichern
+  an VS Code gegangen wäre. Jaxel prüft dort auch nicht mehr selbst auf externe Änderungen.
+- Ein Tastenkürzel genau in dem Moment, in dem ein Dialog erscheint, wirkte noch dahinter.
+- Eine hinter einem anderen Dialog vorgemerkte Frage „Datei wurde extern geändert“ erschien nach
+  dem Schließen und Wiederöffnen der Datei für das frisch geladene Dokument. Sie verfällt jetzt
+  mit dem Dokument.
+- Fehler beim Öffnen (Zuletzt geöffnet, Drag&Drop, „Öffnen mit“) und beim Neuladen werden
+  gemeldet, statt still zu verschwinden. Scheitert bei „Öffnen mit“ eine von mehreren Dateien,
+  öffnen die übrigen trotzdem.
+- Per Drag&Drop geöffnete Dateien respektieren die aktuelle Einstellung „Zuletzt geöffnete
+  Dateien“ (bisher galt der Wert vom Programmstart).
+- „Nur im ausgewählten Unterbaum“ blieb mit eingeschaltetem Filter nicht im Unterbaum, wenn dort
+  nichts gefunden wurde: Die Suche lief dann still über das ganze Dokument, „Alle ersetzen“
+  ersetzte auch außerhalb.
+- Dateikodierung bleibt beim Speichern erhalten: UTF-16-Dateien wurden bisher als UTF-8
+  geschrieben und waren danach nicht mehr lesbar; UTF-8-Dateien verloren ihren BOM;
+  ISO-8859-1-Dateien mit Umlauten nahe am Dateianfang wurden als UTF-8 gelesen und verloren beim
+  Speichern jeden Umlaut.
 - „Speichern unter“ auf eine Datei, die in einem anderen Tab offen ist, schließt diesen Tab.
   Bisher blieben zwei Tabs für denselben Pfad offen, und ein späteres Speichern im alten Tab
   konnte den neuen Inhalt überschreiben.

@@ -10,6 +10,9 @@ interface TabBarProps {
   /** File paths of every document with unsaved changes (see OpenDocumentState.isDirty) — a
    * Set rather than the full doc list so TabBar doesn't need to know about OpenDocumentState. */
   dirtyPaths: ReadonlySet<string>;
+  /** Display name of every untitled document by its (internal, never shown) path — e.g.
+   * "Unbenannt-1". Also what tells TabBar a tab has no real file behind it. */
+  untitledNames: ReadonlyMap<string, string>;
   onActivate: (key: string) => void;
   onClose: (key: string) => void;
   onCloseAll: () => void;
@@ -26,13 +29,6 @@ function fileName(path: string): string {
   return path.split(/[/\\]/).pop() ?? path;
 }
 
-/** Focus tabs show "<node name> — <file name>" so they're distinguishable from the full-view
- * tab of the same document; `focusLabel` is a snapshot (see document-store.ts) so this never
- * needs to walk the (possibly huge) tree just to render a label. */
-function tabLabel(tab: TabState): string {
-  const name = fileName(tab.filePath);
-  return tab.focusLabel ? `${tab.focusLabel} — ${name}` : name;
-}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (
@@ -47,6 +43,7 @@ export function TabBar({
   tabs,
   activeKey,
   dirtyPaths,
+  untitledNames,
   onActivate,
   onClose,
   onCloseAll,
@@ -59,6 +56,19 @@ export function TabBar({
   onNewDocument,
 }: TabBarProps): React.ReactElement | null {
   const { t } = useI18n();
+
+  /** Focus tabs show "<node name> — <file name>" so they're distinguishable from the full-view
+   * tab of the same document; `focusLabel` is a snapshot (see workspace.ts) so this never needs
+   * to walk the (possibly huge) tree just to render a label. */
+  function tabLabel(tab: TabState): string {
+    const name = untitledNames.get(tab.filePath) ?? fileName(tab.filePath);
+    return tab.focusLabel ? `${tab.focusLabel} — ${name}` : name;
+  }
+
+  /** The full path, or the display name for an untitled document (it has no path). */
+  function pathLabel(tab: TabState): string {
+    return untitledNames.get(tab.filePath) ?? tab.filePath;
+  }
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; tab: TabState } | null>(null);
   const [overviewOpen, setOverviewOpen] = React.useState(false);
   const [overviewQuery, setOverviewQuery] = React.useState("");
@@ -168,7 +178,7 @@ export function TabBar({
 
   function itemsFor(tab: TabState): ContextMenuItem[] {
     const index = tabs.findIndex((candidate) => candidate.key === tab.key);
-    const isUntitled = /^Unbenannt-\d+$/.test(tab.filePath);
+    const isUntitled = untitledNames.has(tab.filePath);
     return [
       { label: t("tabs.close"), onClick: () => onClose(tab.key) },
       { label: t("tabs.closeAll"), onClick: onCloseAll },
@@ -221,7 +231,7 @@ export function TabBar({
           <div
             key={tab.key}
             className={`tab${tab.key === activeKey ? " tab--active" : ""}${dirty ? " tab--dirty" : ""}`}
-            title={dirty ? `${tab.filePath} — ${t("tabs.unsaved")}` : tab.filePath}
+            title={dirty ? `${pathLabel(tab)} — ${t("tabs.unsaved")}` : pathLabel(tab)}
             role="tab"
             tabIndex={tab.key === activeKey ? 0 : -1}
             aria-selected={tab.key === activeKey}
@@ -360,7 +370,7 @@ export function TabBar({
                   <div key={tab.key} className={`tab-overview__item${tab.key === activeKey ? " tab-overview__item--active" : ""}${index === overviewIndex ? " tab-overview__item--focused" : ""}`} role="option" aria-selected={tab.key === activeKey} onMouseEnter={() => setOverviewIndex(index)}>
                     <button className="tab-overview__activate" type="button" onClick={() => activateFromOverview(tab.key)}>
                       <span className="tab-overview__name">{tabLabel(tab)}</span>
-                      <span className="tab-overview__path">{tab.filePath}</span>
+                      <span className="tab-overview__path">{pathLabel(tab)}</span>
                       {dirtyPaths.has(tab.filePath) && <span className="tab-overview__dirty">{t("tabs.unsaved")}</span>}
                     </button>
                     <button className="tab-overview__close" type="button" aria-label={`${t("tabs.close")}: ${tabLabel(tab)}`} title={t("tabs.close")} onClick={() => onClose(tab.key)}>×</button>

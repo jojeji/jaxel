@@ -803,3 +803,104 @@ veralteten Inhalt über den neuen geschrieben.
 2. **Durchgesetzt im Workspace** (`closeReplacedDocument`) für „Speichern unter“ und für die
    Konvertierung, jeweils erst nach erfolgreichem Schreiben.
 
+## 2026-09-25 — Kodierung: Rundreise byte-genau (BOM, UTF-16, Deklaration)
+
+Aus dem vierten Architektur-Review (nur Strong). Entscheidung #9 verlangt, dass die
+Ursprungskodierung beim Speichern erhalten bleibt. Drei Fehler in `io.rs` brachen das, alle per
+Rust-Test belegt:
+
+1. **UTF-16 wurde als UTF-8 geschrieben** (encoding_rs kodiert UTF-16 nicht, sondern liefert
+   UTF-8), die Datei deklarierte aber weiter UTF-16 und war für Jaxel danach unlesbar. `io.rs`
+   kodiert UTF-16 LE/BE jetzt selbst und **immer mit BOM** — ohne BOM könnte `detect_encoding`
+   die eigene Datei nicht wiedererkennen.
+2. **Der BOM ging verloren.** Lesen meldet jetzt `bom`, der Workspace merkt es sich am Dokument
+   (`OpenDocumentState.bom`) und gibt es beim Speichern, „Speichern unter“ und Konvertieren an
+   `write_text_file` zurück. Fehlt das Feld (ältere Aufrufer, VS-Code-Host), gilt „kein BOM“.
+3. **Die Deklaration wurde übersehen, sobald in den ersten 200 Bytes ein Nicht-ASCII-Zeichen
+   stand** (die Prüfung verlangte gültiges UTF-8 für den ganzen Block). Eine ISO-8859-1-Datei
+   mit Umlaut direkt nach der Deklaration wurde als UTF-8 gelesen und verlor beim Speichern jeden
+   Umlaut. Nur die Deklaration selbst wird jetzt als Text gelesen.
+
+Die Rundreise ist in `io.rs` getestet: lesen → unverändert speichern → Bytes identisch (UTF-16
+LE/BE, UTF-8 mit/ohne BOM, ISO-8859-1).
+
+## 2026-09-25 — Die Suche hat einen eigenen Unterbaum-Anker
+
+Aus dem vierten Architektur-Review (nur Strong). „Nur im ausgewählten Unterbaum“ las den Bereich
+aus der aktuellen Baumauswahl. Der eigene Filter der Suche kann die ausgewählte Zeile ausblenden;
+dann räumt der Baum die Auswahl auf, und die Suche lief — bei weiter gesetztem Haken — über das
+ganze Dokument, „Alle ersetzen“ eingeschlossen (per Test belegt). Das widersprach 18.07. #2.
+
+1. **`searchScopeNode` in `App.tsx` ist der Anker:** der letzte Einzelknoten, den der Nutzer
+   ausgewählt hat. Eine leere Auswahl löscht ihn nur, solange kein Filter aktiv ist.
+2. Suche, „Alle ersetzen“ und die Aktivierung der Checkbox richten sich nach dem Anker.
+
+## 2026-09-25 — Ein Weg zum Öffnen, der Fehler meldet
+
+Aus dem vierten Architektur-Review (nur Strong). Nur der Öffnen-Dialog fing Fehler ab. Über
+„Zuletzt geöffnet“, Drag&Drop und „Öffnen mit“ verschwand ein Fehler (fehlende Datei, kaputtes
+XML) als „Unhandled rejection“ im Log; bei mehreren „Öffnen mit“-Pfaden brach die Warteschlange
+beim ersten Fehler ab (per Test belegt). „Neu laden“ einer kaputten Datei schloss nur den Dialog.
+
+1. **`openPath` in `App.tsx` ist der eine Weg zum Öffnen** und meldet jeden Fehler mit
+   Dateinamen (`open.failed`). Er gibt zurück, ob die Datei offen ist; die Warteschlange läuft
+   weiter.
+2. **Drag&Drop ruft `openPath` über die Referenz auf die aktuelle Fassung auf** — vorher hing der
+   einmal registrierte Listener an der Fassung vom Programmstart und damit an der damaligen
+   Einstellung „Zuletzt geöffnete Dateien“.
+3. **„Neu laden“ meldet Fehler (`reload.failed`)**; der alte Baum bleibt.
+
+## 2026-09-25 — Vorgemerkte Neu-laden-Frage gehört zum Dokument
+
+Aus dem vierten Architektur-Review (nur Strong). Die vorgemerkte Frage „Datei wurde extern
+geändert“ war per Pfad gespeichert und wurde beim Schließen nicht verworfen. Wartete sie hinter
+dem Schließen-Dialog und wurde das Dokument dort geschlossen, erschien sie beim Wiederöffnen für
+ein frisch geladenes Dokument (per Test belegt).
+
+1. **Die Frage ist an das Dokument gebunden (seinen CommandBus), nicht an den Pfad.** Schließen
+   und neu Öffnen ergibt einen neuen CommandBus, die alte Frage passt zu nichts mehr und wird
+   verworfen; „Speichern unter“ behält den CommandBus, die Frage folgt dem Dokument.
+2. Bewusst nicht geändert: „Speichern“ im Schließen-Dialog, während die Frage noch wartet, schreibt
+   die eigene Version — das ist dort die ausdrückliche Entscheidung des Nutzers für seine Fassung.
+
+## 2026-09-25 — VS-Code-Modus: genau ein Dokument, an das Host-Dokument gebunden
+
+Aus dem vierten Architektur-Review (nur Strong). Inhaltsanfrage, Dirty-Meldung und
+Speicherbestätigung von VS Code gingen an das AKTIVE Dokument. Über „Als neuen Tab öffnen“
+(Base64-Vorschau) entstand im VS-Code-Modus ein zweites Dokument — ohne Tab-Leiste unerreichbar —
+und übernahm diese Verbindung: VS Code hätte beim Speichern den dekodierten Text erhalten, und die
+Speicherbestätigung hätte die Byte-Offsets des falschen Dokuments neu ausgerichtet.
+
+1. **`hostDoc` in `App.tsx` ist im VS-Code-Modus das von VS Code geöffnete Dokument** (Pfad aus
+   `getInitialDocument`); `onSaved`, `notifyDirty` und `respondCurrentContent` beziehen sich nur
+   darauf.
+2. **Kein zweites Dokument im VS-Code-Modus:** „Als neuen Tab öffnen“ ist ausgeblendet und
+   gesperrt; ein unbenanntes Dokument ließe sich dort ohnehin nicht speichern (`saveDoc` gibt auf,
+   statt „Speichern unter“ zu öffnen — das gehört VS Code). Andere Wege (Drop, Öffnen mit,
+   Sitzung, Zuletzt geöffnet, Neu) waren dort schon gesperrt.
+3. **Keine eigene Prüfung auf externe Änderungen im VS-Code-Modus**: VS Code besitzt Datei-I/O
+   (Eintrag 14.09.); der Host lieferte beim Neuladen ohnehin nur den zwischengespeicherten
+   Starttext.
+4. **`App` nimmt den Host optional als Prop** (Standard: `getJaxelHost()`), damit
+   `App.vscode.test.tsx` die App mit einem nachgebauten VS-Code-Host prüfen kann.
+
+Im selben Paket: Der Tastatur-Listener liest den Dialogzustand jetzt über eine beim Rendern
+gesetzte Ref. Er wird in einem Effekt neu registriert, der erst nach dem Zeichnen läuft; ein
+Kürzel genau im Moment des Erscheinens eines Dialogs wirkte sonst noch dahinter (sichtbar als
+sporadisch roter Test aus dem Paket „Nichts läuft hinter einem Dialog“).
+
+## 2026-09-25 — Keine UI-Texte außerhalb von i18n (Invariante #7)
+
+Aus dem vierten Architektur-Review (nur Strong). Deutsche Texte standen fest im Code: eine
+Statusmeldung in `App.tsx`, Fehlermeldungen des VS-Code-Hosts (`host.ts`) und des Rust-Kerns
+(`lib.rs`), die bis in die Meldungen durchreichten, sowie „Unbenannt-N“, das zugleich
+Anzeigename und Erkennungsmerkmal war (`TabBar.tsx` prüfte per Regex).
+
+1. **Kern und Host melden Fehler als `"<i18n-Schlüssel>|<Detail>"`**, `hostErrorMessage`
+   (`errors.ts`) übersetzt; unbekannte Codes und gewöhnliche Meldungen bleiben unverändert. Die
+   Log-Einträge in Rust bleiben deutsch — sie sind Diagnose, keine UI.
+2. **Ein unbenanntes Dokument hat einen sprachneutralen Platzhalterpfad (`untitled-N`) und eine
+   Nummer (`untitledNumber`)**; angezeigt wird überall der übersetzte Name (Tab, Tooltip,
+   Übersicht, Titelzeile, Schließen-/Konvertieren-Dialog, Vorschlag bei „Speichern unter“).
+   `TabBar` erfährt „unbenannt“ über `untitledNames` statt über das Pfadformat.
+

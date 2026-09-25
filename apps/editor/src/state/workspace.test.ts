@@ -12,6 +12,8 @@ import { Workspace, type WorkspaceHost, type WorkspaceSnapshot } from "./workspa
 class InMemoryHost implements WorkspaceHost {
   readonly files = new Map<string, string>();
   readonly writes: string[] = [];
+  /** Files that carry a byte order mark (as the Rust side reports it). */
+  readonly boms = new Set<string>();
   private clock = 1000;
 
   constructor(files: Record<string, string> = {}) {
@@ -21,11 +23,13 @@ class InMemoryHost implements WorkspaceHost {
   async readTextFile(path: string): Promise<HostFileContent> {
     const content = this.files.get(path);
     if (content === undefined) throw new Error(`no such file: ${path}`);
-    return { content, encoding: "UTF-8", mtimeMs: this.clock, size: content.length };
+    return { content, encoding: "UTF-8", bom: this.boms.has(path), mtimeMs: this.clock, size: content.length };
   }
 
-  async writeTextFile(path: string, content: string): Promise<HostFileStat> {
+  async writeTextFile(path: string, content: string, _encoding: string, bom?: boolean): Promise<HostFileStat> {
     this.files.set(path, content);
+    if (bom) this.boms.add(path);
+    else this.boms.delete(path);
     this.writes.push(path);
     this.clock += 1;
     return { mtimeMs: this.clock, size: content.length };
@@ -147,13 +151,13 @@ describe("Öffnen und Tabs", () => {
     expect(active(workspace).tab.key).toBe("/c.xml");
   });
 
-  it("zählt neue Dokumente als Unbenannt-N hoch", () => {
+  it("nummeriert neue Dokumente fortlaufend, mit sprachneutralem Platzhalterpfad", () => {
     const workspace = new Workspace(new InMemoryHost());
     workspace.newDocument("xml");
     workspace.newDocument("json");
-    expect(workspace.getSnapshot().docs.map((d) => [d.filePath, d.format, d.isUntitled])).toEqual([
-      ["Unbenannt-1", "xml", true],
-      ["Unbenannt-2", "json", true],
+    expect(workspace.getSnapshot().docs.map((d) => [d.filePath, d.untitledNumber, d.format, d.isUntitled])).toEqual([
+      ["untitled-1", 1, "xml", true],
+      ["untitled-2", 2, "json", true],
     ]);
   });
 });
@@ -207,7 +211,7 @@ describe("Stabile Tab-Identität", () => {
     const workspace = new Workspace(host);
     workspace.newDocument("xml");
     const id = active(workspace).tab.id;
-    await workspace.saveFileAs("Unbenannt-1", "/x.xml");
+    await workspace.saveFileAs("untitled-1", "/x.xml");
     expect(active(workspace).tab.key).toBe("/x.xml");
     expect(active(workspace).tab.id).toBe(id);
   });
@@ -305,7 +309,7 @@ describe("Dirty und Speichern", () => {
     const host = new InMemoryHost();
     const workspace = new Workspace(host);
     workspace.newDocument("json");
-    await workspace.saveFileAs("Unbenannt-1", "/x.json");
+    await workspace.saveFileAs("untitled-1", "/x.json");
     expect(active(workspace).doc.isUntitled).toBe(false);
     expect(host.files.get("/x.json")).toBe("{}");
   });
@@ -359,6 +363,27 @@ describe("Ein Dokument pro Pfad", () => {
     expect(snapshot.docs).toHaveLength(1);
     expect(snapshot.tabs.map((t) => t.key)).toEqual(["/a.json"]);
     expect(active(workspace).doc.format).toBe("json");
+  });
+});
+
+describe("Kodierung", () => {
+  it("schreibt einen beim Lesen gefundenen BOM beim Speichern und Speichern unter wieder", async () => {
+    const host = new InMemoryHost({ "/b.xml": "<b/>" });
+    host.boms.add("/b.xml");
+    const workspace = new Workspace(host);
+    await workspace.openFile("/b.xml");
+    expect(active(workspace).doc.bom).toBe(true);
+
+    await workspace.saveFile();
+    expect(host.boms.has("/b.xml")).toBe(true);
+    await workspace.saveFileAs("/b.xml", "/c.xml");
+    expect(host.boms.has("/c.xml")).toBe(true);
+  });
+
+  it("schreibt ohne BOM, wenn die Datei keinen hatte", async () => {
+    const { host, workspace } = await openCatalog();
+    await workspace.saveFile();
+    expect(host.boms.has("/c.xml")).toBe(false);
   });
 });
 

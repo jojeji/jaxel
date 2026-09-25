@@ -108,6 +108,8 @@
   "reload.reload": "Neu laden",
   "reload.keepMine": "Meine Version behalten",
   "reload.reloaded": "„{name}“ wurde neu geladen",
+  "reload.failed": "„{name}“ konnte nicht neu geladen werden: {error}",
+  "open.failed": "„{name}“ konnte nicht geöffnet werden: {error}",
   "close.title": "Ungespeicherte Änderungen",
   "close.messageOne": "„{name}“ hat ungespeicherte Änderungen. Vor dem Schließen speichern?",
   "close.messageMany": "{count} Dokumente haben ungespeicherte Änderungen. Vor dem Schließen speichern?",
@@ -181,5 +183,15 @@
   "comment.doubleHyphenRejected": "Ein XML-Kommentar darf kein „--“ enthalten — die Änderung wurde verworfen.",
   "search.skippedInComments": "{n} Treffer in auskommentierten Bereichen übersprungen.",
   "menu.addComment": "Kommentar einfügen",
-  "menu.addCommentChild": "Kommentar als Kind einfügen"
+  "menu.addCommentChild": "Kommentar als Kind einfügen",
+  "error.noParentFolder": "Die Datei hat keinen übergeordneten Ordner.",
+  "error.openFolderFailed": "Ordner konnte nicht geöffnet werden: {detail}",
+  "error.invalidBase64": "Ungültiges Base64: {detail}",
+  "error.tempFileFailed": "Temporäre Datei konnte nicht angelegt werden: {detail}",
+  "error.openFailed": "Öffnen fehlgeschlagen: {detail}",
+  "error.logDirUnknown": "Log-Verzeichnis unbekannt: {detail}",
+  "vscode.pdfOnly": "Nur PDF-Inhalte können an VS Code übergeben werden.",
+  "vscode.noLog": "Das Öffnen der Logdatei ist im VS-Code-Modus nicht verfügbar.",
+  "base64.handedToVscode": "PDF an VS Code übergeben.",
+  "document.untitled": "Unbenannt-{n}"
 }

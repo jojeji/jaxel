@@ -29,9 +29,15 @@ export interface OpenDocumentState {
   /** Raw text as last read from (or written to) disk — the baseline for XML's minimal-invasive save. */
   sourceText: string;
   encoding: string;
-  /** True for a brand-new document that has never been saved — `filePath` is a placeholder
-   * ("Unbenannt-N"), not a real path. Saving must go through "save as" first. */
+  /** The file had a byte order mark when it was read; saving writes it back (docs/entscheidungen.md
+   * #9 — the original encoding, BOM included, is kept). */
+  bom: boolean;
+  /** True for a brand-new document that has never been saved — `filePath` is an internal
+   * placeholder ("untitled-N", never shown), not a real path. Saving must go through "save as". */
   isUntitled?: boolean;
+  /** For an untitled document, its running number — the UI shows it as a translated name
+   * ("Unbenannt-1" / "Untitled-1"). */
+  untitledNumber?: number;
   /** `commandBus.isDirty()` as of this snapshot (CONTEXT.md "Dirty"): derived by the workspace
    * on every command, never set independently. Drives the external-change conflict rule
    * (docs/entscheidungen.md 2026-07-18 #4): a reload may only happen automatically while this is
@@ -108,13 +114,8 @@ export function tabKey(filePath: string, focusNodeId: string | null): string {
   return focusNodeId ? `${filePath}#${focusNodeId}` : filePath;
 }
 
-function nextUntitledPath(docs: OpenDocumentState[]): string {
-  let max = 0;
-  for (const d of docs) {
-    const match = /^Unbenannt-(\d+)$/.exec(d.filePath);
-    if (match) max = Math.max(max, Number(match[1]));
-  }
-  return `Unbenannt-${max + 1}`;
+function nextUntitledNumber(docs: OpenDocumentState[]): number {
+  return Math.max(0, ...docs.map((d) => d.untitledNumber ?? 0)) + 1;
 }
 
 /** The format a path's extension asks for, or null for anything else (".txt", no extension).
@@ -193,7 +194,14 @@ export class Workspace {
     const doc: OpenDocumentState = {
       filePath: path,
       format,
-      ...this.loadDocument(format, parseDocument(format, result.content), result.encoding, result.content, result),
+      ...this.loadDocument(
+        format,
+        parseDocument(format, result.content),
+        result.encoding,
+        result.bom ?? false,
+        result.content,
+        result,
+      ),
     };
     this.update({ docs: [...current.docs, doc], tabs: [...current.tabs, this.fullViewTab(path)], activeKey: key }, true);
   };
@@ -204,7 +212,7 @@ export class Workspace {
     const target = this.findDoc(targetPath);
     if (!target) return;
     const text = serializeForSave(target);
-    const stat = await this.host.writeTextFile(target.filePath, text, target.encoding);
+    const stat = await this.host.writeTextFile(target.filePath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei gespeichert: ${target.filePath}`);
     this.commitSaved(target, text, stat);
   };
@@ -215,7 +223,7 @@ export class Workspace {
     const target = this.findDoc(currentPath);
     if (!target) return;
     const text = serializeForSave(target);
-    const stat = await this.host.writeTextFile(newPath, text, target.encoding);
+    const stat = await this.host.writeTextFile(newPath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei gespeichert: ${newPath}`);
     this.commitSaved(target, text, stat);
     this.closeReplacedDocument(newPath, target);
@@ -228,7 +236,9 @@ export class Workspace {
       return { ...t, filePath: newPath, key: newKey };
     });
     this.update({
-      docs: current.docs.map((d) => (d.filePath === currentPath ? { ...d, filePath: newPath, isUntitled: false } : d)),
+      docs: current.docs.map((d) =>
+        d.filePath === currentPath ? { ...d, filePath: newPath, isUntitled: false, untitledNumber: undefined } : d,
+      ),
       tabs,
       activeKey: current.activeKey ? (keyRemap.get(current.activeKey) ?? current.activeKey) : null,
     });
@@ -261,7 +271,7 @@ export class Workspace {
       indent: target.document.indent,
       encoding: target.encoding,
     });
-    const stat = await this.host.writeTextFile(newPath, text, target.encoding);
+    const stat = await this.host.writeTextFile(newPath, text, target.encoding, target.bom);
     this.breadcrumb(`Datei konvertiert nach ${targetFormat} und gespeichert: ${newPath}`);
     this.closeReplacedDocument(newPath, target);
 
@@ -271,6 +281,7 @@ export class Workspace {
       newFilePath: newPath,
       newFormat: targetFormat,
       encoding: target.encoding,
+      bom: target.bom,
       sourceText: text,
       mtimeMs: stat.mtimeMs,
       size: stat.size,
@@ -279,19 +290,21 @@ export class Workspace {
     });
   };
 
-  /** Creates a brand-new, unsaved document ("Unbenannt-N") and activates its full-view tab.
+  /** Creates a brand-new, unsaved document (shown as "Unbenannt-N") and activates its full-view tab.
    * `content` overrides the default skeleton (e.g. a decoded Base64 payload) and must parse in
    * the given format — the caller handles parse errors. */
   newDocument = (format: DocFormat, content?: string): void => {
     const text = content ?? NEW_DOCUMENT_SKELETON[format];
     const parsed = parseDocument(format, text);
     const current = this.snapshot;
-    const path = nextUntitledPath(current.docs);
+    const untitledNumber = nextUntitledNumber(current.docs);
+    const path = `untitled-${untitledNumber}`;
     const doc: OpenDocumentState = {
       filePath: path,
       format,
       isUntitled: true,
-      ...this.loadDocument(format, parsed, "UTF-8", text, { mtimeMs: 0, size: 0 }),
+      untitledNumber,
+      ...this.loadDocument(format, parsed, "UTF-8", false, text, { mtimeMs: 0, size: 0 }),
     };
     this.update(
       { docs: [...current.docs, doc], tabs: [...current.tabs, this.fullViewTab(path)], activeKey: tabKey(path, null) },
@@ -446,6 +459,7 @@ export class Workspace {
       ...parsed,
       filePath,
       encoding: result.encoding,
+      bom: result.bom ?? false,
       sourceText: result.content,
       mtimeMs: result.mtimeMs,
       size: result.size,
@@ -525,6 +539,7 @@ export class Workspace {
     format: DocFormat,
     parsed: { root: DocNode } & XmlFraming,
     encoding: string,
+    bom: boolean,
     sourceText: string,
     stat: Pick<HostFileContent, "mtimeMs" | "size">,
   ): Omit<OpenDocumentState, "filePath" | "format" | "isUntitled"> {
@@ -549,6 +564,7 @@ export class Workspace {
       commandBus,
       sourceText,
       encoding,
+      bom,
       isDirty: false,
       changeBaseline: captureChangeBaseline(parsed.root),
       lastKnownMtimeMs: stat.mtimeMs,
@@ -596,6 +612,7 @@ export class Workspace {
       newFormat?: DocFormat;
       root: DocNode;
       encoding: string;
+      bom: boolean;
       sourceText: string;
       mtimeMs: number;
       size: number;
@@ -641,13 +658,13 @@ export class Workspace {
     };
 
     const format = params.newFormat ?? target?.format ?? "xml";
-    const loaded = this.loadDocument(format, params, params.encoding, params.sourceText, params);
+    const loaded = this.loadDocument(format, params, params.encoding, params.bom, params.sourceText, params);
     if (target) this.detach(target.commandBus); // drop the pre-swap subscription
 
     const current = this.snapshot;
     const docs = current.docs.map((d) =>
       d.filePath === filePath
-        ? { ...d, ...loaded, filePath: newPath, ...(params.newFormat ? { format: params.newFormat, isUntitled: false } : {}) }
+        ? { ...d, ...loaded, filePath: newPath, ...(params.newFormat ? { format: params.newFormat, isUntitled: false, untitledNumber: undefined } : {}) }
         : d,
     );
     const keyRemap = new Map<string, string>();

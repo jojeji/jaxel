@@ -4,6 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 export interface HostFileContent {
   content: string;
   encoding: string;
+  /** The file started with a byte order mark (stripped from `content`, restored on save).
+   * Absent from hosts that do not report it — treated as no BOM. */
+  bom?: boolean;
   mtimeMs: number;
   size: number;
 }
@@ -19,7 +22,7 @@ export type HostFileDropEvent = { type: "enter" | "over" | "leave" | "drop"; pat
 export interface JaxelHost {
   readonly mode: HostMode;
   readTextFile(path: string): Promise<HostFileContent>;
-  writeTextFile(path: string, content: string, encoding: string): Promise<HostFileStat>;
+  writeTextFile(path: string, content: string, encoding: string, bom?: boolean): Promise<HostFileStat>;
   statFile(path: string): Promise<HostFileStat>;
   pickOpenFile(defaultPath?: string | null): Promise<string | null>;
   pickSaveFile(defaultPath: string, extensions: string[]): Promise<string | null>;
@@ -69,8 +72,8 @@ function createTauriHost(): JaxelHost {
     async readTextFile(path) {
       return invoke<HostFileContent>("read_text_file", { path });
     },
-    async writeTextFile(path, content, encoding) {
-      return invoke<HostFileStat>("write_text_file", { path, content, encoding });
+    async writeTextFile(path, content, encoding, bom) {
+      return invoke<HostFileStat>("write_text_file", { path, content, encoding, bom: bom ?? false });
     },
     async statFile(path) {
       return invoke<HostFileStat>("stat_file", { path });
@@ -245,8 +248,8 @@ function createVscodeHost(): JaxelHost {
       if (initial.value?.path === path) return initial.value.file;
       return request<HostFileContent>({ type: "readFile", path }, "readFileResponse");
     },
-    async writeTextFile(path, content, encoding) {
-      return request<HostFileStat>({ type: "writeFile", path, content, encoding }, "writeFileResponse");
+    async writeTextFile(path, content, encoding, bom) {
+      return request<HostFileStat>({ type: "writeFile", path, content, encoding, bom: bom ?? false }, "writeFileResponse");
     },
     statFile: (path) => request<HostFileStat>({ type: "statFile", path }, "statFileResponse"),
     pickOpenFile: (defaultPath) => request<string | null>({ type: "pickOpenFile", defaultPath: defaultPath ?? undefined }, "pickOpenFileResponse"),
@@ -259,11 +262,11 @@ function createVscodeHost(): JaxelHost {
     destroyWindow: async () => {},
     openParentFolder: async () => "",
     async openDecodedFile(decoded) {
-      if (decoded.kind !== "pdf") throw new Error("Nur PDF-Inhalte können an VS Code übergeben werden.");
+      if (decoded.kind !== "pdf") throw new Error("vscode.pdfOnly|"); // translated by hostErrorMessage (errors.ts)
       await request({ type: "openBase64Pdf", data: decoded.bytes }, "openBase64PdfResponse");
       return "";
     },
-    openLog: async () => { throw new Error("Das Öffnen der Logdatei ist im VS-Code-Modus nicht verfügbar."); },
+    openLog: async () => { throw new Error("vscode.noLog|"); },
     log: async (level, source, message) => {
       vscode.postMessage({ type: "log", level, source, message });
     },

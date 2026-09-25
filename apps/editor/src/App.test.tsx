@@ -970,6 +970,26 @@ describe("Suchen und Ersetzen (Panel unten)", () => {
     expect(await screen.findAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
   });
 
+  it("'Nur im ausgewählten Unterbaum' bleibt mit Filter im Unterbaum, auch ohne Treffer darin", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // P-1 auswählen
+    await user.click(screen.getByRole("button", { name: "Suchen" }));
+    await user.click(screen.getByRole("checkbox", { name: "Nur im ausgewählten Unterbaum" }));
+    await user.click(screen.getByRole("checkbox", { name: "Filtern" }));
+    await user.type(screen.getByPlaceholderText("Suchbegriff…"), "Hamburg"); // steht nur in P-2
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(screen.queryByText("Hamburg", { selector: ".tree-row__preview" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Nur im ausgewählten Unterbaum" })).toBeChecked();
+
+    // „Alle ersetzen“ darf in diesem Zustand nichts außerhalb des Unterbaums anfassen.
+    await user.type(screen.getByPlaceholderText("Ersetzen durch…"), "Bremen");
+    await user.click(screen.getByRole("button", { name: "Alle ersetzen" }));
+    await user.click(screen.getByRole("checkbox", { name: "Filtern" }));
+    await user.click(screen.getAllByText("person")[1]!); // P-2 aufklappen
+    expect(await screen.findByText("Hamburg", { selector: ".tree-row__preview" })).toBeInTheDocument();
+  });
+
   it("'Alle ersetzen' mit Regex kombiniert mit 'Nur im ausgewaehlten Unterbaum' ist ebenfalls rueckgaengig machbar", async () => {
     const user = await openSampleFile();
     await user.click(screen.getAllByText("person")[0]!); // P-1 selektieren + aufklappen
@@ -1233,6 +1253,27 @@ describe("Speichern unter auf eine offene Datei", () => {
     await waitFor(() => expect(screen.queryByText("second.xml", { selector: ".tab__label" })).not.toBeInTheDocument());
     expect(screen.getAllByText("sample.xml", { selector: ".tab__label" })).toHaveLength(1);
     expect(screen.getByText("inventory", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+});
+
+describe("Fehler beim Öffnen", () => {
+  it("ein fehlschlagender Pfad aus 'Öffnen mit' wird gemeldet und blockiert die folgenden nicht", async () => {
+    renderApp();
+    await waitFor(() => expect(eventMock.listeners.has("jaxel://pending-open-paths")).toBe(true));
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "take_pending_open_paths") return ["/fake/fehlt.xml", "/fake/second.xml"];
+      if (cmd === "read_text_file") {
+        const path = (args as { path: string }).path;
+        if (path === "/fake/fehlt.xml") throw new Error("Datei nicht gefunden");
+        return { content: FILES[path]!, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    await act(async () => eventMock.listeners.get("jaxel://pending-open-paths")!());
+
+    expect(await screen.findByText("second.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.getByText(/„fehlt.xml“ konnte nicht geöffnet werden: Datei nicht gefunden/)).toBeInTheDocument();
   });
 });
 
@@ -1758,6 +1799,16 @@ describe("Neues Dokument anlegen", () => {
     expect(screen.getByText("root", { selector: ".tree-row__name" })).toBeInTheDocument();
   });
 
+  it("zeigt ein neues Dokument auf Englisch als 'Untitled-1'", async () => {
+    localStorage.setItem("jaxel.locale", "en");
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "New document" })[0]!);
+    await user.click(screen.getByRole("button", { name: "XML" }));
+
+    expect(await screen.findByText("Untitled-1", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+
   it("Klick auf die freie Fläche der Tab-Leiste öffnet den Formatwahl-Dialog", async () => {
     const user = await openSampleFile();
     const tabBar = document.querySelector(".tab-bar")!;
@@ -2160,6 +2211,49 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
 
     await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
     expect(await screen.findByText("Anna")).toBeInTheDocument();
+  });
+
+  it("'Neu laden' einer inzwischen kaputten Datei meldet den Fehler", async () => {
+    const user = await openSampleFile();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") return { content: "<catalog><kaputt>", encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    fireEvent(window, new Event("focus"));
+    await user.click(await screen.findByRole("button", { name: "Neu laden" }));
+
+    expect(await screen.findByText(/„sample.xml“ konnte nicht neu geladen werden/)).toBeInTheDocument();
+    expect(screen.getByText("catalog")).toBeInTheDocument(); // alter Stand bleibt
+  });
+
+  it("eine hinter dem Schließen-Dialog vorgemerkte Reload-Frage verfällt mit dem Dokument", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByText("catalog"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true }); // dirty
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByTitle("Tab schließen"));
+    await screen.findByText("Ungespeicherte Änderungen");
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      }
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    fireEvent(window, new Event("focus")); // vorgemerkt hinter dem Schließen-Dialog
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await user.click(screen.getByRole("button", { name: "Nicht speichern" }));
+
+    vi.mocked(open).mockResolvedValueOnce("/fake/sample.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("catalog");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
   });
 
   it("unveränderte mtime/Größe lösen gar nichts aus", async () => {
