@@ -193,5 +193,7 @@
   "vscode.pdfOnly": "Only PDF content can be handed to VS Code.",
   "vscode.noLog": "Opening the log file is not available in VS Code mode.",
   "base64.handedToVscode": "PDF handed to VS Code.",
-  "document.untitled": "Untitled-{n}"
+  "document.untitled": "Untitled-{n}",
+  "edit.invalidXmlName": "“{name}” is not a valid XML name (e.g. no spaces, must not start with a digit) — the change was discarded.",
+  "search.skippedInvalidNames": "{n} name(s) skipped: the result would not be a valid XML name."
 }

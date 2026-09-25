@@ -971,6 +971,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       field === "name" ? { kind: "rename", name: newText } : { kind: "set-value", value: newText },
     );
     if (blocker === "contains-double-hyphen") setError(t("comment.doubleHyphenRejected"));
+    if (blocker === "invalid-name") setError(t("edit.invalidXmlName").replace("{name}", newText));
   }
 
   function handleSetAttribute(name: string, value: string | null, coalesceKey?: string): void {
@@ -983,7 +984,9 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
 
   /** "Sofort anhängen": the attribute exists from the first typed character on. */
   function handleCreateAttribute(name: string, coalesceKey: string): void {
-    handleSetAttribute(name, "", coalesceKey);
+    if (!selectedRow) return;
+    const blocker = runTreeAction([selectedRow], { kind: "set-attribute", name, value: "", coalesceKey });
+    if (blocker === "invalid-name") setError(t("edit.invalidXmlName").replace("{name}", name));
   }
 
   /**
@@ -1328,19 +1331,20 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     options: SearchOptions,
     replacement: string,
     subtreeOnly: boolean,
-  ): { replaced: number; skippedInComments: number } {
-    if (!activeDoc || !trueRoot || !root) return { replaced: 0, skippedInComments: 0 };
+  ): { replaced: number; skippedInComments: number; skippedInvalidNames: number } {
+    if (!activeDoc || !trueRoot || !root) return { replaced: 0, skippedInComments: 0, skippedInvalidNames: 0 };
     const searchRoot = resolveSearchRoot(root, subtreeOnly);
-    const { command, replacementCount, skippedInComments } = createReplaceAllCommand(
+    const { command, replacementCount, skippedInComments, skippedInvalidNames } = createReplaceAllCommand(
       trueRoot,
       searchRoot,
       options,
       replacement,
+      activeDoc.format,
     );
     if (command) {
       activeDoc.commandBus.execute(command);
     }
-    return { replaced: replacementCount, skippedInComments };
+    return { replaced: replacementCount, skippedInComments, skippedInvalidNames };
   }
 
   function copyPath(node: DocNode, kind: "indexed" | "static" | "full"): void {

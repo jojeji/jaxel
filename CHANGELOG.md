@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- XML: Ungültige Element- oder Attributnamen (z. B. mit Leerzeichen oder einer Ziffer am Anfang)
+  werden beim Umbenennen, beim Anlegen von Attributen und bei „Alle ersetzen“ abgelehnt. Bisher
+  entstand eine Datei, die sich nicht mehr öffnen ließ.
 - JSON: Wer in einen Zahlen-, Wahrheits- oder null-Wert Text eintippt (oder ihn per „Alle
   ersetzen“ ändert), bekommt einen String. Bisher wurde der Text unverändert als Zahl geschrieben
   (`"n": 42 items`), und die Datei ließ sich nicht wieder öffnen.

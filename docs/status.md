@@ -1944,3 +1944,9 @@ Schreiber nichts zur Referenz macht).
 `jsonTypeAfterEdit` in `commands/set-value.ts`, genutzt von `tree-actions.ts` und
 `replace-all.ts`. Tests: `tests/json-value-type.test.ts` (sieben Fälle, fünf vorher rot).
 
+## Nachtrag 2026-09-25 — XML-Namensregel beim Bearbeiten (Review 5, Kandidat 3)
+
+`invalid-name` in `tree-actions.ts`, `format`-Parameter + `skippedInvalidNames` in
+`createReplaceAllCommand`, Meldungen `edit.invalidXmlName`/`search.skippedInvalidNames`. Tests:
+`tests/xml-names-on-edit.test.ts` (fünf Fälle, drei vorher rot), ein UI-Test (vorher rot).
+

@@ -302,6 +302,18 @@ describe("Umbenennen (Doppelklick auf Namen / F2)", () => {
     expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(1);
   });
 
+  it("weist einen ungültigen XML-Namen mit Hinweis zurück, statt eine unlesbare Datei zu erzeugen", async () => {
+    const user = await openSampleFile();
+    await user.dblClick(screen.getAllByText("person")[0]!);
+    const input = screen.getByDisplayValue("person");
+    await user.clear(input);
+    await user.type(input, "my item");
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText(/„my item“ ist kein gültiger XML-Name/)).toBeInTheDocument();
+    expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+
   it("Escape bricht das Umbenennen ohne Aenderung ab", async () => {
     const user = await openSampleFile();
     await user.dblClick(screen.getAllByText("person")[0]!);

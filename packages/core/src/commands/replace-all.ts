@@ -7,6 +7,8 @@ import { createRenameCommand } from "./rename.js";
 import { createSetValueCommand, jsonTypeAfterEdit } from "./set-value.js";
 import { createSetAttributeCommand } from "./set-attribute.js";
 import { createCompositeCommand } from "./composite.js";
+import { isValidXmlName } from "../format/convert.js";
+import type { DocFormat } from "../model/document.js";
 
 export interface ReplaceAllResult {
   /** `null` when nothing matched — nothing to execute, no empty no-op undo step. */
@@ -18,6 +20,9 @@ export interface ReplaceAllResult {
    * commented-out subtree (docs/entscheidungen.md, "Grilling: Kommentare in XML" #6). Reported
    * so the UI can say so — silently skipping them would look like the search lied. */
   skippedInComments: number;
+  /** XML only: name replacements left alone because the new name would not be a valid XML name
+   * (docs/entscheidungen.md 2026-09-25) — reported like `skippedInComments`. */
+  skippedInvalidNames: number;
 }
 
 /**
@@ -31,13 +36,16 @@ export function createReplaceAllCommand(
   searchRoot: DocNode,
   options: SearchOptions,
   replacement: string,
+  /** Decides the name rule: XML names must stay valid XML names, JSON keys are free. */
+  format: DocFormat = "xml",
 ): ReplaceAllResult {
   const plans = planReplacements(searchRoot, options, replacement);
-  if (plans.length === 0) return { command: null, replacementCount: 0, skippedInComments: 0 };
+  if (plans.length === 0) return { command: null, replacementCount: 0, skippedInComments: 0, skippedInvalidNames: 0 };
 
   const commands: Command[] = [];
   let replacementCount = 0;
   let skippedInComments = 0;
+  let skippedInvalidNames = 0;
   for (const plan of plans) {
     const ancestors = findAncestorChain(trueRoot, plan.node) ?? [];
     // Read-only cases, both reported rather than silently skipped:
@@ -54,6 +62,10 @@ export function createReplaceAllCommand(
       skippedInComments += plan.count;
       continue;
     }
+    if (plan.kind === "name" && format === "xml" && !isValidXmlName(plan.after)) {
+      skippedInvalidNames += plan.count;
+      continue;
+    }
     replacementCount += plan.count;
     if (plan.kind === "name") {
       commands.push(createRenameCommand(plan.node, plan.after, ancestors));
@@ -65,6 +77,11 @@ export function createReplaceAllCommand(
   }
 
   // Every match sat in a read-only spot — no command, but the caller still needs to hear why.
-  if (commands.length === 0) return { command: null, replacementCount: 0, skippedInComments };
-  return { command: createCompositeCommand("replace-all", commands), replacementCount, skippedInComments };
+  if (commands.length === 0) return { command: null, replacementCount: 0, skippedInComments, skippedInvalidNames };
+  return {
+    command: createCompositeCommand("replace-all", commands),
+    replacementCount,
+    skippedInComments,
+    skippedInvalidNames,
+  };
 }

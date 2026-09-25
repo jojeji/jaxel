@@ -935,3 +935,17 @@ Jaxel selbst nicht mehr öffnen konnte (per Test belegt).
 2. **Ein String bleibt ein String**, auch wenn Ziffern hineingetippt werden — das ist, was der
    Nutzer geschrieben hat. Einen Typwechsel String → Zahl gibt es bewusst nicht implizit.
 
+## 2026-09-25 — Die XML-Namensregel gilt auch beim Bearbeiten
+
+Aus dem fünften Architektur-Review (nur Strong). `isValidXmlName` prüfte nur die Konvertierung
+JSON→XML. Umbenennen, Attribute anlegen/umbenennen und „Alle ersetzen“ auf Namen nahmen alles an;
+`<my item>` machte die Datei für jeden XML-Parser, auch Jaxel, unlesbar (per Test belegt).
+
+1. **Baumaktionen kennen den Sperrgrund `invalid-name`** (nur XML): Umbenennen, neues Attribut,
+   Attribut umbenennen. Umbenennen im Baum und neues Attribut melden ihn; das Umbenennen eines
+   bestehenden Attributs übernimmt einen ungültigen Zwischenstand einfach nicht (wie bisher bei
+   Duplikaten) — eine Meldung pro Tastendruck wäre zu laut.
+2. **„Alle ersetzen“ überspringt Namen, die ungültig würden**, zählt sie
+   (`skippedInvalidNames`) und meldet sie wie übersprungene Treffer in Kommentaren.
+3. **JSON-Schlüssel bleiben frei** — JSON kennt keine Namensregel.
+
