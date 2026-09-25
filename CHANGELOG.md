@@ -13,6 +13,11 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Fehler beim Öffnen (Zuletzt geöffnet, Drag&Drop, „Öffnen mit“) und beim Neuladen werden
+  gemeldet, statt still zu verschwinden. Scheitert bei „Öffnen mit“ eine von mehreren Dateien,
+  öffnen die übrigen trotzdem.
+- Per Drag&Drop geöffnete Dateien respektieren die aktuelle Einstellung „Zuletzt geöffnete
+  Dateien“ (bisher galt der Wert vom Programmstart).
 - „Nur im ausgewählten Unterbaum“ blieb mit eingeschaltetem Filter nicht im Unterbaum, wenn dort
   nichts gefunden wurde: Die Suche lief dann still über das ganze Dokument, „Alle ersetzen“
   ersetzte auch außerhalb.

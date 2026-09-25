@@ -108,6 +108,8 @@
   "reload.reload": "Neu laden",
   "reload.keepMine": "Meine Version behalten",
   "reload.reloaded": "„{name}“ wurde neu geladen",
+  "reload.failed": "„{name}“ konnte nicht neu geladen werden: {error}",
+  "open.failed": "„{name}“ konnte nicht geöffnet werden: {error}",
   "close.title": "Ungespeicherte Änderungen",
   "close.messageOne": "„{name}“ hat ungespeicherte Änderungen. Vor dem Schließen speichern?",
   "close.messageMany": "{count} Dokumente haben ungespeicherte Änderungen. Vor dem Schließen speichern?",

@@ -1900,3 +1900,8 @@ kompiliert: vor dem Release `cargo test`/`cargo check` lokal laufen lassen.
 `searchScopeNode` in `App.tsx` statt `selectedRow` für „Nur im ausgewählten Unterbaum“. Test: ein
 UI-Test (vorher rot), der auch „Alle ersetzen“ in diesem Zustand prüft.
 
+## Nachtrag 2026-09-25 — Fehler beim Öffnen/Neuladen melden (Review 4, Kandidat 3)
+
+`openPath` fängt und meldet, Drop nutzt `openPathRef`, `performReload` fängt und meldet. Neue
+i18n-Schlüssel `open.failed`, `reload.failed`. Tests: zwei UI-Tests (vorher rot).
+

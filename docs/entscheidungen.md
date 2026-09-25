@@ -835,3 +835,18 @@ ganze Dokument, „Alle ersetzen“ eingeschlossen (per Test belegt). Das widers
    ausgewählt hat. Eine leere Auswahl löscht ihn nur, solange kein Filter aktiv ist.
 2. Suche, „Alle ersetzen“ und die Aktivierung der Checkbox richten sich nach dem Anker.
 
+## 2026-09-25 — Ein Weg zum Öffnen, der Fehler meldet
+
+Aus dem vierten Architektur-Review (nur Strong). Nur der Öffnen-Dialog fing Fehler ab. Über
+„Zuletzt geöffnet“, Drag&Drop und „Öffnen mit“ verschwand ein Fehler (fehlende Datei, kaputtes
+XML) als „Unhandled rejection“ im Log; bei mehreren „Öffnen mit“-Pfaden brach die Warteschlange
+beim ersten Fehler ab (per Test belegt). „Neu laden“ einer kaputten Datei schloss nur den Dialog.
+
+1. **`openPath` in `App.tsx` ist der eine Weg zum Öffnen** und meldet jeden Fehler mit
+   Dateinamen (`open.failed`). Er gibt zurück, ob die Datei offen ist; die Warteschlange läuft
+   weiter.
+2. **Drag&Drop ruft `openPath` über die Referenz auf die aktuelle Fassung auf** — vorher hing der
+   einmal registrierte Listener an der Fassung vom Programmstart und damit an der damaligen
+   Einstellung „Zuletzt geöffnete Dateien“.
+3. **„Neu laden“ meldet Fehler (`reload.failed`)**; der alte Baum bleibt.
+

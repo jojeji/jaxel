@@ -108,6 +108,8 @@
   "reload.reload": "Reload",
   "reload.keepMine": "Keep my version",
   "reload.reloaded": "“{name}” was reloaded",
+  "reload.failed": "Could not reload “{name}”: {error}",
+  "open.failed": "Could not open “{name}”: {error}",
   "close.title": "Unsaved changes",
   "close.messageOne": "“{name}” has unsaved changes. Save before closing?",
   "close.messageMany": "{count} documents have unsaved changes. Save before closing?",

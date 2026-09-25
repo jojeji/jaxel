@@ -1256,6 +1256,27 @@ describe("Speichern unter auf eine offene Datei", () => {
   });
 });
 
+describe("Fehler beim Öffnen", () => {
+  it("ein fehlschlagender Pfad aus 'Öffnen mit' wird gemeldet und blockiert die folgenden nicht", async () => {
+    renderApp();
+    await waitFor(() => expect(eventMock.listeners.has("jaxel://pending-open-paths")).toBe(true));
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "take_pending_open_paths") return ["/fake/fehlt.xml", "/fake/second.xml"];
+      if (cmd === "read_text_file") {
+        const path = (args as { path: string }).path;
+        if (path === "/fake/fehlt.xml") throw new Error("Datei nicht gefunden");
+        return { content: FILES[path]!, encoding: "UTF-8", mtimeMs: 1000, size: 100 };
+      }
+      if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    await act(async () => eventMock.listeners.get("jaxel://pending-open-paths")!());
+
+    expect(await screen.findByText("second.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.getByText(/„fehlt.xml“ konnte nicht geöffnet werden: Datei nicht gefunden/)).toBeInTheDocument();
+  });
+});
+
 describe("Fokus-Ansicht ab Knoten", () => {
   it("'Fokus ab hier öffnen' zeigt nur den Unterbaum in einem neuen Tab", async () => {
     const user = await openSampleFile();
@@ -2180,6 +2201,21 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
 
     await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
     expect(await screen.findByText("Anna")).toBeInTheDocument();
+  });
+
+  it("'Neu laden' einer inzwischen kaputten Datei meldet den Fehler", async () => {
+    const user = await openSampleFile();
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") return { content: "<catalog><kaputt>", encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    fireEvent(window, new Event("focus"));
+    await user.click(await screen.findByRole("button", { name: "Neu laden" }));
+
+    expect(await screen.findByText(/„sample.xml“ konnte nicht neu geladen werden/)).toBeInTheDocument();
+    expect(screen.getByText("catalog")).toBeInTheDocument(); // alter Stand bleibt
   });
 
   it("unveränderte mtime/Größe lösen gar nichts aus", async () => {

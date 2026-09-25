@@ -368,7 +368,7 @@ export function App(): React.ReactElement {
   // queues its paths too and pings us via event; the running window then opens them as well.
   // openPath (defined below) is reached through a ref so the once-registered listener always
   // sees the current closure.
-  const openPathRef = useRef<(path: string) => Promise<void>>(() => Promise.resolve());
+  const openPathRef = useRef<(path: string) => Promise<boolean>>(() => Promise.resolve(false));
   useEffect(() => {
     openPathRef.current = openPath;
   });
@@ -421,13 +421,14 @@ export function App(): React.ReactElement {
             setDragOver(false);
           } else if (event.type === "drop") {
             setDragOver(false);
-            for (const path of event.paths) void openPath(path);
+            // Through the ref: the listener is registered once, and the current openPath carries
+            // the current settings (e.g. the "Zuletzt geöffnet" limit).
+            for (const path of event.paths) void openPathRef.current(path);
           }
         });
     return () => {
       stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- openPath only wraps the stable openFile
   }, [host]);
 
   // Restore the per-tab EXPANDED set whenever the active TAB changes (not just the document —
@@ -680,17 +681,25 @@ export function App(): React.ReactElement {
     setReloadPrompt(null);
     const isActiveDoc = activeDoc?.filePath === filePath;
     const captured = captureViewSegments(filePath);
-    const reloadResult = await reloadFile(
-      filePath,
-      captured.selectionSegments,
-      captured.expandedSegmentsList,
-      onlyIfClean
-        ? () => {
-            const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
-            return activeFilePathRef.current === filePath && currentDoc?.isDirty === false;
-          }
-        : undefined,
-    );
+    let reloadResult: Awaited<ReturnType<typeof reloadFile>>;
+    try {
+      reloadResult = await reloadFile(
+        filePath,
+        captured.selectionSegments,
+        captured.expandedSegmentsList,
+        onlyIfClean
+          ? () => {
+              const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
+              return activeFilePathRef.current === filePath && currentDoc?.isDirty === false;
+            }
+          : undefined,
+      );
+    } catch (err) {
+      // Unreadable or no longer parseable: the old tree stays, and the user is told why instead
+      // of the dialog just closing.
+      setError(t("reload.failed").replace("{name}", fileNameOf(filePath)).replace("{error}", toErrorMessage(err)));
+      return;
+    }
     if (!reloadResult) {
       const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
       if (activeFilePathRef.current === filePath && currentDoc?.isDirty) setReloadPrompt({ filePath });
@@ -770,10 +779,20 @@ export function App(): React.ReactElement {
     }
   }
 
-  async function openPath(path: string): Promise<void> {
-    await openFile(path);
+  /** The one way a file gets opened — dialog, recent files, drag&drop, "Öffnen mit": opens it,
+   * remembers it, and REPORTS a failure (missing file, broken XML) instead of letting it vanish
+   * as an unhandled rejection. Resolves to whether it opened, so a queue of several paths keeps
+   * going past a failing one. */
+  async function openPath(path: string): Promise<boolean> {
+    try {
+      await openFile(path);
+    } catch (err) {
+      setError(t("open.failed").replace("{name}", fileNameOf(path)).replace("{error}", toErrorMessage(err)));
+      return false;
+    }
     rememberLastDir(path);
     addRecentFile(path, settings.recentFilesLimit);
+    return true;
   }
 
   /** Always shows the OS "save as" dialog — for an untitled document's first save AND for the
