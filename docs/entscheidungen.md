@@ -964,3 +964,15 @@ beim Wiederöffnen wurde jedes „ä“ zu „�“ (per Rust-Test belegt).
 3. Entscheidung #9 (Ursprungskodierung bleibt) gilt weiter für das Speichern im selben Format; eine
    Konvertierung erzeugt eine neue Datei in einem anderen Format mit dessen Regeln.
 
+## 2026-09-25 — „UTF-16“ auf ASCII-lesbaren Bytes ist UTF-8
+
+Aus dem fünften Architektur-Review (nur Strong). Eine Datei, deren Deklaration sich als ASCII
+lesen lässt, kann nicht UTF-16 sein. Jaxel folgte trotzdem dem Label und las sie als UTF-16LE —
+Zeichensalat, die Datei war nicht zu öffnen (per Rust-Test belegt). Solche Dateien erzeugt z. B.
+.NET (`XmlSerializer` mit `StringWriter`) häufig.
+
+1. **`sniff_xml_declared_encoding` ordnet ein UTF-16-Label als UTF-8 ein**, wie der
+   WHATWG-Encoding-Standard. Echte UTF-16-Dateien tragen einen BOM und werden daran erkannt,
+   bevor die Deklaration überhaupt gelesen wird.
+2. Beim Speichern bleibt die Datei, wie sie war: UTF-8-Bytes, Deklaration unverändert.
+

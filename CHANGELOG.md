@@ -13,6 +13,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- XML-Dateien, die `encoding="utf-16"` angeben, tatsächlich aber UTF-8 sind (so schreibt sie z. B.
+  .NET), öffnen wieder korrekt statt als Zeichensalat.
 - „Speichern unter“ als JSON schreibt immer UTF-8. Bisher übernahm die JSON-Datei die Kodierung
   der XML-Quelle (z. B. ISO-8859-1); beim Wiederöffnen wurden Umlaute zu „�“.
 - XML: Ungültige Element- oder Attributnamen (z. B. mit Leerzeichen oder einer Ziffer am Anfang)

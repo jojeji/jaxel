@@ -1955,3 +1955,13 @@ Schreiber nichts zur Referenz macht).
 `conversionEncoding` in `workspace.ts`. Tests: zwei Workspace-Fälle (beide vorher rot); der
 `InMemoryHost` merkt sich jetzt auch die geschriebene Kodierung.
 
+## Nachtrag 2026-09-25 — Deklariertes UTF-16 ohne BOM (Review 5, Kandidat 5)
+
+`io.rs`: UTF-16-Label aus der Deklaration → UTF-8. Test: ein Rust-Test (vorher rot), gelaufen über
+das Hilfsprojekt wie bei Review 4 (Tauri-Crate hier nicht baubar).
+
+Offen aus Review 5 (unter der Latte): Kommentartext mit „-“ am Ende ergibt `<!--x--->`; die
+„--“-Regel steht dreimal im Code. Nicht darstellbare Zeichen in Ein-Byte-Kodierungen landen als
+`&#NNNN;` auch in Kommentaren/Namen. `&#10;` in Attributen wird als echter Zeilenumbruch
+geschrieben. Lese-/Schreibfehler beim Speichern erscheinen als rohe Betriebssystem-Meldung.
+

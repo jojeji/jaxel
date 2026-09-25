@@ -53,7 +53,15 @@ fn sniff_xml_declared_encoding(bytes: &[u8]) -> Option<&'static Encoding> {
     }
     let rest = &decl[start + 1..];
     let end = rest.find(quote as char)?;
-    Encoding::for_label(rest[..end].as_bytes())
+    let declared = Encoding::for_label(rest[..end].as_bytes())?;
+    // We just read the declaration as ASCII bytes, so the file cannot be UTF-16 (whose ASCII
+    // characters would be interleaved with NUL bytes). Such files are common — .NET writes UTF-8
+    // bytes declaring "utf-16" — and the WHATWG encoding standard reads them as UTF-8 too. A real
+    // UTF-16 file carries a BOM and never reaches this sniff (see `detect_encoding`).
+    if declared == encoding_rs::UTF_16LE || declared == encoding_rs::UTF_16BE {
+        return Some(encoding_rs::UTF_8);
+    }
+    Some(declared)
 }
 
 fn detect_encoding(bytes: &[u8]) -> &'static Encoding {
@@ -134,6 +142,16 @@ mod tests {
     fn sniffs_the_declaration_even_when_non_ascii_text_follows_within_200_bytes() {
         let bytes = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a>\xE4\xF6\xFC</a>";
         assert_eq!(detect_encoding(bytes).name(), "windows-1252");
+    }
+
+    #[test]
+    fn reads_a_declared_utf16_file_with_ascii_bytes_as_utf8() {
+        // .NET's XmlSerializer + StringWriter writes exactly this: UTF-8 bytes declaring UTF-16.
+        // A declaration readable as ASCII bytes cannot be UTF-16 (which would interleave NULs).
+        let bytes = b"<?xml version=\"1.0\" encoding=\"utf-16\"?><root>\xC3\xA4</root>";
+        assert_eq!(detect_encoding(bytes).name(), "UTF-8");
+        let (text, _, _) = detect_encoding(bytes).decode(bytes);
+        assert!(text.ends_with("<root>ä</root>"));
     }
 
     #[test]
