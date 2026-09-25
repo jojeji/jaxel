@@ -16,14 +16,16 @@ export function createSetAttributeCommand(
   const previousIndex = node.attributes.findIndex((attribute) => attribute.name === name);
   const previousValue = previousIndex >= 0 ? node.attributes[previousIndex]!.value : null;
 
-  function apply(nextValue: string | null): void {
+  /** `insertAt`: where a missing attribute is (re)inserted — its old place when undoing a removal,
+   * so the attribute order (and with it the saved file) comes back unchanged. */
+  function apply(nextValue: string | null, insertAt: number): void {
     const index = node.attributes.findIndex((attribute) => attribute.name === name);
     if (nextValue === null) {
       if (index >= 0) node.attributes.splice(index, 1);
     } else if (index >= 0) {
       node.attributes[index]!.value = nextValue;
     } else {
-      node.attributes.push({ name, value: nextValue });
+      node.attributes.splice(insertAt, 0, { name, value: nextValue });
     }
   }
 
@@ -32,10 +34,10 @@ export function createSetAttributeCommand(
     coalesceKey,
     byteRangeChain: [...ancestors, node],
     do() {
-      apply(value);
+      apply(value, node.attributes.length);
     },
     undo() {
-      apply(previousValue);
+      apply(previousValue, previousIndex);
     },
   };
 }

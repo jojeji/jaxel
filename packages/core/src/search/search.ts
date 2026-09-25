@@ -106,6 +106,22 @@ function searchableValueOf(node: DocNode): string | null {
   return node.value;
 }
 
+/**
+ * The name a search should look at, or null for a name Jaxel invented rather than read from the
+ * file: a comment's "#comment", JSON's synthetic "$root", and the "$root" its array elements
+ * inherit. Renaming those would not rename anything real — it would turn a comment into a
+ * named node, or a top-level JSON array into an object.
+ */
+function searchableNameOf(node: DocNode, parentNameInvented: boolean, parent: DocNode | undefined): string | null {
+  return isInventedName(node, parentNameInvented, parent) ? null : node.name;
+}
+
+function isInventedName(node: DocNode, parentNameInvented: boolean, parent: DocNode | undefined): boolean {
+  if (node.kind === "comment") return true;
+  if (node.synthetic && node.name === "$root") return true;
+  return parentNameInvented && parent?.jsonArray === true && node.name === parent.name;
+}
+
 function includesName(scope: SearchScope): boolean {
   return scope === "name" || scope === "all";
 }
@@ -120,12 +136,18 @@ function includesAttribute(scope: SearchScope): boolean {
 
 /**
  * Depth-first traversal (ancestors before descendants, children in array order), invoking
- * `visit` for every node.
+ * `visit` for every node with its searchable name (see `searchableNameOf`).
  */
-function walk(node: DocNode, visit: (node: DocNode) => void): void {
-  visit(node);
+function walk(
+  node: DocNode,
+  visit: (node: DocNode, name: string | null) => void,
+  parent?: DocNode,
+  parentNameInvented = false,
+): void {
+  const name = searchableNameOf(node, parentNameInvented, parent);
+  visit(node, name);
   for (const child of node.children) {
-    walk(child, visit);
+    walk(child, visit, node, name === null);
   }
 }
 
@@ -133,8 +155,8 @@ export function findAll(root: DocNode, options: SearchOptions): SearchMatch[] {
   const matcher = compileMatcher(options);
   const matches: SearchMatch[] = [];
 
-  walk(root, (node) => {
-    if (includesName(options.scope) && matcher.test(node.name)) {
+  walk(root, (node, name) => {
+    if (includesName(options.scope) && name !== null && matcher.test(name)) {
       matches.push({ node, matchedIn: "name" });
     }
     if (includesValue(options.scope) && searchableValueOf(node) !== null && matcher.test(searchableValueOf(node)!)) {
@@ -172,9 +194,9 @@ export function planReplacements(root: DocNode, options: SearchOptions, replacem
   const matcher = compileMatcher(options);
   const plans: PlannedReplacement[] = [];
 
-  walk(root, (node) => {
-    if (includesName(options.scope)) {
-      const { result, count } = matcher.replace(node.name, replacement);
+  walk(root, (node, name) => {
+    if (includesName(options.scope) && name !== null) {
+      const { result, count } = matcher.replace(name, replacement);
       if (count > 0) {
         plans.push({ node, kind: "name", before: node.name, after: result, count });
       }
