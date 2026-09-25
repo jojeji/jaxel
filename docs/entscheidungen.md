@@ -790,3 +790,16 @@ Neuladen zeigten inaktive Tabs desselben Dokuments tote ids (per Test belegt).
    in den Workspace hätte jeden Auf-/Zuklapp-Klick durch den Workspace geführt, ohne dass das
    einen Fehler behebt.
 
+## 2026-09-25 — Ein Dokument pro Pfad, auch nach „Speichern unter“
+
+Aus dem dritten Architektur-Review (nur Strong). Der Workspace dedupliziert Dokumente beim
+Öffnen nach Pfad, aber nicht beim Umbenennen: „Speichern unter“ auf eine offene Datei ergab zwei
+Tabs für denselben Pfad (per Test belegt); ein späteres Speichern im alten Tab hätte dessen
+veralteten Inhalt über den neuen geschrieben.
+
+1. **PO-Entscheidung: Das offene Dokument am Zielpfad wird geschlossen**, samt aller seiner Tabs
+   (auch Fokus-Tabs), ohne Rückfrage — auch wenn es ungespeicherte Änderungen hat. Der
+   Überschreiben-Dialog des Betriebssystems hat die Absicht bereits bestätigt.
+2. **Durchgesetzt im Workspace** (`closeReplacedDocument`) für „Speichern unter“ und für die
+   Konvertierung, jeweils erst nach erfolgreichem Schreiben.
+

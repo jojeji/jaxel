@@ -328,6 +328,40 @@ describe("Dirty und Speichern", () => {
   });
 });
 
+describe("Ein Dokument pro Pfad", () => {
+  it("schließt beim Speichern unter das offene Dokument, dessen Datei überschrieben wird", async () => {
+    const { host, workspace } = await openCatalog({ "/a.xml": "<a/>", "/b.xml": "<b/>" });
+    const a = active(workspace).doc;
+    const root = a.document.root;
+    workspace.openFocusTab("/a.xml", root.id, "a", []); // auch Fokus-Tabs des alten Dokuments
+    await workspace.openFile("/b.xml");
+
+    await workspace.saveFileAs("/b.xml", "/a.xml");
+
+    const snapshot = workspace.getSnapshot();
+    expect(snapshot.docs.map((d) => d.document.root.name)).toEqual(["b"]);
+    expect(snapshot.tabs.map((t) => t.key)).toEqual(["/a.xml"]);
+    expect(active(workspace).doc.document.root.name).toBe("b");
+    expect(host.files.get("/a.xml")).toBe("<b/>");
+    // Das alte Dokument hört nicht mehr mit.
+    const revision = snapshot.revision;
+    a.commandBus.execute(createSetValueCommand(root, "x", undefined, []));
+    expect(workspace.getSnapshot().revision).toBe(revision);
+  });
+
+  it("schließt beim Konvertieren das offene Dokument am Zielpfad", async () => {
+    const { workspace } = await openCatalog({ "/a.json": '{"a": 1}', "/b.xml": "<b/>" });
+    await workspace.openFile("/b.xml");
+
+    await workspace.convertSaveAs("/b.xml", "/a.json", "json", null, []);
+
+    const snapshot = workspace.getSnapshot();
+    expect(snapshot.docs).toHaveLength(1);
+    expect(snapshot.tabs.map((t) => t.key)).toEqual(["/a.json"]);
+    expect(active(workspace).doc.format).toBe("json");
+  });
+});
+
 describe("Neu laden und Konvertieren", () => {
   function segmentsOf(workspace: Workspace, node: DocNode): PathSegment[] {
     return pathSegmentsOf(active(workspace).doc.document.root, node)!;

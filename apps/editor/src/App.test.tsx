@@ -1215,6 +1215,27 @@ describe("Kontextmenü und vollständiger Pfad", () => {
   });
 });
 
+describe("Speichern unter auf eine offene Datei", () => {
+  it("schließt das offene Dokument, statt einen zweiten Tab für denselben Pfad zu behalten", async () => {
+    const user = await openSampleFile();
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("second.xml", { selector: ".tab__label" });
+
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "take_pending_open_paths") return [];
+      if (cmd === "write_text_file") return { mtimeMs: 1500, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    vi.mocked(save).mockResolvedValue("/fake/sample.xml");
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
+
+    await waitFor(() => expect(screen.queryByText("second.xml", { selector: ".tab__label" })).not.toBeInTheDocument());
+    expect(screen.getAllByText("sample.xml", { selector: ".tab__label" })).toHaveLength(1);
+    expect(screen.getByText("inventory", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+});
+
 describe("Fokus-Ansicht ab Knoten", () => {
   it("'Fokus ab hier öffnen' zeigt nur den Unterbaum in einem neuen Tab", async () => {
     const user = await openSampleFile();

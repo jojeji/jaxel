@@ -218,6 +218,7 @@ export class Workspace {
     const stat = await this.host.writeTextFile(newPath, text, target.encoding);
     this.breadcrumb(`Datei gespeichert: ${newPath}`);
     this.commitSaved(target, text, stat);
+    this.closeReplacedDocument(newPath, target);
     const current = this.snapshot;
     const keyRemap = new Map<string, string>();
     const tabs = current.tabs.map((t) => {
@@ -262,6 +263,7 @@ export class Workspace {
     });
     const stat = await this.host.writeTextFile(newPath, text, target.encoding);
     this.breadcrumb(`Datei konvertiert nach ${targetFormat} und gespeichert: ${newPath}`);
+    this.closeReplacedDocument(newPath, target);
 
     return this.swapDocument({
       ...parseDocument(targetFormat, text),
@@ -552,6 +554,24 @@ export class Workspace {
       lastKnownMtimeMs: stat.mtimeMs,
       lastKnownSize: stat.size,
     };
+  }
+
+  /**
+   * "Speichern unter"/conversion just overwrote `path` on disk. If ANOTHER open document lives
+   * there, it is closed with all its tabs (PO decision 2026-09-25): at most one document per path,
+   * and the old one no longer matches its file — keeping it would let a later save write the old
+   * content over the new one.
+   */
+  private closeReplacedDocument(path: string, saving: OpenDocumentState): void {
+    const replaced = this.snapshot.docs.find((d) => d.filePath === path && d.commandBus !== saving.commandBus);
+    if (!replaced) return;
+    this.detach(replaced.commandBus);
+    const current = this.snapshot;
+    const tabs = current.tabs.filter((t) => t.filePath !== path);
+    const activeKey = tabs.some((t) => t.key === current.activeKey)
+      ? current.activeKey
+      : (tabs.find((t) => t.filePath === saving.filePath)?.key ?? tabs[0]?.key ?? null);
+    this.update({ docs: current.docs.filter((d) => d !== replaced), tabs, activeKey });
   }
 
   private detach(commandBus: CommandBus): void {

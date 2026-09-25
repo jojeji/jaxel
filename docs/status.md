@@ -1872,3 +1872,13 @@ zurück. Tests: zwei UI-Tests (vorher rot), ein Node-Fall in `actions.test.ts`.
 gebunden, `captureViewSegments`/`applyResolvedViews` lösen bei Neuladen und Konvertieren alle Tabs
 des Dokuments neu auf. Tests: vier Node-Fälle, zwei UI-Tests (vorher rot).
 
+## Nachtrag 2026-09-25 — Ein Dokument pro Pfad (Review 3, Kandidat 4)
+
+`Workspace.closeReplacedDocument` schließt nach „Speichern unter“/Konvertieren ein anderes offenes
+Dokument am Zielpfad (PO-Entscheidung, siehe `docs/entscheidungen.md`). Tests: zwei Node-Fälle,
+ein UI-Test (vorher rot). Bewusste Vereinfachung: Die gemerkte Ansicht der dabei geschlossenen
+Tabs bleibt in `App.tsx` als verwaister Eintrag im Speicher (klein, nur bis zum Neustart).
+
+Offen aus Review 3: Kandidat 5 (VS-Code-Anbindung an das Host-Dokument binden) und die
+fest verdrahteten deutschen Texte (Invariante #7) sind nicht Teil dieses Pakets.
+

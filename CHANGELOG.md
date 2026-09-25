@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- „Speichern unter“ auf eine Datei, die in einem anderen Tab offen ist, schließt diesen Tab.
+  Bisher blieben zwei Tabs für denselben Pfad offen, und ein späteres Speichern im alten Tab
+  konnte den neuen Inhalt überschreiben.
 - „Speichern unter“ eines neuen Dokuments klappt den Baum nicht mehr zu und behält Auswahl und
   Suche. Nach dem Neuladen einer Datei behalten auch die anderen Tabs derselben Datei ihre
   aufgeklappten Knoten.
