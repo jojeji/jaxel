@@ -36,7 +36,7 @@ import {
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
-import { getJaxelHost } from "./host.js";
+import { getJaxelHost, type JaxelHost } from "./host.js";
 import { conversionErrorMessage, toErrorMessage } from "./errors.js";
 import { resolveShortcut } from "./shortcuts.js";
 import { ACTIONS, isActionEnabled, type ActionContext, type AppActionId } from "./actions.js";
@@ -114,8 +114,9 @@ interface ToastEntry {
 const STATUS_TOAST_DURATION_MS = 4_000;
 const ERROR_TOAST_DURATION_MS = 8_000;
 
-export function App(): React.ReactElement {
-  const host = getJaxelHost();
+/** `host` is injectable so tests can drive the app as VS Code would (App.vscode.test.tsx);
+ * production always uses the host detected at startup. */
+export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React.ReactElement {
   const embedded = host.mode === "vscode";
   const { t } = useI18n();
   const { settings, setSettings } = useSettings();
@@ -220,6 +221,12 @@ export function App(): React.ReactElement {
               : reloadPromptDoc
                 ? "reload"
                 : null;
+  /** `visibleDialog` for the window-level keyboard listener, set during render — i.e. before the
+   * dialog is painted. The listener itself is re-registered in an effect, which runs only AFTER
+   * the paint; reading the closure value, a key pressed in that gap (e.g. Strg+S right as the
+   * reload question appears) would still act behind the dialog. */
+  const visibleDialogRef = useRef(visibleDialog);
+  visibleDialogRef.current = visibleDialog;
   const visibleToasts = [errorToast, statusToast]
     .filter((toast): toast is ToastEntry => toast !== null)
     .sort((a, b) => b.id - a.id);
@@ -240,32 +247,39 @@ export function App(): React.ReactElement {
 
   // VS Code supplies exactly one document to an embedded Jaxel instance. The
   // provider remains responsible for the CustomDocument and disk writes.
+  const [hostDocPath, setHostDocPath] = useState<string | null>(null);
   useEffect(() => {
     if (!embedded) return;
     let cancelled = false;
     void host.getInitialDocument().then((initial) => {
-      if (!cancelled && initial) void openFile(initial.path);
+      if (cancelled || !initial) return;
+      setHostDocPath(initial.path);
+      void openFile(initial.path);
     });
     return () => { cancelled = true; };
   }, [embedded, host, openFile]);
+  /** The document the host talks about: in VS Code the one it opened — never simply the active
+   * tab, so content, dirty state and save acknowledgements can never reach another document.
+   * (Standalone has no such channel; there the host calls below are no-ops.) */
+  const hostDoc = embedded ? (docs.find((doc) => doc.filePath === hostDocPath) ?? null) : activeDoc;
 
   useEffect(() => host.onSaved((_revision, text, stat) => {
-    if (!activeDoc) return;
-    if (text !== undefined) acknowledgeSaved(activeDoc.filePath, text, stat);
-    else activeDoc.commandBus.markSaved(); // Compatibility with older embedded bundles.
-  }), [host, activeDoc, acknowledgeSaved]);
+    if (!hostDoc) return;
+    if (text !== undefined) acknowledgeSaved(hostDoc.filePath, text, stat);
+    else hostDoc.commandBus.markSaved(); // Compatibility with older embedded bundles.
+  }), [host, hostDoc, acknowledgeSaved]);
 
   useEffect(() => {
-    host.notifyDirty(activeDoc?.isDirty ?? false);
-  }, [host, activeDoc?.isDirty, activeDoc?.document.revision]);
+    host.notifyDirty(hostDoc?.isDirty ?? false);
+  }, [host, hostDoc?.isDirty, hostDoc?.document.revision]);
 
   useEffect(() => {
     const stopContent = host.onRequestCurrentContent((requestId) => {
-      if (activeDoc) host.respondCurrentContent(requestId, serializeForSave(activeDoc), activeDoc.document.revision);
+      if (hostDoc) host.respondCurrentContent(requestId, serializeForSave(hostDoc), hostDoc.document.revision);
     });
     const stopSession = host.onRequestSession((requestId) => host.respondSession(requestId, null));
     return () => { stopContent(); stopSession(); };
-  }, [host, activeDoc]);
+  }, [host, hostDoc]);
 
   // Globale Absturzspuren (AP15 Story 2, 3): window.onerror/unhandledrejection landen im Log.
   useEffect(() => installGlobalErrorLogging(), []);
@@ -754,7 +768,9 @@ export function App(): React.ReactElement {
   // metadata (mtime+size) rather than re-reading the file — see stat_file in src-tauri.
   useEffect(() => {
     function handleFocus(): void {
-      if (!activeDoc || activeDoc.isUntitled) return;
+      // In VS Code, VS Code owns file I/O and notices external changes itself
+      // (docs/entscheidungen.md 2026-09-14); the host would only hand back the cached start text.
+      if (embedded || !activeDoc || activeDoc.isUntitled) return;
       const { filePath } = activeDoc;
       const checkId = ++externalCheckIdRef.current;
       host.statFile(filePath)
@@ -870,7 +886,7 @@ export function App(): React.ReactElement {
    * the OS "save as" dialog first. Returns the document's (possibly new) path, or null if
    * the user cancelled that dialog. */
   async function saveDoc(doc: OpenDocumentState): Promise<string | null> {
-    if (doc.isUntitled) return promptSaveAs(doc);
+    if (doc.isUntitled) return embedded ? null : promptSaveAs(doc); // VS Code owns "save as"
     await saveFile(doc.filePath);
     return doc.filePath;
   }
@@ -1148,7 +1164,7 @@ export function App(): React.ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const ctrl = event.ctrlKey || event.metaKey;
-      if (visibleDialog !== null) {
+      if (visibleDialogRef.current !== null) {
         // Nothing behind a dialog runs — no save, no edit, no tree navigation. Strg+F is still
         // swallowed so the webview's own find bar does not open over the dialog.
         if (ctrl && event.key.toLowerCase() === "f") event.preventDefault();
@@ -1452,7 +1468,7 @@ export function App(): React.ReactElement {
   /** "Als neuen Tab öffnen" in the Base64 preview: the decoded text becomes a fresh untitled
    * document — deliberately detached from its source node (read-only view, no write-back). */
   function handleOpenDecodedAsTab(): void {
-    if (!base64Preview?.format) return;
+    if (embedded || !base64Preview?.format) return; // VS Code mode: exactly one document
     try {
       newDocument(base64Preview.format, base64Preview.text);
       setBase64Preview(null);
@@ -1797,7 +1813,9 @@ export function App(): React.ReactElement {
         <Base64PreviewDialog
           text={base64Preview.text}
           format={base64Preview.format}
-          onOpenAsTab={handleOpenDecodedAsTab}
+          // In VS Code, Jaxel edits exactly one document — a second one would be unreachable
+          // (no tab bar) and would take over the connection to VS Code.
+          onOpenAsTab={embedded ? undefined : handleOpenDecodedAsTab}
           onClose={() => setBase64Preview(null)}
         />
       )}

@@ -13,6 +13,11 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- VS-Code-Modus: Jaxel meldet Inhalt, Änderungsstand und Speicherbestätigung immer für das von
+  VS Code geöffnete Dokument. „Als neuen Tab öffnen“ (Base64-Vorschau) wird dort nicht mehr
+  angeboten — es hätte ein zweites, unerreichbares Dokument erzeugt, dessen Inhalt beim Speichern
+  an VS Code gegangen wäre. Jaxel prüft dort auch nicht mehr selbst auf externe Änderungen.
+- Ein Tastenkürzel genau in dem Moment, in dem ein Dialog erscheint, wirkte noch dahinter.
 - Eine hinter einem anderen Dialog vorgemerkte Frage „Datei wurde extern geändert“ erschien nach
   dem Schließen und Wiederöffnen der Datei für das frisch geladene Dokument. Sie verfällt jetzt
   mit dem Dokument.

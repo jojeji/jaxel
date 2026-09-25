@@ -1911,3 +1911,12 @@ i18n-Schlüssel `open.failed`, `reload.failed`. Tests: zwei UI-Tests (vorher rot
 ihr Dokument fehlt. Test: ein UI-Test (vorher rot). Die Bindung lebt in `App.tsx`, nicht im
 Workspace: Die Frage ist UI-Zustand, und die CommandBus-Identität reicht für die Zuordnung.
 
+## Nachtrag 2026-09-25 — VS-Code-Modus an das Host-Dokument gebunden (Review 4, Kandidat 5)
+
+`hostDoc` statt `activeDoc` für die VS-Code-Verbindung, „Als neuen Tab öffnen“ im VS-Code-Modus
+ausgeblendet, kein Fokus-Check dort, `App({ host })` injizierbar. Neue Testdatei
+`App.vscode.test.tsx` mit nachgebautem VS-Code-Host (drei Tests, zwei davon vorher rot). Dazu die
+Tastatur-Ref (siehe `docs/entscheidungen.md`): danach drei vollständige Testläufe grün; dass der
+sporadische Fehlschlag damit sicher weg ist, ist nicht beweisbar, die gefundene Ursache ist
+behoben.
+

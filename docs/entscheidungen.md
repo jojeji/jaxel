@@ -863,3 +863,29 @@ ein frisch geladenes Dokument (per Test belegt).
 2. Bewusst nicht geändert: „Speichern“ im Schließen-Dialog, während die Frage noch wartet, schreibt
    die eigene Version — das ist dort die ausdrückliche Entscheidung des Nutzers für seine Fassung.
 
+## 2026-09-25 — VS-Code-Modus: genau ein Dokument, an das Host-Dokument gebunden
+
+Aus dem vierten Architektur-Review (nur Strong). Inhaltsanfrage, Dirty-Meldung und
+Speicherbestätigung von VS Code gingen an das AKTIVE Dokument. Über „Als neuen Tab öffnen“
+(Base64-Vorschau) entstand im VS-Code-Modus ein zweites Dokument — ohne Tab-Leiste unerreichbar —
+und übernahm diese Verbindung: VS Code hätte beim Speichern den dekodierten Text erhalten, und die
+Speicherbestätigung hätte die Byte-Offsets des falschen Dokuments neu ausgerichtet.
+
+1. **`hostDoc` in `App.tsx` ist im VS-Code-Modus das von VS Code geöffnete Dokument** (Pfad aus
+   `getInitialDocument`); `onSaved`, `notifyDirty` und `respondCurrentContent` beziehen sich nur
+   darauf.
+2. **Kein zweites Dokument im VS-Code-Modus:** „Als neuen Tab öffnen“ ist ausgeblendet und
+   gesperrt; ein unbenanntes Dokument ließe sich dort ohnehin nicht speichern (`saveDoc` gibt auf,
+   statt „Speichern unter“ zu öffnen — das gehört VS Code). Andere Wege (Drop, Öffnen mit,
+   Sitzung, Zuletzt geöffnet, Neu) waren dort schon gesperrt.
+3. **Keine eigene Prüfung auf externe Änderungen im VS-Code-Modus**: VS Code besitzt Datei-I/O
+   (Eintrag 14.09.); der Host lieferte beim Neuladen ohnehin nur den zwischengespeicherten
+   Starttext.
+4. **`App` nimmt den Host optional als Prop** (Standard: `getJaxelHost()`), damit
+   `App.vscode.test.tsx` die App mit einem nachgebauten VS-Code-Host prüfen kann.
+
+Im selben Paket: Der Tastatur-Listener liest den Dialogzustand jetzt über eine beim Rendern
+gesetzte Ref. Er wird in einem Effekt neu registriert, der erst nach dem Zeichnen läuft; ein
+Kürzel genau im Moment des Erscheinens eines Dialogs wirkte sonst noch dahinter (sichtbar als
+sporadisch roter Test aus dem Paket „Nichts läuft hinter einem Dialog“).
+

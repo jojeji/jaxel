@@ -7,7 +7,8 @@ interface Base64PreviewDialogProps {
   text: string;
   /** Set when the text parses as one of Jaxel's document formats — enables "open as tab". */
   format: "xml" | "json" | null;
-  onOpenAsTab: () => void;
+  /** Absent where a second document is not allowed (VS Code mode) — the button is hidden. */
+  onOpenAsTab?: () => void;
   onClose: () => void;
 }
 
@@ -22,7 +23,7 @@ export function Base64PreviewDialog({ text, format, onOpenAsTab, onClose }: Base
         <h2>{t("base64.previewTitle")}</h2>
         <pre className="base64-preview__text">{text}</pre>
         <div className="new-doc-dialog__choices">
-          {format && (
+          {format && onOpenAsTab && (
             <button className="primary" onClick={onOpenAsTab}>
               {t("base64.openAsTab")}
             </button>
