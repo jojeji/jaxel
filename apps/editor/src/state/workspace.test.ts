@@ -14,6 +14,8 @@ class InMemoryHost implements WorkspaceHost {
   readonly writes: string[] = [];
   /** Files that carry a byte order mark (as the Rust side reports it). */
   readonly boms = new Set<string>();
+  /** Encoding a file was last written in, and the one it reports when read. */
+  readonly encodings = new Map<string, string>();
   private clock = 1000;
 
   constructor(files: Record<string, string> = {}) {
@@ -23,11 +25,13 @@ class InMemoryHost implements WorkspaceHost {
   async readTextFile(path: string): Promise<HostFileContent> {
     const content = this.files.get(path);
     if (content === undefined) throw new Error(`no such file: ${path}`);
-    return { content, encoding: "UTF-8", bom: this.boms.has(path), mtimeMs: this.clock, size: content.length };
+    const encoding = this.encodings.get(path) ?? "UTF-8";
+    return { content, encoding, bom: this.boms.has(path), mtimeMs: this.clock, size: content.length };
   }
 
-  async writeTextFile(path: string, content: string, _encoding: string, bom?: boolean): Promise<HostFileStat> {
+  async writeTextFile(path: string, content: string, encoding: string, bom?: boolean): Promise<HostFileStat> {
     this.files.set(path, content);
+    this.encodings.set(path, encoding);
     if (bom) this.boms.add(path);
     else this.boms.delete(path);
     this.writes.push(path);
@@ -378,6 +382,32 @@ describe("Kodierung", () => {
     expect(host.boms.has("/b.xml")).toBe(true);
     await workspace.saveFileAs("/b.xml", "/c.xml");
     expect(host.boms.has("/c.xml")).toBe(true);
+  });
+
+  it("schreibt beim Konvertieren nach JSON immer UTF-8, auch aus einer Latin-1-Quelle", async () => {
+    const host = new InMemoryHost({ "/l.xml": '<?xml version="1.0" encoding="ISO-8859-1"?><r><a>ä</a></r>' });
+    host.encodings.set("/l.xml", "windows-1252");
+    const workspace = new Workspace(host);
+    await workspace.openFile("/l.xml");
+
+    await workspace.convertSaveAs("/l.xml", "/l.json", "json", null, []);
+
+    expect(host.encodings.get("/l.json")).toBe("UTF-8");
+    expect(active(workspace).doc.encoding).toBe("UTF-8");
+  });
+
+  it("deklariert UTF-16 beim Konvertieren nach XML als „UTF-16“ (mit BOM), nicht als UTF-16LE", async () => {
+    const host = new InMemoryHost({ "/w.json": '{"a": 1, "b": 2}' });
+    host.encodings.set("/w.json", "UTF-16LE");
+    host.boms.add("/w.json");
+    const workspace = new Workspace(host);
+    await workspace.openFile("/w.json");
+
+    await workspace.convertSaveAs("/w.json", "/w.xml", "xml", null, []);
+
+    expect(host.encodings.get("/w.xml")).toBe("UTF-16LE");
+    expect(host.boms.has("/w.xml")).toBe(true);
+    expect(host.files.get("/w.xml")).toMatch(/^<\?xml version="1\.0" encoding="UTF-16"\?>/);
   });
 
   it("schreibt ohne BOM, wenn die Datei keinen hatte", async () => {

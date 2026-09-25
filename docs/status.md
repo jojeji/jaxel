@@ -1950,3 +1950,8 @@ Schreiber nichts zur Referenz macht).
 `createReplaceAllCommand`, Meldungen `edit.invalidXmlName`/`search.skippedInvalidNames`. Tests:
 `tests/xml-names-on-edit.test.ts` (fünf Fälle, drei vorher rot), ein UI-Test (vorher rot).
 
+## Nachtrag 2026-09-25 — Kodierung beim Konvertieren (Review 5, Kandidat 4)
+
+`conversionEncoding` in `workspace.ts`. Tests: zwei Workspace-Fälle (beide vorher rot); der
+`InMemoryHost` merkt sich jetzt auch die geschriebene Kodierung.
+

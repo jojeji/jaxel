@@ -118,6 +118,26 @@ function nextUntitledNumber(docs: OpenDocumentState[]): number {
   return Math.max(0, ...docs.map((d) => d.untitledNumber ?? 0)) + 1;
 }
 
+/**
+ * How a conversion into `targetFormat` is written — the one place that decides it.
+ * - JSON is always UTF-8 (RFC 8259): it has no declaration, so Jaxel (like every JSON reader)
+ *   reads it back as UTF-8, and a Latin-1 "ä" written in the source encoding came back as "�".
+ *   A BOM is kept only when the source already was UTF-8 with BOM.
+ * - XML keeps the source encoding and BOM; the declaration names UTF-16 as "UTF-16" (with the
+ *   BOM that io.rs always writes for it) rather than the byte-order-specific "UTF-16LE"/"-BE",
+ *   which by definition means "no BOM".
+ */
+function conversionEncoding(
+  source: Pick<OpenDocumentState, "encoding" | "bom">,
+  targetFormat: DocFormat,
+): { encoding: string; bom: boolean; declaredAs: string } {
+  if (targetFormat === "json") {
+    return { encoding: "UTF-8", bom: source.encoding === "UTF-8" && source.bom, declaredAs: "UTF-8" };
+  }
+  const isUtf16 = source.encoding === "UTF-16LE" || source.encoding === "UTF-16BE";
+  return { encoding: source.encoding, bom: source.bom, declaredAs: isUtf16 ? "UTF-16" : source.encoding };
+}
+
 /** The format a path's extension asks for, or null for anything else (".txt", no extension).
  * Also what "Speichern unter" reads to decide whether the user is asking for a conversion. */
 export function formatOfExtension(path: string): DocFormat | null {
@@ -265,13 +285,14 @@ export class Workspace {
     const target = this.findDoc(currentPath);
     if (!target) return { selectedId: null, expandedIds: [] };
 
+    const { encoding, bom, declaredAs } = conversionEncoding(target, targetFormat);
     const text = convertDocument({
       to: targetFormat,
       root: target.document.root,
       indent: target.document.indent,
-      encoding: target.encoding,
+      encoding: declaredAs,
     });
-    const stat = await this.host.writeTextFile(newPath, text, target.encoding, target.bom);
+    const stat = await this.host.writeTextFile(newPath, text, encoding, bom);
     this.breadcrumb(`Datei konvertiert nach ${targetFormat} und gespeichert: ${newPath}`);
     this.closeReplacedDocument(newPath, target);
 
@@ -280,8 +301,8 @@ export class Workspace {
       filePath: currentPath,
       newFilePath: newPath,
       newFormat: targetFormat,
-      encoding: target.encoding,
-      bom: target.bom,
+      encoding,
+      bom,
       sourceText: text,
       mtimeMs: stat.mtimeMs,
       size: stat.size,

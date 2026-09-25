@@ -949,3 +949,18 @@ JSON→XML. Umbenennen, Attribute anlegen/umbenennen und „Alle ersetzen“ auf
    (`skippedInvalidNames`) und meldet sie wie übersprungene Treffer in Kommentaren.
 3. **JSON-Schlüssel bleiben frei** — JSON kennt keine Namensregel.
 
+## 2026-09-25 — Zielkodierung einer Konvertierung folgt dem Zielformat
+
+Aus dem fünften Architektur-Review (nur Strong). Beim Konvertieren übernahm die neue Datei die
+Kodierung der Quelle. JSON hat keine Kodierungsangabe und wird (von Jaxel wie von jedem
+JSON-Leser) als UTF-8 gelesen: Aus einer ISO-8859-1-XML-Datei wurde JSON in windows-1252, und
+beim Wiederöffnen wurde jedes „ä“ zu „�“ (per Rust-Test belegt).
+
+1. **`conversionEncoding` im Workspace ist die eine Regel:** Ziel JSON → immer UTF-8 (RFC 8259);
+   ein BOM bleibt nur, wenn die Quelle schon UTF-8 mit BOM war. Ziel XML → Kodierung und BOM der
+   Quelle.
+2. **Die XML-Deklaration nennt UTF-16 als „UTF-16“**, nicht „UTF-16LE“/„-BE“ — diese Namen
+   bedeuten per Definition „ohne BOM“, `io.rs` schreibt UTF-16 aber immer mit BOM.
+3. Entscheidung #9 (Ursprungskodierung bleibt) gilt weiter für das Speichern im selben Format; eine
+   Konvertierung erzeugt eine neue Datei in einem anderen Format mit dessen Regeln.
+

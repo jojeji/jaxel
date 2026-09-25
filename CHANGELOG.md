@@ -13,6 +13,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- „Speichern unter“ als JSON schreibt immer UTF-8. Bisher übernahm die JSON-Datei die Kodierung
+  der XML-Quelle (z. B. ISO-8859-1); beim Wiederöffnen wurden Umlaute zu „�“.
 - XML: Ungültige Element- oder Attributnamen (z. B. mit Leerzeichen oder einer Ziffer am Anfang)
   werden beim Umbenennen, beim Anlegen von Attributen und bei „Alle ersetzen“ abgelehnt. Bisher
   entstand eine Datei, die sich nicht mehr öffnen ließ.
