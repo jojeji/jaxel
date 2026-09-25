@@ -201,6 +201,48 @@ describe("Schließen planen", () => {
   });
 });
 
+describe("Stabile Tab-Identität", () => {
+  it("behält die id eines Tabs, wenn Speichern unter seinen Schlüssel ändert", async () => {
+    const host = new InMemoryHost();
+    const workspace = new Workspace(host);
+    workspace.newDocument("xml");
+    const id = active(workspace).tab.id;
+    await workspace.saveFileAs("Unbenannt-1", "/x.xml");
+    expect(active(workspace).tab.key).toBe("/x.xml");
+    expect(active(workspace).tab.id).toBe(id);
+  });
+
+  it("behält die ids aller Tabs eines Dokuments beim Neuladen und Konvertieren", async () => {
+    const { workspace } = await openCatalog();
+    const root = active(workspace).doc.document.root;
+    workspace.openFocusTab("/c.xml", root.children[1]!.id, "person", [root.id]);
+    const ids = workspace.getSnapshot().tabs.map((t) => t.id);
+
+    await workspace.reloadFile("/c.xml", null, []);
+    expect(workspace.getSnapshot().tabs.map((t) => t.id)).toEqual(ids);
+    await workspace.convertSaveAs("/c.xml", "/c.json", "json", null, []);
+    expect(workspace.getSnapshot().tabs.map((t) => t.id)).toEqual(ids);
+  });
+
+  it("vergibt beim Umfokussieren eine neue id, weil der Tab danach etwas anderes zeigt", async () => {
+    const { workspace } = await openCatalog();
+    const root = active(workspace).doc.document.root;
+    workspace.openFocusTab("/c.xml", root.children[1]!.id, "person", [root.id]);
+    const before = active(workspace).tab;
+    workspace.retargetFocusTab(before.key, root.children[0]!.id, "person", [root.id]);
+    expect(active(workspace).tab.id).not.toBe(before.id);
+  });
+
+  it("vergibt jede id nur einmal", async () => {
+    const { workspace } = await openCatalog({ "/a.xml": "<a><b/></a>", "/c.xml": "<c/>" });
+    const root = active(workspace).doc.document.root;
+    workspace.openFocusTab("/a.xml", root.children[0]!.id, "b", [root.id]);
+    await workspace.openFile("/c.xml");
+    const ids = workspace.getSnapshot().tabs.map((t) => t.id);
+    expect(new Set(ids).size).toBe(3);
+  });
+});
+
 describe("Dirty und Speichern", () => {
   it("leitet Dirty aus dem Undo-Stapel ab, Undo bis zur Baseline macht wieder sauber", async () => {
     const { workspace } = await openCatalog();

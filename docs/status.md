@@ -1866,3 +1866,9 @@ geänderten Dokumente. Tests: vier Node-Fälle in `workspace.test.ts`, zwei UI-T
 `ActionContext.modalOpen` sperrt alle App-Aktionen, die Tastatur kehrt hinter einem Dialog sofort
 zurück. Tests: zwei UI-Tests (vorher rot), ein Node-Fall in `actions.test.ts`.
 
+## Nachtrag 2026-09-25 — Stabile Tab-Identität (Review 3, Kandidat 3)
+
+`TabState.id` (Workspace), Ansichtsspeicher/Tab-Wechsel-Effekt/Suchpanel in `App.tsx` daran
+gebunden, `captureViewSegments`/`applyResolvedViews` lösen bei Neuladen und Konvertieren alle Tabs
+des Dokuments neu auf. Tests: vier Node-Fälle, zwei UI-Tests (vorher rot).
+

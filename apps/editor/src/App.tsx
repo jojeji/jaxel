@@ -145,12 +145,13 @@ export function App(): React.ReactElement {
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
-  /** Per-tab memory of the `expanded` set, keyed by tab key — so returning to a tab shows it
-   * exactly as it was left, instead of collapsing back to just the root every time. */
+  /** Per-tab memory of the `expanded` set, keyed by the tab's stable `id` (not its key, which
+   * "Speichern unter", conversion and reload change) — so returning to a tab shows it exactly as
+   * it was left, instead of collapsing back to just the root every time. */
   const tabViewStateRef = useRef<Map<string, Set<string>>>(new Map());
-  /** Which tab key the CURRENT `expanded` state belongs to — set at the end of the tab-switch
+  /** Which tab id the CURRENT `expanded` state belongs to — set at the end of the tab-switch
    * effect below, read at its start (before the switch) to know where to save it. */
-  const activeTabKeyRef = useRef<string | null>(null);
+  const activeTabIdRef = useRef<string | null>(null);
   const nextToastIdRef = useRef(0);
   const [errorToast, setErrorToast] = useState<ToastEntry | null>(null);
   const [statusToast, setStatusToast] = useState<ToastEntry | null>(null);
@@ -436,24 +437,24 @@ export function App(): React.ReactElement {
   // NOT restored — always resets, same as before this fix — since the previously selected node
   // may no longer even be visible/relevant in a differently-expanded tree.
   useEffect(() => {
-    const previousKey = activeTabKeyRef.current;
-    if (previousKey) {
-      tabViewStateRef.current.set(previousKey, expanded);
+    const previousId = activeTabIdRef.current;
+    if (previousId) {
+      tabViewStateRef.current.set(previousId, expanded);
     }
     setSelection(EMPTY_SELECTION);
     setEditingField(null);
     setFilterMatches(null);
-    const newKey = activeTab?.key ?? null;
-    const saved = newKey ? tabViewStateRef.current.get(newKey) : undefined;
+    const newId = activeTab?.id ?? null;
+    const saved = newId ? tabViewStateRef.current.get(newId) : undefined;
     if (saved) {
       setExpanded(saved);
     } else {
       const visibleRootId = focus ? focus.node.id : activeDoc?.document.root.id;
       setExpanded(visibleRootId ? new Set([visibleRootId]) : new Set());
     }
-    activeTabKeyRef.current = newKey;
+    activeTabIdRef.current = newId;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on the tab only
-  }, [activeTab?.key]);
+  }, [activeTab?.id]);
 
   /**
    * The flattened, currently visible row list. Normal mode: expand/collapse driven.
@@ -607,33 +608,63 @@ export function App(): React.ReactElement {
    * survives a re-parse, which assigns entirely new node ids. Empty unless `filePath` is the
    * active tab's document (a background document has no visible view to restore). Shared by
    * reload and format conversion, both of which replace the tree wholesale. */
-  function captureViewSegments(filePath: string): {
+  /** A tab view captured as path SEGMENTS before a reload or conversion, which gives every node
+   * a new id: the active tab's selection + expanded nodes, followed by the remembered expanded
+   * nodes of the document's other tabs. The Workspace resolves every entry of
+   * `expandedSegmentsList` independently and in order, so `applyResolvedViews` can split the
+   * result back up. */
+  interface CapturedViews {
     selectionSegments: PathSegment[] | null;
     expandedSegmentsList: PathSegment[][];
-  } {
+    activeCount: number;
+    others: Array<{ tabId: string; count: number }>;
+  }
+
+  function captureViewSegments(filePath: string): CapturedViews {
     let selectionSegments: PathSegment[] | null = null;
     const expandedSegmentsList: PathSegment[][] = [];
-    if (activeDoc?.filePath === filePath && trueRoot) {
-      if (selectedRow) {
-        selectionSegments = getPathSegments(selectedRow.node, selectedRow.ancestors);
-      }
-      for (const id of expanded) {
+    const others: CapturedViews["others"] = [];
+    if (activeDoc?.filePath !== filePath || !trueRoot) {
+      return { selectionSegments, expandedSegmentsList, activeCount: 0, others };
+    }
+    const pushSegments = (ids: Iterable<string>): number => {
+      let count = 0;
+      for (const id of ids) {
         const node = findNodeById(trueRoot, id);
         if (!node) continue;
         expandedSegmentsList.push(pathSegmentsOf(trueRoot, node));
+        count++;
       }
+      return count;
+    };
+    if (selectedRow) selectionSegments = getPathSegments(selectedRow.node, selectedRow.ancestors);
+    const activeCount = pushSegments(expanded);
+    for (const tab of tabs) {
+      if (tab.filePath !== filePath || tab.id === activeTab?.id) continue;
+      const stored = tabViewStateRef.current.get(tab.id);
+      if (stored) others.push({ tabId: tab.id, count: pushSegments(stored) });
     }
-    return { selectionSegments, expandedSegmentsList };
+    return { selectionSegments, expandedSegmentsList, activeCount, others };
+  }
+
+  /** Stores the re-resolved views of the other tabs and returns the active tab's expanded ids. */
+  function applyResolvedViews(captured: CapturedViews, expandedIds: string[]): string[] {
+    let offset = captured.activeCount;
+    for (const other of captured.others) {
+      tabViewStateRef.current.set(other.tabId, new Set(expandedIds.slice(offset, offset + other.count)));
+      offset += other.count;
+    }
+    return expandedIds.slice(0, captured.activeCount);
   }
 
   async function performReload(filePath: string, onlyIfClean = false): Promise<void> {
     setReloadPrompt(null);
     const isActiveDoc = activeDoc?.filePath === filePath;
-    const { selectionSegments, expandedSegmentsList } = captureViewSegments(filePath);
+    const captured = captureViewSegments(filePath);
     const reloadResult = await reloadFile(
       filePath,
-      selectionSegments,
-      expandedSegmentsList,
+      captured.selectionSegments,
+      captured.expandedSegmentsList,
       onlyIfClean
         ? () => {
             const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
@@ -646,7 +677,8 @@ export function App(): React.ReactElement {
       if (activeFilePathRef.current === filePath && currentDoc?.isDirty) setReloadPrompt({ filePath });
       return;
     }
-    const { selectedId: newSelectedId, expandedIds } = reloadResult;
+    const { selectedId: newSelectedId } = reloadResult;
+    const expandedIds = applyResolvedViews(captured, reloadResult.expandedIds);
     if (isActiveDoc) {
       // A reload re-parses into all-new node ids, so only the single re-resolved selection
       // survives — a multi-selection is not carried across (see performReload's doc comment).
@@ -762,10 +794,16 @@ export function App(): React.ReactElement {
     setConvertPrompt(null);
     setError(null);
     try {
-      const { selectionSegments, expandedSegmentsList } = captureViewSegments(filePath);
-      const result = await convertSaveAs(filePath, newPath, targetFormat, selectionSegments, expandedSegmentsList);
+      const captured = captureViewSegments(filePath);
+      const result = await convertSaveAs(
+        filePath,
+        newPath,
+        targetFormat,
+        captured.selectionSegments,
+        captured.expandedSegmentsList,
+      );
       setSelection(result.selectedId ? selectOnly(result.selectedId) : EMPTY_SELECTION);
-      setExpanded(new Set(result.expandedIds));
+      setExpanded(new Set(applyResolvedViews(captured, result.expandedIds)));
       setEditingField(null);
       rememberLastDir(newPath);
       addRecentFile(newPath, settings.recentFilesLimit);
@@ -1236,7 +1274,7 @@ export function App(): React.ReactElement {
   /** Closes tabs and forgets their remembered expand/selection state (see tabViewStateRef
    * above) — otherwise the map would grow forever across a long session of opening/closing tabs. */
   function closeTabsAndForgetView(keys: string[]): void {
-    for (const key of keys) tabViewStateRef.current.delete(key);
+    for (const tab of tabs) if (keys.includes(tab.key)) tabViewStateRef.current.delete(tab.id);
     closeTabs(keys);
   }
 
@@ -1542,8 +1580,9 @@ export function App(): React.ReactElement {
         // holds live node references into one view and must never survive a tab switch —
         // stale matches resolved against a different root crashed computePaths (see test).
         // Two tabs on the same document (full view + a focus tab) must each get their own
-        // independent search session too, hence keying on the tab, not the file path.
-        key={activeTab.key}
+        // independent search session too, hence keying on the tab, not the file path — on its
+        // stable id, so "Speichern unter" (same nodes, new key) keeps the search and its filter.
+        key={activeTab.id}
         onSearch={handleSearch}
         onNavigate={handleNavigate}
         onReplaceAll={handleReplaceAllInternal}

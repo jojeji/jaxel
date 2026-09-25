@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- „Speichern unter“ eines neuen Dokuments klappt den Baum nicht mehr zu und behält Auswahl und
+  Suche. Nach dem Neuladen einer Datei behalten auch die anderen Tabs derselben Datei ihre
+  aufgeklappten Knoten.
 - Solange ein Dialog offen ist, wirken keine Tastenkürzel mehr dahinter. Bisher speicherte z. B.
   `Strg+S` hinter der Frage „Datei wurde extern geändert“ und überschrieb die externe Version
   ohne Entscheidung. Die Neu-laden-Frage legt sich auch nicht mehr über den Konvertieren-Dialog.

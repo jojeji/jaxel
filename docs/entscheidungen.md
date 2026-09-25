@@ -773,3 +773,20 @@ Version ohne die ausdrückliche Entscheidung aus dem Eintrag vom 21.07. (per Tes
 3. **Getrennte Zustände je Dialog bleiben** statt eines einzigen Zustandswerts: Die
    Neu-laden-Frage muss neben einem anderen Dialog vorgemerkt existieren können.
 
+## 2026-09-25 — Stabile Tab-Identität für den Ansichtszustand
+
+Aus dem dritten Architektur-Review (nur Strong). Die gemerkte Ansicht je Tab (aufgeklappte
+Knoten) hing am Tab-Schlüssel, den der Workspace bei „Speichern unter“, Konvertieren und beim
+Neuladen eines Fokus-Tabs ändert. `App.tsx` hielt jede Schlüsseländerung für einen Tab-Wechsel:
+Nach „Speichern unter“ eines neuen Dokuments klappte der Baum zu (per Test belegt); nach einem
+Neuladen zeigten inaktive Tabs desselben Dokuments tote ids (per Test belegt).
+
+1. **`TabState.id` ist eine stabile Identität**, vergeben vom Workspace. Sie überlebt jede
+   Schlüsseländerung des Workspace und wechselt nur, wenn der Tab etwas anderes zeigt
+   (`retargetFocusTab`) — dort ist das Zurücksetzen der Ansicht gewollt.
+2. **Ansicht, Tab-Wechsel-Effekt und Suchpanel hängen an der `id`**, nicht am Schlüssel.
+3. **Neuladen und Konvertieren lösen die gemerkten Ansichten aller Tabs des Dokuments über Pfade
+   neu auf**, nicht nur die des aktiven Tabs. Die Ansicht bleibt dabei in `App.tsx`; ein Umzug
+   in den Workspace hätte jeden Auf-/Zuklapp-Klick durch den Workspace geführt, ohne dass das
+   einen Fehler behebt.
+

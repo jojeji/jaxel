@@ -1752,6 +1752,33 @@ describe("Neues Dokument anlegen", () => {
     expect(screen.queryByRole("button", { name: "XML" })).not.toBeInTheDocument();
   });
 
+  it("„Speichern unter“ eines unbenannten Dokuments behält aufgeklappte Knoten", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getAllByRole("button", { name: "Neues Dokument" })[0]!);
+    await user.click(screen.getByRole("button", { name: "XML" }));
+    await screen.findByText("Unbenannt-1", { selector: ".tab__label" });
+    await user.click(screen.getByText("root", { selector: ".tree-row__name" }).closest(".tree-row")!);
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true }); // Kind
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByText("node", { selector: ".tree-row__name" }).closest(".tree-row")!);
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true }); // Enkel, Kind aufgeklappt
+    await user.keyboard("{Escape}");
+    expect(screen.getAllByText("node", { selector: ".tree-row__name" })).toHaveLength(2);
+
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+      if (cmd === "take_pending_open_paths") return [];
+      if (cmd === "write_text_file") return { mtimeMs: 1000, size: 100 };
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    vi.mocked(save).mockResolvedValue("/fake/neu.xml");
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    expect(await screen.findByText("neu.xml", { selector: ".tab__label" })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getAllByText("node", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+
   it("legt ein neues JSON-Dokument an ($root, da leeres Objekt)", async () => {
     const user = userEvent.setup();
     renderApp();
@@ -2087,6 +2114,31 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
 
     expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
     expect(screen.getByText("Nach JSON konvertieren?")).toBeInTheDocument();
+  });
+
+  it("Neuladen bei aktivem Fokus-Tab erhält auch die Ansicht der Vollansicht", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!); // P-1 in der Vollansicht aufklappen
+    expect(await screen.findByText("Anna")).toBeInTheDocument();
+    fireEvent.contextMenu(screen.getAllByText("person")[1]!.closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+    await screen.findByText("person — sample.xml", { selector: ".tab__label" });
+
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      }
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    fireEvent(window, new Event("focus"));
+    await user.click(await screen.findByRole("button", { name: "Neu laden" }));
+    await screen.findByText(/wurde neu geladen/);
+
+    await user.click(screen.getByText("sample.xml", { selector: ".tab__label" }));
+    expect(await screen.findByText("Anna")).toBeInTheDocument();
   });
 
   it("unveränderte mtime/Größe lösen gar nichts aus", async () => {

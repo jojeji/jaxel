@@ -55,6 +55,10 @@ export interface OpenDocumentState {
  * A tab is identified by (filePath, focusNodeId): at most one tab exists per combination.
  */
 export interface TabState {
+  /** Stable identity of this tab for as long as it shows the same thing: survives every key
+   * change the workspace makes (save as, convert, reload) and changes only when the tab starts
+   * showing something else (a new focus node). What per-tab UI state (expanded nodes) hangs off. */
+  id: string;
   key: string;
   filePath: string;
   focusNodeId: string | null;
@@ -138,10 +142,6 @@ export function serializeForSave(target: OpenDocumentState): string {
     : serializeJson({ root: target.document.root, indent: target.document.indent });
 }
 
-/** The tab literal for a document's full view (no focus node). */
-function fullViewTab(filePath: string): TabState {
-  return { key: tabKey(filePath, null), filePath, focusNodeId: null, focusLabel: null, focusAncestorIds: [] };
-}
 
 /**
  * Every currently open document and tab (the default multi-window mode, see
@@ -158,6 +158,7 @@ export class Workspace {
   private readonly listeners = new Set<() => void>();
   /** One CommandBus subscription per loaded document, keyed by the document's CommandBus. */
   private readonly unsubscribers = new Map<CommandBus, () => void>();
+  private nextTabId = 1;
 
   constructor(private readonly host: WorkspaceHost) {}
 
@@ -184,7 +185,7 @@ export class Workspace {
     const current = this.snapshot;
     if (current.docs.some((d) => d.filePath === path)) {
       // Already loaded: activate its full view (recreating the tab if only foci were left).
-      const tabs = current.tabs.some((t) => t.key === key) ? current.tabs : [...current.tabs, fullViewTab(path)];
+      const tabs = current.tabs.some((t) => t.key === key) ? current.tabs : [...current.tabs, this.fullViewTab(path)];
       this.update({ tabs, activeKey: key }, true);
       return;
     }
@@ -194,7 +195,7 @@ export class Workspace {
       format,
       ...this.loadDocument(format, parseDocument(format, result.content), result.encoding, result.content, result),
     };
-    this.update({ docs: [...current.docs, doc], tabs: [...current.tabs, fullViewTab(path)], activeKey: key }, true);
+    this.update({ docs: [...current.docs, doc], tabs: [...current.tabs, this.fullViewTab(path)], activeKey: key }, true);
   };
 
   /** Saves `path` (default: the active tab's document) back to its own file. */
@@ -291,7 +292,7 @@ export class Workspace {
       ...this.loadDocument(format, parsed, "UTF-8", text, { mtimeMs: 0, size: 0 }),
     };
     this.update(
-      { docs: [...current.docs, doc], tabs: [...current.tabs, fullViewTab(path)], activeKey: tabKey(path, null) },
+      { docs: [...current.docs, doc], tabs: [...current.tabs, this.fullViewTab(path)], activeKey: tabKey(path, null) },
       true,
     );
   };
@@ -368,7 +369,10 @@ export class Workspace {
       return;
     }
     this.update({
-      tabs: [...current.tabs, { key, filePath, focusNodeId: nodeId, focusLabel: label, focusAncestorIds: ancestorIds }],
+      tabs: [
+        ...current.tabs,
+        { id: this.newTabId(), key, filePath, focusNodeId: nodeId, focusLabel: label, focusAncestorIds: ancestorIds },
+      ],
       activeKey: key,
     });
   };
@@ -390,7 +394,9 @@ export class Workspace {
     }
     this.update({
       tabs: current.tabs.map((t) =>
-        t.key === key ? { ...t, key: newKey, focusNodeId: nodeId, focusLabel: label, focusAncestorIds: ancestorIds } : t,
+        t.key === key
+          ? { ...t, id: this.newTabId(), key: newKey, focusNodeId: nodeId, focusLabel: label, focusAncestorIds: ancestorIds }
+          : t,
       ),
       activeKey,
     });
@@ -447,6 +453,22 @@ export class Workspace {
   };
 
   // ── internals ──────────────────────────────────────────────────────────────────────────
+
+  private newTabId(): string {
+    return `tab-${this.nextTabId++}`;
+  }
+
+  /** The tab literal for a document's full view (no focus node). */
+  private fullViewTab(filePath: string): TabState {
+    return {
+      id: this.newTabId(),
+      key: tabKey(filePath, null),
+      filePath,
+      focusNodeId: null,
+      focusLabel: null,
+      focusAncestorIds: [],
+    };
+  }
 
   private update(patch: Partial<Omit<WorkspaceSnapshot, "revision">>, bumpRevision = false): void {
     this.snapshot = {
@@ -584,6 +606,7 @@ export class Workspace {
       const resolved = segments ? resolveDeepest(segments) : newRoot;
       const isTrueRoot = resolved === newRoot;
       return {
+        id: tab.id, // same tab, re-resolved — its view follows it
         key: tabKey(newPath, isTrueRoot ? null : resolved.id),
         filePath: newPath,
         focusNodeId: isTrueRoot ? null : resolved.id,
