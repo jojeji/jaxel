@@ -1853,3 +1853,32 @@ Bewusst nicht Teil: die Kommentar-Menüeinträge (nur im Kontextmenü, mit eigen
 und „Fokus hier öffnen“/„Base64 dekodieren“ (nur ein Einstieg). Nicht in `npm run dev`
 ausprobiert (Container ohne Desktop).
 
+## Nachtrag 2026-09-25 — Schließen-Plan im Workspace (Review 3, Kandidat 1)
+
+Datenverlust beim Schließen mehrerer Tabs behoben (siehe `docs/entscheidungen.md`): neue
+Workspace-Methoden `planClose`/`closeTabs`, `closeTabSet` in `App.tsx` fragt einmal für alle
+geänderten Dokumente. Tests: vier Node-Fälle in `workspace.test.ts`, zwei UI-Tests in
+`App.test.tsx` (gegen den alten Code rot, gegengeprüft).
+
+## Nachtrag 2026-09-25 — Nichts läuft hinter einem Dialog (Review 3, Kandidat 2)
+
+`visibleDialog` ersetzt `otherDialogOpen`/`modalDialogOpen` (jetzt inkl. Konvertieren-Dialog),
+`ActionContext.modalOpen` sperrt alle App-Aktionen, die Tastatur kehrt hinter einem Dialog sofort
+zurück. Tests: zwei UI-Tests (vorher rot), ein Node-Fall in `actions.test.ts`.
+
+## Nachtrag 2026-09-25 — Stabile Tab-Identität (Review 3, Kandidat 3)
+
+`TabState.id` (Workspace), Ansichtsspeicher/Tab-Wechsel-Effekt/Suchpanel in `App.tsx` daran
+gebunden, `captureViewSegments`/`applyResolvedViews` lösen bei Neuladen und Konvertieren alle Tabs
+des Dokuments neu auf. Tests: vier Node-Fälle, zwei UI-Tests (vorher rot).
+
+## Nachtrag 2026-09-25 — Ein Dokument pro Pfad (Review 3, Kandidat 4)
+
+`Workspace.closeReplacedDocument` schließt nach „Speichern unter“/Konvertieren ein anderes offenes
+Dokument am Zielpfad (PO-Entscheidung, siehe `docs/entscheidungen.md`). Tests: zwei Node-Fälle,
+ein UI-Test (vorher rot). Bewusste Vereinfachung: Die gemerkte Ansicht der dabei geschlossenen
+Tabs bleibt in `App.tsx` als verwaister Eintrag im Speicher (klein, nur bis zum Neustart).
+
+Offen aus Review 3: Kandidat 5 (VS-Code-Anbindung an das Host-Dokument binden) und die
+fest verdrahteten deutschen Texte (Invariante #7) sind nicht Teil dieses Pakets.
+

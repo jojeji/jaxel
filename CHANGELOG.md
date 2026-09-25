@@ -13,6 +13,19 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- „Speichern unter“ auf eine Datei, die in einem anderen Tab offen ist, schließt diesen Tab.
+  Bisher blieben zwei Tabs für denselben Pfad offen, und ein späteres Speichern im alten Tab
+  konnte den neuen Inhalt überschreiben.
+- „Speichern unter“ eines neuen Dokuments klappt den Baum nicht mehr zu und behält Auswahl und
+  Suche. Nach dem Neuladen einer Datei behalten auch die anderen Tabs derselben Datei ihre
+  aufgeklappten Knoten.
+- Solange ein Dialog offen ist, wirken keine Tastenkürzel mehr dahinter. Bisher speicherte z. B.
+  `Strg+S` hinter der Frage „Datei wurde extern geändert“ und überschrieb die externe Version
+  ohne Entscheidung. Die Neu-laden-Frage legt sich auch nicht mehr über den Konvertieren-Dialog.
+- „Alle Tabs schließen“ (und „Alle anderen“, „links/rechts schließen“) verwarf ungespeicherte
+  Änderungen ohne Nachfrage, wenn ein Dokument zugleich in Vollansicht und Fokus-Tab offen war.
+  Mehrere geänderte Dokumente werden jetzt in einem Dialog abgefragt, statt beim ersten
+  abzubrechen.
 - Einfügen (`Strg+V`) in einen auskommentierten Bereich und das Anlegen eines Kindes unter einem
   Kommentar sind gesperrt. Bisher gingen die eingefügten Knoten beim nächsten Speichern verloren.
 - Das Attribute-Panel zeigt Knoten in einem auskommentierten Bereich schreibgeschützt an, statt

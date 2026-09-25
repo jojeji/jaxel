@@ -128,7 +128,8 @@ export function App(): React.ReactElement {
     saveFileAs,
     convertSaveAs,
     newDocument,
-    closeTab,
+    closeTabs,
+    planClose,
     reorderTabs,
     activate,
     openFocusTab,
@@ -144,12 +145,13 @@ export function App(): React.ReactElement {
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
-  /** Per-tab memory of the `expanded` set, keyed by tab key — so returning to a tab shows it
-   * exactly as it was left, instead of collapsing back to just the root every time. */
+  /** Per-tab memory of the `expanded` set, keyed by the tab's stable `id` (not its key, which
+   * "Speichern unter", conversion and reload change) — so returning to a tab shows it exactly as
+   * it was left, instead of collapsing back to just the root every time. */
   const tabViewStateRef = useRef<Map<string, Set<string>>>(new Map());
-  /** Which tab key the CURRENT `expanded` state belongs to — set at the end of the tab-switch
+  /** Which tab id the CURRENT `expanded` state belongs to — set at the end of the tab-switch
    * effect below, read at its start (before the switch) to know where to save it. */
-  const activeTabKeyRef = useRef<string | null>(null);
+  const activeTabIdRef = useRef<string | null>(null);
   const nextToastIdRef = useRef(0);
   const [errorToast, setErrorToast] = useState<ToastEntry | null>(null);
   const [statusToast, setStatusToast] = useState<ToastEntry | null>(null);
@@ -173,9 +175,13 @@ export function App(): React.ReactElement {
     newPath: string;
     targetFormat: DocFormat;
   } | null>(null);
-  /** Pending "ungespeicherte Änderungen" question: a single tab close, or the whole window. */
+  /** Pending "ungespeicherte Änderungen" question: closing a set of tabs (one or several), or
+   * the whole window. `tabs` names each closing tab by document + focus rather than by key,
+   * because saving an untitled document renames its path (and with it every key). */
   const [closePrompt, setClosePrompt] = useState<
-    { kind: "tab"; key: string; filePath: string; focusNodeId: string | null } | { kind: "window" } | null
+    | { kind: "tabs"; tabs: Array<{ filePath: string; focusNodeId: string | null }>; dirtyPaths: string[] }
+    | { kind: "window" }
+    | null
   >(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   /** Decoded Base64 TEXT waiting in the preview dialog (binary opens externally instead). */
@@ -184,9 +190,26 @@ export function App(): React.ReactElement {
   const externalCheckIdRef = useRef(0);
   const performReloadRef = useRef<(filePath: string, onlyIfClean?: boolean) => Promise<void>>(() => Promise.resolve());
   const keepMinePendingRef = useRef(false);
-  const otherDialogOpen = settingsOpen || newDocOpen || closePrompt !== null || aboutOpen || base64Preview !== null;
   const reloadPromptDoc = reloadPrompt ? (docs.find((doc) => doc.filePath === reloadPrompt.filePath) ?? null) : null;
-  const modalDialogOpen = otherDialogOpen || reloadPromptDoc !== null;
+  /** The one modal dialog on screen, or null. EVERY dialog state belongs in this list — it is
+   * what blocks all App-Aktionen and keyboard shortcuts behind a dialog, and it keeps dialogs
+   * from stacking: the reload question comes last because it waits ("vorgemerkt") until no other
+   * dialog is open (docs/entscheidungen.md 2026-07-21). */
+  const visibleDialog = settingsOpen
+    ? "settings"
+    : newDocOpen
+      ? "newDocument"
+      : closePrompt
+        ? "close"
+        : convertPrompt
+          ? "convert"
+          : aboutOpen
+            ? "about"
+            : base64Preview
+              ? "base64"
+              : reloadPromptDoc
+                ? "reload"
+                : null;
   const visibleToasts = [errorToast, statusToast]
     .filter((toast): toast is ToastEntry => toast !== null)
     .sort((a, b) => b.id - a.id);
@@ -414,24 +437,24 @@ export function App(): React.ReactElement {
   // NOT restored — always resets, same as before this fix — since the previously selected node
   // may no longer even be visible/relevant in a differently-expanded tree.
   useEffect(() => {
-    const previousKey = activeTabKeyRef.current;
-    if (previousKey) {
-      tabViewStateRef.current.set(previousKey, expanded);
+    const previousId = activeTabIdRef.current;
+    if (previousId) {
+      tabViewStateRef.current.set(previousId, expanded);
     }
     setSelection(EMPTY_SELECTION);
     setEditingField(null);
     setFilterMatches(null);
-    const newKey = activeTab?.key ?? null;
-    const saved = newKey ? tabViewStateRef.current.get(newKey) : undefined;
+    const newId = activeTab?.id ?? null;
+    const saved = newId ? tabViewStateRef.current.get(newId) : undefined;
     if (saved) {
       setExpanded(saved);
     } else {
       const visibleRootId = focus ? focus.node.id : activeDoc?.document.root.id;
       setExpanded(visibleRootId ? new Set([visibleRootId]) : new Set());
     }
-    activeTabKeyRef.current = newKey;
+    activeTabIdRef.current = newId;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on the tab only
-  }, [activeTab?.key]);
+  }, [activeTab?.id]);
 
   /**
    * The flattened, currently visible row list. Normal mode: expand/collapse driven.
@@ -503,6 +526,7 @@ export function App(): React.ReactElement {
     selectionCount: selectedRows.length,
     canUndo,
     canRedo,
+    modalOpen: visibleDialog !== null,
     treeActionBlocked: actionBlocked,
   };
 
@@ -584,33 +608,63 @@ export function App(): React.ReactElement {
    * survives a re-parse, which assigns entirely new node ids. Empty unless `filePath` is the
    * active tab's document (a background document has no visible view to restore). Shared by
    * reload and format conversion, both of which replace the tree wholesale. */
-  function captureViewSegments(filePath: string): {
+  /** A tab view captured as path SEGMENTS before a reload or conversion, which gives every node
+   * a new id: the active tab's selection + expanded nodes, followed by the remembered expanded
+   * nodes of the document's other tabs. The Workspace resolves every entry of
+   * `expandedSegmentsList` independently and in order, so `applyResolvedViews` can split the
+   * result back up. */
+  interface CapturedViews {
     selectionSegments: PathSegment[] | null;
     expandedSegmentsList: PathSegment[][];
-  } {
+    activeCount: number;
+    others: Array<{ tabId: string; count: number }>;
+  }
+
+  function captureViewSegments(filePath: string): CapturedViews {
     let selectionSegments: PathSegment[] | null = null;
     const expandedSegmentsList: PathSegment[][] = [];
-    if (activeDoc?.filePath === filePath && trueRoot) {
-      if (selectedRow) {
-        selectionSegments = getPathSegments(selectedRow.node, selectedRow.ancestors);
-      }
-      for (const id of expanded) {
+    const others: CapturedViews["others"] = [];
+    if (activeDoc?.filePath !== filePath || !trueRoot) {
+      return { selectionSegments, expandedSegmentsList, activeCount: 0, others };
+    }
+    const pushSegments = (ids: Iterable<string>): number => {
+      let count = 0;
+      for (const id of ids) {
         const node = findNodeById(trueRoot, id);
         if (!node) continue;
         expandedSegmentsList.push(pathSegmentsOf(trueRoot, node));
+        count++;
       }
+      return count;
+    };
+    if (selectedRow) selectionSegments = getPathSegments(selectedRow.node, selectedRow.ancestors);
+    const activeCount = pushSegments(expanded);
+    for (const tab of tabs) {
+      if (tab.filePath !== filePath || tab.id === activeTab?.id) continue;
+      const stored = tabViewStateRef.current.get(tab.id);
+      if (stored) others.push({ tabId: tab.id, count: pushSegments(stored) });
     }
-    return { selectionSegments, expandedSegmentsList };
+    return { selectionSegments, expandedSegmentsList, activeCount, others };
+  }
+
+  /** Stores the re-resolved views of the other tabs and returns the active tab's expanded ids. */
+  function applyResolvedViews(captured: CapturedViews, expandedIds: string[]): string[] {
+    let offset = captured.activeCount;
+    for (const other of captured.others) {
+      tabViewStateRef.current.set(other.tabId, new Set(expandedIds.slice(offset, offset + other.count)));
+      offset += other.count;
+    }
+    return expandedIds.slice(0, captured.activeCount);
   }
 
   async function performReload(filePath: string, onlyIfClean = false): Promise<void> {
     setReloadPrompt(null);
     const isActiveDoc = activeDoc?.filePath === filePath;
-    const { selectionSegments, expandedSegmentsList } = captureViewSegments(filePath);
+    const captured = captureViewSegments(filePath);
     const reloadResult = await reloadFile(
       filePath,
-      selectionSegments,
-      expandedSegmentsList,
+      captured.selectionSegments,
+      captured.expandedSegmentsList,
       onlyIfClean
         ? () => {
             const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
@@ -623,7 +677,8 @@ export function App(): React.ReactElement {
       if (activeFilePathRef.current === filePath && currentDoc?.isDirty) setReloadPrompt({ filePath });
       return;
     }
-    const { selectedId: newSelectedId, expandedIds } = reloadResult;
+    const { selectedId: newSelectedId } = reloadResult;
+    const expandedIds = applyResolvedViews(captured, reloadResult.expandedIds);
     if (isActiveDoc) {
       // A reload re-parses into all-new node ids, so only the single re-resolved selection
       // survives — a multi-selection is not carried across (see performReload's doc comment).
@@ -739,10 +794,16 @@ export function App(): React.ReactElement {
     setConvertPrompt(null);
     setError(null);
     try {
-      const { selectionSegments, expandedSegmentsList } = captureViewSegments(filePath);
-      const result = await convertSaveAs(filePath, newPath, targetFormat, selectionSegments, expandedSegmentsList);
+      const captured = captureViewSegments(filePath);
+      const result = await convertSaveAs(
+        filePath,
+        newPath,
+        targetFormat,
+        captured.selectionSegments,
+        captured.expandedSegmentsList,
+      );
       setSelection(result.selectedId ? selectOnly(result.selectedId) : EMPTY_SELECTION);
-      setExpanded(new Set(result.expandedIds));
+      setExpanded(new Set(applyResolvedViews(captured, result.expandedIds)));
       setEditingField(null);
       rememberLastDir(newPath);
       addRecentFile(newPath, settings.recentFilesLimit);
@@ -1036,11 +1097,13 @@ export function App(): React.ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const ctrl = event.ctrlKey || event.metaKey;
+      if (visibleDialog !== null) {
+        // Nothing behind a dialog runs — no save, no edit, no tree navigation. Strg+F is still
+        // swallowed so the webview's own find bar does not open over the dialog.
+        if (ctrl && event.key.toLowerCase() === "f") event.preventDefault();
+        return;
+      }
       if (ctrl && event.key.toLowerCase() === "f") {
-        if (modalDialogOpen) {
-          event.preventDefault();
-          return;
-        }
         if (!activeDoc) return;
         event.preventDefault();
         if (searchDockSide === "right") {
@@ -1208,27 +1271,35 @@ export function App(): React.ReactElement {
     copyPath(selectedRow.node, kind);
   }
 
-  /** Closes a tab and forgets its remembered expand/selection state (see tabViewStateRef above) —
-   * otherwise the map would grow forever across a long session of opening/closing tabs. */
-  function closeTabAndForgetView(key: string): void {
-    tabViewStateRef.current.delete(key);
-    closeTab(key);
+  /** Closes tabs and forgets their remembered expand/selection state (see tabViewStateRef
+   * above) — otherwise the map would grow forever across a long session of opening/closing tabs. */
+  function closeTabsAndForgetView(keys: string[]): void {
+    for (const tab of tabs) if (keys.includes(tab.key)) tabViewStateRef.current.delete(tab.id);
+    closeTabs(keys);
   }
 
-  function handleCloseTab(key: string): boolean {
-    // Warn only when this close would UNLOAD a dirty document — i.e. no other tab (full
-    // view or focus) still references it. Closing a focus tab beside an open full view
-    // loses nothing and stays silent.
-    const tab = tabs.find((t) => t.key === key);
-    if (tab && !tabs.some((t) => t.filePath === tab.filePath && t.key !== key)) {
-      const doc = docs.find((d) => d.filePath === tab.filePath);
-      if (doc?.isDirty) {
-        setClosePrompt({ kind: "tab", key, filePath: tab.filePath, focusNodeId: tab.focusNodeId });
-        return false;
-      }
+  /**
+   * Closes a set of tabs as one step. Asks first when that would unload documents with unsaved
+   * changes — decided by the Workspace against its live state, for the whole set at once, so a
+   * full view and a focus tab of the same document closing together still ask (and several
+   * changed documents get one dialog instead of stopping at the first).
+   */
+  function closeTabSet(keys: string[]): void {
+    const { dirty } = planClose(keys);
+    if (dirty.length === 0) {
+      closeTabsAndForgetView(keys);
+      return;
     }
-    closeTabAndForgetView(key);
-    return true;
+    const closing = tabs.filter((tab) => keys.includes(tab.key));
+    setClosePrompt({
+      kind: "tabs",
+      tabs: closing.map((tab) => ({ filePath: tab.filePath, focusNodeId: tab.focusNodeId })),
+      dirtyPaths: dirty.map((doc) => doc.filePath),
+    });
+  }
+
+  function handleCloseTab(key: string): void {
+    closeTabSet([key]);
   }
 
   function handleCopyTabPath(path: string): void {
@@ -1243,12 +1314,6 @@ export function App(): React.ReactElement {
       () => setStatus(t("tabs.parentOpened")),
       (err) => setError(toErrorMessage(err)),
     );
-  }
-
-  function closeTabSet(keys: string[]): void {
-    for (const key of keys) {
-      if (!handleCloseTab(key)) break;
-    }
   }
 
   function handleCloseAllTabs(): void { closeTabSet(tabs.map((tab) => tab.key)); }
@@ -1278,14 +1343,20 @@ export function App(): React.ReactElement {
     if (!prompt) return;
     setError(null);
     try {
-      if (prompt.kind === "tab") {
-        const doc = docs.find((d) => d.filePath === prompt.filePath);
-        const savedPath = doc ? await saveDoc(doc) : prompt.filePath;
-        if (savedPath === null) return; // save-as cancelled — keep the tab open
+      if (prompt.kind === "tabs") {
+        const savedPaths = new Map<string, string>();
+        for (const filePath of prompt.dirtyPaths) {
+          const doc = docs.find((d) => d.filePath === filePath);
+          const savedPath = doc ? await saveDoc(doc) : filePath;
+          if (savedPath === null) return; // save-as cancelled — keep every tab open
+          savedPaths.set(filePath, savedPath);
+        }
         setClosePrompt(null);
-        // A save-as may have renamed the document (and with it every tab key) — re-derive
-        // the closing tab's key from the path the save actually ended up under.
-        closeTabAndForgetView(tabKey(savedPath, prompt.focusNodeId));
+        // A save-as may have renamed a document (and with it every tab key) — re-derive the
+        // closing tabs' keys from the paths the saves actually ended up under.
+        closeTabsAndForgetView(
+          prompt.tabs.map((tab) => tabKey(savedPaths.get(tab.filePath) ?? tab.filePath, tab.focusNodeId)),
+        );
       } else {
         for (const doc of docs.filter((d) => d.isDirty)) {
           if ((await saveDoc(doc)) === null) return; // cancelled — abort the window close
@@ -1302,7 +1373,7 @@ export function App(): React.ReactElement {
     const prompt = closePrompt;
     if (!prompt) return;
     setClosePrompt(null);
-    if (prompt.kind === "tab") closeTabAndForgetView(prompt.key);
+    if (prompt.kind === "tabs") closeTabsAndForgetView(prompt.tabs.map((tab) => tabKey(tab.filePath, tab.focusNodeId)));
     else void destroyWindow();
   }
 
@@ -1509,8 +1580,9 @@ export function App(): React.ReactElement {
         // holds live node references into one view and must never survive a tab switch —
         // stale matches resolved against a different root crashed computePaths (see test).
         // Two tabs on the same document (full view + a focus tab) must each get their own
-        // independent search session too, hence keying on the tab, not the file path.
-        key={activeTab.key}
+        // independent search session too, hence keying on the tab, not the file path — on its
+        // stable id, so "Speichern unter" (same nodes, new key) keeps the search and its filter.
+        key={activeTab.id}
         onSearch={handleSearch}
         onNavigate={handleNavigate}
         onReplaceAll={handleReplaceAllInternal}
@@ -1661,7 +1733,7 @@ export function App(): React.ReactElement {
       {aboutOpen && (
         <AboutDialog version={appVersion} onOpenLog={handleOpenLog} onClose={() => setAboutOpen(false)} />
       )}
-      {reloadPrompt && reloadPromptDoc && !otherDialogOpen && (
+      {reloadPrompt && reloadPromptDoc && visibleDialog === "reload" && (
         <ReloadDialog
           fileName={fileNameOf(reloadPrompt.filePath)}
           isDirty={reloadPromptDoc.isDirty}
@@ -1680,8 +1752,8 @@ export function App(): React.ReactElement {
       {closePrompt && (
         <CloseConfirmDialog
           fileNames={
-            closePrompt.kind === "tab"
-              ? [fileNameOf(closePrompt.filePath)]
+            closePrompt.kind === "tabs"
+              ? closePrompt.dirtyPaths.map(fileNameOf)
               : docs.filter((d) => d.isDirty).map((d) => fileNameOf(d.filePath))
           }
           onSave={() => void handleClosePromptSave()}

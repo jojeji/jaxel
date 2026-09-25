@@ -15,6 +15,8 @@ export function useJaxelDocuments(host: WorkspaceHost = getJaxelHost()): Pick<
   | "convertSaveAs"
   | "newDocument"
   | "closeTab"
+  | "closeTabs"
+  | "planClose"
   | "reorderTabs"
   | "activate"
   | "openFocusTab"
@@ -44,6 +46,8 @@ export function useJaxelDocuments(host: WorkspaceHost = getJaxelHost()): Pick<
     convertSaveAs: workspace.convertSaveAs,
     newDocument: workspace.newDocument,
     closeTab: workspace.closeTab,
+    closeTabs: workspace.closeTabs,
+    planClose: workspace.planClose,
     reorderTabs: workspace.reorderTabs,
     activate: workspace.activate,
     openFocusTab: workspace.openFocusTab,

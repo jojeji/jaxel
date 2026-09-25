@@ -62,12 +62,16 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   Schließen. Der Punkt verschwindet auch, wenn per `Strg+Z` exakt bis zum letzten Speicherstand
   zurückgegangen wird — ohne dass erneut gespeichert werden muss.
 - **Mehrere Dokumente**: jede Datei bekommt einen Tab; erneutes Öffnen derselben Datei aktiviert
-  den vorhandenen Tab.
+  den vorhandenen Tab. Überschreibt „Speichern unter“ (oder eine Konvertierung) eine Datei, die
+  gerade in einem anderen Tab offen ist, wird dieser Tab geschlossen — er zeigte sonst einen Stand,
+  der nicht mehr zur Datei passt.
 - **Tab-Kontextmenü**: Rechtsklick auf einen Tab bietet „Tab schließen", „Alle Tabs schließen",
   „Tabs links/rechts schließen", „Alle außer diesem schließen", „Dateipfad kopieren" und
   „Übergeordneten Ordner öffnen". Tabs lassen sich per Drag&Drop verschieben; der aktive Tab
   wird beim Öffnen einer Datei automatisch aktiviert. Das Schließen-`x` sitzt am rechten Rand
-  des jeweiligen Tabs.
+  des jeweiligen Tabs. Schließen mehrere Tabs auf einmal und haben dabei Dokumente
+  ungespeicherte Änderungen, fragt ein einziger Dialog für alle diese Dokumente nach, bevor
+  irgendein Tab geschlossen wird.
 - **Öffnen über Dateiverknüpfung**: Ist Jaxel das Standardprogramm für XML-/JSON-/`.ext`-Dateien, wird
   das Fenster beim Öffnen einer Datei automatisch sichtbar gemacht und in den Vordergrund geholt.
   Das gilt auch, wenn Jaxel bereits läuft oder zuvor minimiert war.

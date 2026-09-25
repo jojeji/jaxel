@@ -740,3 +740,66 @@ Mehrfachauswahl ausgegraut, obwohl `Strg+C` mehrere Knoten kopiert.
 5. **`Strg+O`/`Strg+N` werden nur beansprucht, solange die Aktion aktiv ist** — im VS-Code-Modus
    bleiben sie Tastenkürzel von VS Code (Verhalten unverändert).
 
+## 2026-09-25 — Schließen-Plan im Workspace
+
+Aus dem dritten Architektur-Review (nur Strong). `closeTabSet` rief pro Tab `handleCloseTab`
+auf, das gegen die Tab-Liste des aktuellen Renders prüfte, ob ein anderer Tab das Dokument
+offen hält. Beim gemeinsamen Schließen von Vollansicht und Fokus-Tab eines geänderten Dokuments
+hielt jeder Schritt den jeweils anderen Tab für offen — beide schlossen ohne Nachfrage, die
+Änderungen waren weg (per Test belegt).
+
+1. **`Workspace.planClose(keys)` entscheidet für die ganze Menge auf einmal** gegen den aktuellen
+   Snapshot, welche Dokumente entladen würden und welche davon ungespeichert sind. Das
+   Einzel-Schließen läuft über denselben Weg.
+2. **Ein Dialog für alle betroffenen Dokumente**; vorher brach die Schleife beim ersten
+   geänderten Dokument ab und verwarf den Rest der Auswahl. Abbrechen einer Speichern-unter-Abfrage
+   lässt alle Tabs offen.
+3. **Die schließenden Tabs merkt sich der Dialog als Dokument + Fokus, nicht als Schlüssel**, weil
+   Speichern eines unbenannten Dokuments dessen Pfad und damit jeden Schlüssel ändert.
+
+## 2026-09-25 — Nichts läuft hinter einem Dialog
+
+Aus dem dritten Architektur-Review (nur Strong). Offene Dialoge wurden über eine von Hand
+gepflegte Oder-Kette erkannt, in der der Konvertieren-Dialog fehlte, und nur `Strg+F` fragte
+sie ab. `Strg+S` hinter der Neu-laden-Frage schrieb die Datei und überschrieb die externe
+Version ohne die ausdrückliche Entscheidung aus dem Eintrag vom 21.07. (per Test belegt).
+
+1. **`visibleDialog` in `App.tsx` ist die eine Stelle, die alle Dialogzustände kennt** und sagt,
+   welcher Dialog gerade sichtbar ist. Die Neu-laden-Frage steht darin zuletzt, weil sie
+   vorgemerkt wartet, bis kein anderer Dialog offen ist. Ein neuer Dialog muss nur hier
+   eingetragen werden.
+2. **Die Aktionstabelle kennt `modalOpen`** und sperrt dann jede App-Aktion, egal über welchen
+   Einstieg. Die Tastatur verwirft hinter einem Dialog alle Kürzel, auch die Baum-Navigation.
+3. **Getrennte Zustände je Dialog bleiben** statt eines einzigen Zustandswerts: Die
+   Neu-laden-Frage muss neben einem anderen Dialog vorgemerkt existieren können.
+
+## 2026-09-25 — Stabile Tab-Identität für den Ansichtszustand
+
+Aus dem dritten Architektur-Review (nur Strong). Die gemerkte Ansicht je Tab (aufgeklappte
+Knoten) hing am Tab-Schlüssel, den der Workspace bei „Speichern unter“, Konvertieren und beim
+Neuladen eines Fokus-Tabs ändert. `App.tsx` hielt jede Schlüsseländerung für einen Tab-Wechsel:
+Nach „Speichern unter“ eines neuen Dokuments klappte der Baum zu (per Test belegt); nach einem
+Neuladen zeigten inaktive Tabs desselben Dokuments tote ids (per Test belegt).
+
+1. **`TabState.id` ist eine stabile Identität**, vergeben vom Workspace. Sie überlebt jede
+   Schlüsseländerung des Workspace und wechselt nur, wenn der Tab etwas anderes zeigt
+   (`retargetFocusTab`) — dort ist das Zurücksetzen der Ansicht gewollt.
+2. **Ansicht, Tab-Wechsel-Effekt und Suchpanel hängen an der `id`**, nicht am Schlüssel.
+3. **Neuladen und Konvertieren lösen die gemerkten Ansichten aller Tabs des Dokuments über Pfade
+   neu auf**, nicht nur die des aktiven Tabs. Die Ansicht bleibt dabei in `App.tsx`; ein Umzug
+   in den Workspace hätte jeden Auf-/Zuklapp-Klick durch den Workspace geführt, ohne dass das
+   einen Fehler behebt.
+
+## 2026-09-25 — Ein Dokument pro Pfad, auch nach „Speichern unter“
+
+Aus dem dritten Architektur-Review (nur Strong). Der Workspace dedupliziert Dokumente beim
+Öffnen nach Pfad, aber nicht beim Umbenennen: „Speichern unter“ auf eine offene Datei ergab zwei
+Tabs für denselben Pfad (per Test belegt); ein späteres Speichern im alten Tab hätte dessen
+veralteten Inhalt über den neuen geschrieben.
+
+1. **PO-Entscheidung: Das offene Dokument am Zielpfad wird geschlossen**, samt aller seiner Tabs
+   (auch Fokus-Tabs), ohne Rückfrage — auch wenn es ungespeicherte Änderungen hat. Der
+   Überschreiben-Dialog des Betriebssystems hat die Absicht bereits bestätigt.
+2. **Durchgesetzt im Workspace** (`closeReplacedDocument`) für „Speichern unter“ und für die
+   Konvertierung, jeweils erst nach erfolgreichem Schreiben.
+
