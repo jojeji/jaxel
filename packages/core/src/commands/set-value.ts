@@ -40,6 +40,7 @@ export function createSetValueCommand(
   newValue: string | null,
   newJsonType: JsonPrimitiveType | undefined,
   ancestors: DocNode[],
+  coalesceKey?: string,
 ): Command {
   const previousValue = node.value;
   const previousJsonType = node.jsonType;
@@ -49,6 +50,7 @@ export function createSetValueCommand(
 
   return {
     label: "set-value",
+    coalesceKey,
     byteRangeChain: [...ancestors, node],
     do() {
       node.value = newValue;

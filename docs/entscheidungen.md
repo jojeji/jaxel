@@ -1041,3 +1041,31 @@ Sitzung den normalen AppData-Datenpfad und informiert den Benutzer. Ein spätere
 der Sitzung ist ausgeschlossen, damit kein geteilter WebView-Einstellungsstand entsteht. Die
 Änderung betrifft nur die portable Windows-ZIP; Linux-Pakete und der eingebettete VS-Code-Modus
 bleiben unverändert.
+
+## 2026-09-25 — Grilling: Inhaltsfeld, Mehrfachduplikate und schnelle Baumaktionen
+
+1. **Rechtes Panel:** Ergänzt wird ein bearbeitbares Feld für den direkten Knotenwert neben dem
+   Attributfenster. Das Kopier-Icon kopiert genau diesen Wert, nicht den serialisierten Unterbaum.
+   Bei leerem Wert ist das Kopier-Icon deaktiviert; bei Mehrfachauswahl bleibt das Panel bei der
+   Auswahlübersicht.
+2. **Mehrfachduplizieren:** Mehrere ausgewählte Geschwister desselben Elternknotens werden als
+   zusammenhängender Block direkt nach dem letzten ausgewählten Knoten eingefügt; ihre Reihenfolge
+   folgt der Baumreihenfolge. Auswahlen über mehrere Eltern hinweg sind für diese Batch-Aktion
+   nicht vorgesehen. Die Duplikation bleibt ein einzelner Undo-Schritt.
+3. **Toolbar:** `+` fügt ein Geschwisterelement nach der Auswahl ein; `++` fügt ein Kindelement
+   unter dem ausgewählten Knoten ein. Die Buttons folgen den bestehenden Aktivierungsregeln und
+   sind ohne genau eine gültige Auswahl deaktiviert.
+4. **Tastenkürzel:** `Strg++` bleibt „Geschwister hinzufügen“ und `Strg+Shift++` bleibt
+   „Kind hinzufügen“. Im eingebetteten VS-Code-Modus wird ein möglicher Konflikt mit VS-Codes Zoom
+   akzeptiert; Joey kann die Belegung in VS Code ändern.
+5. **Aufklappen:** Ein Klick auf eine zugeklappte Zeile öffnet den Knoten. Ein Klick auf eine
+   offene Zeile wählt sie nur aus; zum einzelnen Zuklappen dient der Pfeil. `←` und die explizite
+   Aktion „Alle zuklappen“ bleiben verfügbar.
+6. **Leeres Blattelement:** Ein Doppelklick in den freien Bereich seiner Baumzeile startet die
+   Werteingabe nur dann, wenn das Element keinen direkten Wert und keine Kinder hat. Knoten mit
+   Kindern werden durch diesen Doppelklick nicht in den Bearbeitungsmodus versetzt.
+
+Umgesetzt in `AttributesPanel.tsx`, `TreeView.tsx`, `tree-actions.ts` und `bulk.ts`. Das Wertefeld
+ist bei normalen Containern ausgeblendet; `set-value` sperrt solche Knoten zusätzlich im Core,
+damit Wert und Kinder nicht gleichzeitig entstehen können. Kommentare behalten ihre eigene
+Texteingabe.

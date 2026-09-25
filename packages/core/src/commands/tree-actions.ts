@@ -34,6 +34,7 @@ import {
   createBulkInsertCommand,
   createBulkMoveCommand,
   createBulkRemoveCommand,
+  duplicateRowsShareParent,
   topmostRows,
   type BulkRow,
 } from "./bulk.js";
@@ -54,7 +55,7 @@ export type TreeAction =
   /** The rows are the dragged nodes, in visible order. */
   | { kind: "move"; target: BulkRow; position: DropPosition }
   | { kind: "rename"; name: string }
-  | { kind: "set-value"; value: string }
+  | { kind: "set-value"; value: string; coalesceKey?: string }
   | { kind: "set-attribute"; name: string; value: string | null; coalesceKey?: string }
   | { kind: "rename-attribute"; index: number; name: string; coalesceKey: string };
 
@@ -82,12 +83,16 @@ export type TreeActionBlocker =
   | "invalid-target"
   /** An edit that would not change anything (same text, empty name). */
   | "no-change"
+  /** Multiple nodes can be batch-duplicated only when they are siblings under one parent. */
+  | "sibling-selection"
   /** XML only: the new element or attribute name is not a valid XML name ("my item", "1st") —
    * saved, it would make a file no XML parser, Jaxel included, can open again. */
   | "invalid-name"
   /** The node holds a text or JSON value: a child next to it would make one of the two vanish
    * on save (XML keeps the children, JSON the value), so it cannot receive children. */
-  | "has-value";
+  | "has-value"
+  /** A container cannot also receive a scalar value; XML and JSON would serialize one side away. */
+  | "has-children";
 
 export interface TreeActionContext {
   format: DocFormat;
@@ -173,10 +178,14 @@ export function treeActionBlocker(
       if (!sole) return "no-selection";
       return childBlocker(sole);
     case "delete":
-    case "duplicate":
       if (rows.length === 0) return "no-selection";
       if (rows.some(isInsideComment)) return "read-only";
       return rows.some((row) => findSiblingSlot(row) !== null) ? null : "root";
+    case "duplicate":
+      if (rows.length === 0) return "no-selection";
+      if (rows.some(isInsideComment)) return "read-only";
+      if (rows.some((row) => findSiblingSlot(row) === null)) return "root";
+      return duplicateRowsShareParent(rows) ? null : "sibling-selection";
     case "comment-out": {
       if (context.format !== "xml") return "xml-only";
       const targets = topmostRows(rows);
@@ -209,7 +218,8 @@ export function treeActionBlocker(
       return rows.some(isInsideComment) ? "read-only" : null;
     case "set-value":
       if (!sole) return "no-selection";
-      return isInsideComment(sole) ? "read-only" : null;
+      if (isInsideComment(sole)) return "read-only";
+      return sole.node.kind === "element" && sole.node.children.length > 0 ? "has-children" : null;
     case "rename":
     case "set-attribute":
     case "rename-attribute":
@@ -314,12 +324,19 @@ function buildPlan(
       if (context.format === "xml" && !isValidXmlName(action.name)) return { blocker: "invalid-name" };
       return { command: createRenameCommand(sole.node, action.name, sole.ancestors) };
     case "set-value":
+      if (sole.node.kind === "element" && sole.node.children.length > 0) return { blocker: "has-children" };
       if (action.value === (sole.node.value ?? "")) return { blocker: "no-change" };
       // A comment's text becomes `<!--…-->` verbatim, so "--" in it would produce a file that no
       // longer parses. Rejected rather than escaped: XML resolves no entities in comments.
       if (sole.node.kind === "comment" && !isValidCommentText(action.value)) return { blocker: "invalid-comment-text" };
       return {
-        command: createSetValueCommand(sole.node, action.value, jsonTypeAfterEdit(sole.node.jsonType, action.value), sole.ancestors),
+        command: createSetValueCommand(
+          sole.node,
+          action.value,
+          jsonTypeAfterEdit(sole.node.jsonType, action.value),
+          sole.ancestors,
+          action.coalesceKey,
+        ),
       };
     case "set-attribute": {
       const isNew = !sole.node.attributes.some((attribute) => attribute.name === action.name);

@@ -400,14 +400,14 @@ function TreeRowView({
     return () => observer.disconnect();
   }, [onHeightChange]);
 
-  // Single click selects AND toggles (double-click fires two clicks first, so a toggle
-  // pair cancels itself out before the name/value editor opens — net-neutral by design).
+  // A row click may open a closed node, but closing is explicit on the twisty or via the
+  // keyboard/tree-wide actions. Double-click on the empty row area is handled separately below.
   // A Ctrl/Shift click is a pure selection gesture: toggling expand/collapse while picking
   // several rows would reshuffle the very list the user is clicking through.
   function handleRowClick(event: React.MouseEvent): void {
     const modifier = selectModifierOf(event);
     onSelect(modifier);
-    if (hasChildren && modifier === "none") onToggle();
+    if (hasChildren && !expanded && modifier === "none") onToggle();
   }
 
   return (
@@ -418,6 +418,11 @@ function TreeRowView({
       }${insideComment ? " tree-row--in-comment" : ""}${dropClass}`}
       style={{ top, paddingLeft: depth * 16, "--indent": `${depth * 16}px` } as React.CSSProperties}
       onClick={handleRowClick}
+      onDoubleClick={(event) => {
+        if (event.target !== event.currentTarget || hasChildren || isCommentRow || insideComment || node.value) return;
+        onSelect("none");
+        onStartEditValue();
+      }}
       onContextMenu={(event) => {
         event.preventDefault();
         // No onSelect here: App decides whether this right-click keeps an existing

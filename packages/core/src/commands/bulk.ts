@@ -35,6 +35,15 @@ function removableSlotsDescending(rows: BulkRow[]): Array<{ parent: DocNode; ind
     .sort((a, b) => b.index - a.index);
 }
 
+/** Batch duplication has a single insertion point, so multi-selection must be siblings. */
+export function duplicateRowsShareParent(rows: BulkRow[]): boolean {
+  if (rows.length <= 1) return true;
+  if (topmostRows(rows).length !== rows.length) return false;
+  const slots = rows.map((row) => findSiblingSlot(row));
+  const first = slots[0];
+  return first !== null && first !== undefined && slots.every((slot) => slot?.parent === first.parent);
+}
+
 /**
  * Removes every selected node as ONE undo step. Returns `null` when nothing is removable (empty
  * selection, or only the root — which has no sibling slot to be removed from).
@@ -47,23 +56,23 @@ export function createBulkRemoveCommand(rows: BulkRow[]): Command | null {
 }
 
 /**
- * Deep-copies every selected node in as its own next sibling, as ONE undo step. Returns the
- * command plus the fresh clones (the caller reveals/selects them). Returns `null` when nothing
- * is duplicable.
- *
- * Insertions run in descending index order for the same reason removals do — an insertion at a
- * lower index would otherwise shift the slots computed for the rows below it.
+ * Deep-copies selected siblings as one consecutive block immediately after the last selected
+ * sibling, preserving tree order, as ONE undo step. Returns `null` for mixed-parent selections,
+ * parent-and-descendant selections, or rows that cannot be duplicated.
  */
 export function createBulkDuplicateCommand(rows: BulkRow[]): { command: Command; clones: DocNode[] } | null {
-  const slots = removableSlotsDescending(topmostRows(rows));
-  if (slots.length === 0) return null;
-  const clones: DocNode[] = [];
-  const commands = slots.map((slot) => {
-    const clone = cloneSubtree(slot.parent.children[slot.index]!);
-    clones.push(clone);
-    return createInsertNodeCommand(slot.parent, slot.index + 1, clone, slot.parentAncestors);
-  });
-  return { command: createCompositeCommand("bulk-duplicate", commands), clones };
+  if (rows.length === 0 || !duplicateRowsShareParent(rows)) return null;
+  const slots = rows
+    .map((row) => findSiblingSlot(row))
+    .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
+    .sort((a, b) => a.index - b.index);
+  if (slots.length !== rows.length || slots.length === 0) return null;
+
+  const parent = slots[0]!.parent;
+  const last = slots[slots.length - 1]!;
+  const clones = slots.map((slot) => cloneSubtree(slot.parent.children[slot.index]!));
+  const command = createBulkInsertCommand(parent, last.index + 1, clones, last.parentAncestors);
+  return command ? { command: createCompositeCommand("bulk-duplicate", [command]), clones } : null;
 }
 
 /**

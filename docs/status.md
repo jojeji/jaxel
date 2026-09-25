@@ -2033,3 +2033,30 @@ Beim Start prüft Jaxel die Schreibbarkeit des EXE-Verzeichnisses. Bei einem sch
 Verzeichnis fällt die Sitzung vollständig auf den normalen AppData-Datenpfad zurück und zeigt
 eine Statusmeldung an. Ein Wechsel des WebView-Datenpfads während einer laufenden Sitzung findet
 nicht statt. Linux-Pakete und der VS-Code-Modus bleiben unverändert.
+
+## Nachtrag 2026-09-25 — UI-Wünsche umgesetzt
+
+Per Grilling wurden das Wertefeld mit Kopieraktion im rechten Panel, blockweises Duplizieren
+ausgewählter Geschwister, zwei Toolbar-Aktionen zum Einfügen, das asymmetrische Auf-/Zuklappen
+und die Bearbeitung leerer Blattelemente spezifiziert und umgesetzt. Der Panel-Wert wird über den
+CommandBus geändert und bleibt beim Tippen ein Undo-Schritt. Normale Container zeigen kein
+Wertefeld; die Core-Aktion sperrt Wertänderungen an Knoten mit Kindern entsprechend der
+Wert-XOR-Kinder-Regel. Kommentare behalten ihre Texteingabe. Duplikate mehrerer Geschwister landen
+als geordneter Block hinter der Auswahl; verschiedene Eltern sind nicht unterstützt. Die
+Tastenkürzel bleiben trotz des möglichen Konflikts im eingebetteten VS-Code-Modus erhalten.
+Toolbar-Buttons, Klickverhalten und Doppelklick für leere Blätter entsprechen dem abgestimmten
+Umfang. Handbuch und Entscheidungslog sind aktualisiert. Verifiziert: Core- und Editor-Tests
+(345 + 350 bestanden), `npm run typecheck` und Root-`npm run dev` (Vite und Tauri-Prozess sind
+gestartet). Graphify wurde inkrementell aktualisiert (1.289 Knoten, 2.719 Kanten); eine falsche
+AST-Selbstkante für `host.destroyWindow()` wurde aus dem Graph entfernt, die Integritätsprüfung
+findet keine offenen Endpunkte oder Selbstkanten.
+
+## Nachtrag 2026-09-25 — Wertabstand bei Attributen
+
+Ein Browser-Regressionstest reproduzierte den großen Abstand bei einem kurzen Attribut: Bei 420 px
+Zeilenbreite lagen Attributtext und Wert 170 px auseinander. Ursache war `flex-grow: 1` auf
+`.tree-row__attrs`, wodurch das Attributfeld auch bei kurzem Inhalt freien Platz verbrauchte.
+`flex-grow` ist jetzt 0; das Feld kann bei Bedarf weiter schrumpfen. Der gezielte Layouttest ist
+grün (Abstand unter 24 px). `npm test` (345 Core- und 350 Editor-Tests), Typecheck und Root-Dev-Start
+waren erfolgreich. Die separate Theme-Screenshot-Suite meldet weiter Abweichungen bei den
+Kommentar-Randmarkierungen; ihre Referenzbilder zeigen diese bereits vorhandenen Streifen nicht.

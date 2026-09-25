@@ -11,6 +11,20 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-25
+
+### Hinzugefügt
+
+- Das Eigenschaften-Panel zeigt den direkten Knotenwert und bietet eine Schaltfläche zum Kopieren.
+- `+` und `++` in der Toolbar legen schnell ein Geschwister- bzw. Kindelement an.
+
+### Geändert
+
+- Mehrere ausgewählte Geschwister werden beim Duplizieren als geordneter Block hinter der Auswahl
+  eingefügt.
+- Ein Klick öffnet zugeklappte Baumknoten; offene Knoten werden über den Pfeil zugeklappt.
+- Ein Doppelklick auf die freie Zeilenfläche startet die Werteingabe bei leeren Blattelementen.
+
 ### Behoben
 
 - Löschen (oder Einkommentieren, Duplizieren), Speichern, Rückgängig und erneut Speichern schrieb
@@ -88,6 +102,7 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 - „Suchen“ in Toolbar und Menü wirkt jetzt auch, wenn die Suche rechts angedockt ist.
 - „Knoten kopieren“ in der Menüleiste ist bei Mehrfachauswahl nicht mehr ausgegraut, genau wie
   `Strg+C` und das Kontextmenü.
+- Ein kurzes XML-Attribut schiebt den Elementwert nicht mehr unnötig weit nach rechts.
 
 ### Geändert
 

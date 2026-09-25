@@ -1003,6 +1003,17 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     if (selectedRow) runTreeAction([selectedRow], { kind: "set-attribute", name, value, coalesceKey });
   }
 
+  function handleSetNodeValue(value: string, coalesceKey: string): void {
+    if (selectedRow) runTreeAction([selectedRow], { kind: "set-value", value, coalesceKey });
+  }
+
+  function handleCopyNodeValue(value: string): void {
+    void navigator.clipboard.writeText(value).then(
+      () => setStatus(t("clipboard.valueCopied")),
+      (err) => setError(toErrorMessage(err)),
+    );
+  }
+
   function handleRenameAttribute(index: number, newName: string, coalesceKey: string): void {
     if (selectedRow) runTreeAction([selectedRow], { kind: "rename-attribute", index, name: newName, coalesceKey });
   }
@@ -1681,10 +1692,13 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       node={selectedRow?.node ?? null}
       selectionCount={selectedRows.length}
       onSetAttribute={handleSetAttribute}
+      onSetValue={handleSetNodeValue}
+      onCopyValue={handleCopyNodeValue}
+      hideNodeValue={editingField?.field === "value" && editingField.nodeId === selectedRow?.node.id}
       onRenameAttribute={handleRenameAttribute}
       onCreateAttribute={handleCreateAttribute}
       onDecodeBase64={handleDecodeBase64}
-      readOnly={selectedRow !== null && actionBlocker("set-attribute") === "read-only"}
+      readOnly={selectedRow !== null && actionBlocker("set-value") === "read-only"}
     />
   );
 
@@ -1732,6 +1746,22 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
           <IconButton icon={ArrowClockwise} {...actionProps("redo")} />
           <span className="app-toolbar__sep" />
           <IconButton icon={MagnifyingGlass} {...actionProps("search")} />
+          {(["addSibling", "addChild"] as const).map((id) => {
+            const { label, shortcut, disabled, onClick } = actionProps(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                className="icon-btn app-toolbar__text-btn"
+                aria-label={label}
+                title={shortcut ? `${label} (${shortcut})` : label}
+                disabled={disabled}
+                onClick={onClick}
+              >
+                {id === "addSibling" ? "+" : "++"}
+              </button>
+            );
+          })}
           <IconButton icon={SidebarSimple} {...actionProps("toggleAttributesPanel")} />
           <div className="app-toolbar__spacer" />
           <IconButton icon={Gear} {...actionProps("settings")} />

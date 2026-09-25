@@ -68,6 +68,16 @@ Menüeinträge aus und stoppt das Tastenkürzel. Hier wird auch der Schreibschut
 auskommentierten Teilbaums durchgesetzt.
 _Avoid_: Handler, Menüaktion (das ist nur der Einstiegspunkt).
 
+**Knotenwert**:
+Der direkte Textinhalt eines Knotens, getrennt von seinen Attributen und Kindknoten. Bei XML mit
+Kindknoten bezeichnet er nur Text, der direkt im Knoten steht, nicht den Text seiner Nachfahren.
+_Avoid_: gesamter XML-Inhalt, Unterbaumtext.
+
+**Leeres Blattelement**:
+Ein XML-Element ohne direkten Textwert und ohne Kindknoten, etwa `<x/>` oder `<x></x>`. Nur für
+diesen Fall soll ein Doppelklick in die freie Fläche der Baumzeile die Werteingabe starten.
+_Avoid_: leerer Knoten (kann Kinder haben).
+
 **App-Aktion**:
 Etwas, das der Benutzer über mehr als einen Einstieg auslösen kann (Tastatur, Menüleiste,
 Kontextmenü, Toolbar) — Speichern, Suchen, Knoten kopieren, auch die Baumaktionen. Bezeichnung,

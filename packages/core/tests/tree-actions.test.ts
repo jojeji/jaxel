@@ -107,6 +107,19 @@ describe("Schreibschutz im auskommentierten Teilbaum", () => {
     expect(root.children[0]!.value).toBe(" neu ");
   });
 
+  it("sperrt Wertänderungen an Containern", () => {
+    const { bus, root } = load();
+    const container = rowAt(root, ...PERSON);
+    const previousChildren = container.node.children;
+
+    expect(treeActionBlocker([container], "set-value", XML)).toBe("has-children");
+    expect(run(bus, [container], { kind: "set-value", value: "text" })).toEqual({
+      ok: false,
+      blocker: "has-children",
+    });
+    expect(container.node.children).toBe(previousChildren);
+  });
+
   it("sperrt eine Mehrfachauswahl, sobald eine Zeile im Kommentar liegt", () => {
     const { root } = load();
     const rows = [rowAt(root, ...PERSON), rowAt(root, ...INSIDE)];
@@ -202,7 +215,7 @@ describe("Pläne für erlaubte Baumaktionen", () => {
 
     const duplicated = run(bus, rows, { kind: "duplicate" });
     expect(duplicated.ok && duplicated.plan.select).toHaveLength(2);
-    expect(root.children.map((n) => n.name)).toEqual(["#comment", "person", "person", "#comment", "notiz", "notiz"]);
+    expect(root.children.map((n) => n.name)).toEqual(["#comment", "person", "#comment", "notiz", "person", "notiz"]);
     bus.undo();
     expect(root.children).toHaveLength(4);
 
@@ -214,6 +227,12 @@ describe("Pläne für erlaubte Baumaktionen", () => {
     const { root } = load();
     expect(treeActionBlocker([rowAt(root)], "delete", XML)).toBe("root");
     expect(treeActionBlocker([rowAt(root)], "duplicate", XML)).toBe("root");
+  });
+
+  it("batch-dupliziert nur eine Geschwisterauswahl", () => {
+    const { root } = load("<r><a/><p><b/></p></r>");
+    expect(treeActionBlocker([rowAt(root, 0), rowAt(root, 1, 0)], "duplicate", XML)).toBe("sibling-selection");
+    expect(treeActionBlocker([rowAt(root, 1), rowAt(root, 1, 0)], "duplicate", XML)).toBe("sibling-selection");
   });
 
   it("kommentiert mehrere Knoten als einen Undo-Schritt aus und wieder ein", () => {
