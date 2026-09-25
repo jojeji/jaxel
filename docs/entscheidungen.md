@@ -850,3 +850,16 @@ beim ersten Fehler ab (per Test belegt). „Neu laden“ einer kaputten Datei sc
    Einstellung „Zuletzt geöffnete Dateien“.
 3. **„Neu laden“ meldet Fehler (`reload.failed`)**; der alte Baum bleibt.
 
+## 2026-09-25 — Vorgemerkte Neu-laden-Frage gehört zum Dokument
+
+Aus dem vierten Architektur-Review (nur Strong). Die vorgemerkte Frage „Datei wurde extern
+geändert“ war per Pfad gespeichert und wurde beim Schließen nicht verworfen. Wartete sie hinter
+dem Schließen-Dialog und wurde das Dokument dort geschlossen, erschien sie beim Wiederöffnen für
+ein frisch geladenes Dokument (per Test belegt).
+
+1. **Die Frage ist an das Dokument gebunden (seinen CommandBus), nicht an den Pfad.** Schließen
+   und neu Öffnen ergibt einen neuen CommandBus, die alte Frage passt zu nichts mehr und wird
+   verworfen; „Speichern unter“ behält den CommandBus, die Frage folgt dem Dokument.
+2. Bewusst nicht geändert: „Speichern“ im Schließen-Dialog, während die Frage noch wartet, schreibt
+   die eigene Version — das ist dort die ausdrückliche Entscheidung des Nutzers für seine Fassung.
+

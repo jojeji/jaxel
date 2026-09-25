@@ -1905,3 +1905,9 @@ UI-Test (vorher rot), der auch „Alle ersetzen“ in diesem Zustand prüft.
 `openPath` fängt und meldet, Drop nutzt `openPathRef`, `performReload` fängt und meldet. Neue
 i18n-Schlüssel `open.failed`, `reload.failed`. Tests: zwei UI-Tests (vorher rot).
 
+## Nachtrag 2026-09-25 — Neu-laden-Frage am Dokument (Review 4, Kandidat 4)
+
+`reloadPrompt` hält `{ commandBus }` statt `{ filePath }`; ein Effekt verwirft die Frage, sobald
+ihr Dokument fehlt. Test: ein UI-Test (vorher rot). Die Bindung lebt in `App.tsx`, nicht im
+Workspace: Die Frage ist UI-Zustand, und die CommandBus-Identität reicht für die Zuordnung.
+

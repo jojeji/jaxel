@@ -2218,6 +2218,34 @@ describe("Externe Dateiänderungen (Reload bei Fenster-Fokus)", () => {
     expect(screen.getByText("catalog")).toBeInTheDocument(); // alter Stand bleibt
   });
 
+  it("eine hinter dem Schließen-Dialog vorgemerkte Reload-Frage verfällt mit dem Dokument", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getByText("catalog"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true }); // dirty
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByTitle("Tab schließen"));
+    await screen.findByText("Ungespeicherte Änderungen");
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+      if (cmd === "stat_file") return { mtimeMs: 2000, size: 999 };
+      if (cmd === "read_text_file") {
+        const path = (args as { path?: string } | undefined)?.path ?? "/fake/sample.xml";
+        return { content: FILES[path] ?? SAMPLE_XML, encoding: "UTF-8", mtimeMs: 2000, size: 999 };
+      }
+      if (cmd === "take_pending_open_paths") return [];
+      throw new Error(`unerwarteter invoke-Aufruf: ${String(cmd)}`);
+    });
+    fireEvent(window, new Event("focus")); // vorgemerkt hinter dem Schließen-Dialog
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await user.click(screen.getByRole("button", { name: "Nicht speichern" }));
+
+    vi.mocked(open).mockResolvedValueOnce("/fake/sample.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("catalog");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.queryByText("Datei wurde extern geändert")).not.toBeInTheDocument();
+  });
+
   it("unveränderte mtime/Größe lösen gar nichts aus", async () => {
     await openSampleFile();
     vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {

@@ -19,6 +19,7 @@ import {
   type PathSegment,
   type SearchMatch,
   type SearchOptions,
+  type CommandBus,
   type TreeAction,
   type TreeActionBlocker,
   type TreeActionKind,
@@ -167,7 +168,11 @@ export function App(): React.ReactElement {
   const [filterMatches, setFilterMatches] = useState<SearchMatch[] | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [reloadPrompt, setReloadPrompt] = useState<{ filePath: string } | null>(null);
+  /** A pending "extern geändert" question, bound to the DOCUMENT (its CommandBus), not to a
+   * path: it may wait behind another dialog, and if that dialog closes the document, the
+   * question must go with it — a later reopen of the same path is a fresh document with nothing
+   * to ask about. A "Speichern unter" keeps the document, so the question follows it. */
+  const [reloadPrompt, setReloadPrompt] = useState<{ commandBus: CommandBus } | null>(null);
   /** Set while the user is being asked to confirm an XML<->JSON conversion triggered by the
    * extension they picked in "Speichern unter". Nothing is written until they confirm. */
   const [convertPrompt, setConvertPrompt] = useState<{
@@ -190,7 +195,12 @@ export function App(): React.ReactElement {
   const externalCheckIdRef = useRef(0);
   const performReloadRef = useRef<(filePath: string, onlyIfClean?: boolean) => Promise<void>>(() => Promise.resolve());
   const keepMinePendingRef = useRef(false);
-  const reloadPromptDoc = reloadPrompt ? (docs.find((doc) => doc.filePath === reloadPrompt.filePath) ?? null) : null;
+  const reloadPromptDoc = reloadPrompt
+    ? (docs.find((doc) => doc.commandBus === reloadPrompt.commandBus) ?? null)
+    : null;
+  useEffect(() => {
+    if (reloadPrompt && !reloadPromptDoc) setReloadPrompt(null); // its document was closed
+  }, [reloadPrompt, reloadPromptDoc]);
   /** The one modal dialog on screen, or null. EVERY dialog state belongs in this list — it is
    * what blocks all App-Aktionen and keyboard shortcuts behind a dialog, and it keeps dialogs
    * from stacking: the reload question comes last because it waits ("vorgemerkt") until no other
@@ -702,7 +712,9 @@ export function App(): React.ReactElement {
     }
     if (!reloadResult) {
       const currentDoc = docsRef.current.find((doc) => doc.filePath === filePath);
-      if (activeFilePathRef.current === filePath && currentDoc?.isDirty) setReloadPrompt({ filePath });
+      if (activeFilePathRef.current === filePath && currentDoc?.isDirty) {
+        setReloadPrompt({ commandBus: currentDoc.commandBus });
+      }
       return;
     }
     const { selectedId: newSelectedId } = reloadResult;
@@ -722,6 +734,7 @@ export function App(): React.ReactElement {
   async function handleKeepMine(filePath: string): Promise<void> {
     if (keepMinePendingRef.current) return;
     keepMinePendingRef.current = true;
+    const promptedBus = docsRef.current.find((doc) => doc.filePath === filePath)?.commandBus;
     try {
       const stat = await host.statFile(filePath);
       if (docsRef.current.some((doc) => doc.filePath === filePath)) {
@@ -731,7 +744,7 @@ export function App(): React.ReactElement {
       // Keeping the in-memory version remains valid even if the file vanished meanwhile.
     } finally {
       keepMinePendingRef.current = false;
-      setReloadPrompt((current) => (current?.filePath === filePath ? null : current));
+      setReloadPrompt((current) => (current?.commandBus === promptedBus ? null : current));
     }
   }
 
@@ -754,7 +767,7 @@ export function App(): React.ReactElement {
           if (!currentDoc.isDirty && settingsRef.current.autoReloadOnExternalChange) {
             void performReloadRef.current(filePath, true);
           } else {
-            setReloadPrompt({ filePath });
+            setReloadPrompt({ commandBus: currentDoc.commandBus });
           }
         })
         .catch(() => {
@@ -1772,12 +1785,12 @@ export function App(): React.ReactElement {
       {aboutOpen && (
         <AboutDialog version={appVersion} onOpenLog={handleOpenLog} onClose={() => setAboutOpen(false)} />
       )}
-      {reloadPrompt && reloadPromptDoc && visibleDialog === "reload" && (
+      {reloadPromptDoc && visibleDialog === "reload" && (
         <ReloadDialog
-          fileName={fileNameOf(reloadPrompt.filePath)}
+          fileName={fileNameOf(reloadPromptDoc.filePath)}
           isDirty={reloadPromptDoc.isDirty}
-          onReload={() => void performReload(reloadPrompt.filePath)}
-          onKeepMine={() => void handleKeepMine(reloadPrompt.filePath)}
+          onReload={() => void performReload(reloadPromptDoc.filePath)}
+          onKeepMine={() => void handleKeepMine(reloadPromptDoc.filePath)}
         />
       )}
       {base64Preview && (

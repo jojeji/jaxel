@@ -13,6 +13,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Eine hinter einem anderen Dialog vorgemerkte Frage „Datei wurde extern geändert“ erschien nach
+  dem Schließen und Wiederöffnen der Datei für das frisch geladene Dokument. Sie verfällt jetzt
+  mit dem Dokument.
 - Fehler beim Öffnen (Zuletzt geöffnet, Drag&Drop, „Öffnen mit“) und beim Neuladen werden
   gemeldet, statt still zu verschwinden. Scheitert bei „Öffnen mit“ eine von mehreren Dateien,
   öffnen die übrigen trotzdem.
