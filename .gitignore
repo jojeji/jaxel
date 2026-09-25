@@ -15,3 +15,10 @@ apps/editor/src/tree/__screenshots__/
 # Dated graphify run archives are local analysis history, not project output.
 graphify-out/20*/
 graphify-out/.graphify_analysis.json
+
+# Graphify runtime state and caches are machine-local; keep the graph deliverables.
+graphify-out/cache/
+graphify-out/.graphify_learning.json
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cost.json
