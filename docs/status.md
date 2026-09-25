@@ -1853,3 +1853,10 @@ Bewusst nicht Teil: die Kommentar-Menüeinträge (nur im Kontextmenü, mit eigen
 und „Fokus hier öffnen“/„Base64 dekodieren“ (nur ein Einstieg). Nicht in `npm run dev`
 ausprobiert (Container ohne Desktop).
 
+## Nachtrag 2026-09-25 — Schließen-Plan im Workspace (Review 3, Kandidat 1)
+
+Datenverlust beim Schließen mehrerer Tabs behoben (siehe `docs/entscheidungen.md`): neue
+Workspace-Methoden `planClose`/`closeTabs`, `closeTabSet` in `App.tsx` fragt einmal für alle
+geänderten Dokumente. Tests: vier Node-Fälle in `workspace.test.ts`, zwei UI-Tests in
+`App.test.tsx` (gegen den alten Code rot, gegengeprüft).
+

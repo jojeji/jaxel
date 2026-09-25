@@ -158,6 +158,49 @@ describe("Öffnen und Tabs", () => {
   });
 });
 
+describe("Schließen planen", () => {
+  it("meldet ein geändertes Dokument, wenn Vollansicht und Fokus-Tab zusammen schließen", async () => {
+    const { workspace } = await openCatalog();
+    const root = active(workspace).doc.document.root;
+    workspace.openFocusTab("/c.xml", root.children[0]!.id, "person", [root.id]);
+    setName(workspace, 0, "Anne");
+
+    const plan = workspace.planClose(workspace.getSnapshot().tabs.map((t) => t.key));
+    expect(plan.dirty.map((d) => d.filePath)).toEqual(["/c.xml"]);
+  });
+
+  it("meldet nichts, solange ein anderer Tab das Dokument offen hält", async () => {
+    const { workspace } = await openCatalog();
+    const root = active(workspace).doc.document.root;
+    workspace.openFocusTab("/c.xml", root.children[0]!.id, "person", [root.id]);
+    setName(workspace, 0, "Anne");
+
+    expect(workspace.planClose([`/c.xml#${root.children[0]!.id}`]).dirty).toEqual([]);
+    expect(workspace.planClose(["/c.xml"]).dirty).toEqual([]);
+  });
+
+  it("meldet alle geänderten Dokumente einer Tab-Menge auf einmal, unveränderte nicht", async () => {
+    const { workspace } = await openCatalog({ "/c.xml": CATALOG, "/d.xml": "<d><x/></d>", "/e.xml": "<e/>" });
+    setName(workspace, 0, "Anne");
+    await workspace.openFile("/d.xml");
+    const d = active(workspace).doc;
+    d.commandBus.execute(createSetValueCommand(d.document.root.children[0]!, "1", undefined, [d.document.root]));
+    await workspace.openFile("/e.xml");
+
+    const plan = workspace.planClose(["/c.xml", "/d.xml", "/e.xml"]);
+    expect(plan.dirty.map((doc) => doc.filePath)).toEqual(["/c.xml", "/d.xml"]);
+  });
+
+  it("schließt mehrere Tabs auf einmal", async () => {
+    const { workspace } = await openCatalog({ "/a.xml": "<a/>", "/b.xml": "<b/>", "/c.xml": "<c/>" });
+    await workspace.openFile("/b.xml");
+    await workspace.openFile("/c.xml");
+    workspace.closeTabs(["/a.xml", "/c.xml"]);
+    expect(workspace.getSnapshot().tabs.map((t) => t.key)).toEqual(["/b.xml"]);
+    expect(workspace.getSnapshot().docs.map((d) => d.filePath)).toEqual(["/b.xml"]);
+  });
+});
+
 describe("Dirty und Speichern", () => {
   it("leitet Dirty aus dem Undo-Stapel ab, Undo bis zur Baseline macht wieder sauber", async () => {
     const { workspace } = await openCatalog();

@@ -128,7 +128,8 @@ export function App(): React.ReactElement {
     saveFileAs,
     convertSaveAs,
     newDocument,
-    closeTab,
+    closeTabs,
+    planClose,
     reorderTabs,
     activate,
     openFocusTab,
@@ -173,9 +174,13 @@ export function App(): React.ReactElement {
     newPath: string;
     targetFormat: DocFormat;
   } | null>(null);
-  /** Pending "ungespeicherte Änderungen" question: a single tab close, or the whole window. */
+  /** Pending "ungespeicherte Änderungen" question: closing a set of tabs (one or several), or
+   * the whole window. `tabs` names each closing tab by document + focus rather than by key,
+   * because saving an untitled document renames its path (and with it every key). */
   const [closePrompt, setClosePrompt] = useState<
-    { kind: "tab"; key: string; filePath: string; focusNodeId: string | null } | { kind: "window" } | null
+    | { kind: "tabs"; tabs: Array<{ filePath: string; focusNodeId: string | null }>; dirtyPaths: string[] }
+    | { kind: "window" }
+    | null
   >(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   /** Decoded Base64 TEXT waiting in the preview dialog (binary opens externally instead). */
@@ -1208,27 +1213,35 @@ export function App(): React.ReactElement {
     copyPath(selectedRow.node, kind);
   }
 
-  /** Closes a tab and forgets its remembered expand/selection state (see tabViewStateRef above) —
-   * otherwise the map would grow forever across a long session of opening/closing tabs. */
-  function closeTabAndForgetView(key: string): void {
-    tabViewStateRef.current.delete(key);
-    closeTab(key);
+  /** Closes tabs and forgets their remembered expand/selection state (see tabViewStateRef
+   * above) — otherwise the map would grow forever across a long session of opening/closing tabs. */
+  function closeTabsAndForgetView(keys: string[]): void {
+    for (const key of keys) tabViewStateRef.current.delete(key);
+    closeTabs(keys);
   }
 
-  function handleCloseTab(key: string): boolean {
-    // Warn only when this close would UNLOAD a dirty document — i.e. no other tab (full
-    // view or focus) still references it. Closing a focus tab beside an open full view
-    // loses nothing and stays silent.
-    const tab = tabs.find((t) => t.key === key);
-    if (tab && !tabs.some((t) => t.filePath === tab.filePath && t.key !== key)) {
-      const doc = docs.find((d) => d.filePath === tab.filePath);
-      if (doc?.isDirty) {
-        setClosePrompt({ kind: "tab", key, filePath: tab.filePath, focusNodeId: tab.focusNodeId });
-        return false;
-      }
+  /**
+   * Closes a set of tabs as one step. Asks first when that would unload documents with unsaved
+   * changes — decided by the Workspace against its live state, for the whole set at once, so a
+   * full view and a focus tab of the same document closing together still ask (and several
+   * changed documents get one dialog instead of stopping at the first).
+   */
+  function closeTabSet(keys: string[]): void {
+    const { dirty } = planClose(keys);
+    if (dirty.length === 0) {
+      closeTabsAndForgetView(keys);
+      return;
     }
-    closeTabAndForgetView(key);
-    return true;
+    const closing = tabs.filter((tab) => keys.includes(tab.key));
+    setClosePrompt({
+      kind: "tabs",
+      tabs: closing.map((tab) => ({ filePath: tab.filePath, focusNodeId: tab.focusNodeId })),
+      dirtyPaths: dirty.map((doc) => doc.filePath),
+    });
+  }
+
+  function handleCloseTab(key: string): void {
+    closeTabSet([key]);
   }
 
   function handleCopyTabPath(path: string): void {
@@ -1243,12 +1256,6 @@ export function App(): React.ReactElement {
       () => setStatus(t("tabs.parentOpened")),
       (err) => setError(toErrorMessage(err)),
     );
-  }
-
-  function closeTabSet(keys: string[]): void {
-    for (const key of keys) {
-      if (!handleCloseTab(key)) break;
-    }
   }
 
   function handleCloseAllTabs(): void { closeTabSet(tabs.map((tab) => tab.key)); }
@@ -1278,14 +1285,20 @@ export function App(): React.ReactElement {
     if (!prompt) return;
     setError(null);
     try {
-      if (prompt.kind === "tab") {
-        const doc = docs.find((d) => d.filePath === prompt.filePath);
-        const savedPath = doc ? await saveDoc(doc) : prompt.filePath;
-        if (savedPath === null) return; // save-as cancelled — keep the tab open
+      if (prompt.kind === "tabs") {
+        const savedPaths = new Map<string, string>();
+        for (const filePath of prompt.dirtyPaths) {
+          const doc = docs.find((d) => d.filePath === filePath);
+          const savedPath = doc ? await saveDoc(doc) : filePath;
+          if (savedPath === null) return; // save-as cancelled — keep every tab open
+          savedPaths.set(filePath, savedPath);
+        }
         setClosePrompt(null);
-        // A save-as may have renamed the document (and with it every tab key) — re-derive
-        // the closing tab's key from the path the save actually ended up under.
-        closeTabAndForgetView(tabKey(savedPath, prompt.focusNodeId));
+        // A save-as may have renamed a document (and with it every tab key) — re-derive the
+        // closing tabs' keys from the paths the saves actually ended up under.
+        closeTabsAndForgetView(
+          prompt.tabs.map((tab) => tabKey(savedPaths.get(tab.filePath) ?? tab.filePath, tab.focusNodeId)),
+        );
       } else {
         for (const doc of docs.filter((d) => d.isDirty)) {
           if ((await saveDoc(doc)) === null) return; // cancelled — abort the window close
@@ -1302,7 +1315,7 @@ export function App(): React.ReactElement {
     const prompt = closePrompt;
     if (!prompt) return;
     setClosePrompt(null);
-    if (prompt.kind === "tab") closeTabAndForgetView(prompt.key);
+    if (prompt.kind === "tabs") closeTabsAndForgetView(prompt.tabs.map((tab) => tabKey(tab.filePath, tab.focusNodeId)));
     else void destroyWindow();
   }
 
@@ -1680,8 +1693,8 @@ export function App(): React.ReactElement {
       {closePrompt && (
         <CloseConfirmDialog
           fileNames={
-            closePrompt.kind === "tab"
-              ? [fileNameOf(closePrompt.filePath)]
+            closePrompt.kind === "tabs"
+              ? closePrompt.dirtyPaths.map(fileNameOf)
               : docs.filter((d) => d.isDirty).map((d) => fileNameOf(d.filePath))
           }
           onSave={() => void handleClosePromptSave()}

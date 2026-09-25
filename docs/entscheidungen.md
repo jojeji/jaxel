@@ -740,3 +740,20 @@ Mehrfachauswahl ausgegraut, obwohl `Strg+C` mehrere Knoten kopiert.
 5. **`Strg+O`/`Strg+N` werden nur beansprucht, solange die Aktion aktiv ist** — im VS-Code-Modus
    bleiben sie Tastenkürzel von VS Code (Verhalten unverändert).
 
+## 2026-09-25 — Schließen-Plan im Workspace
+
+Aus dem dritten Architektur-Review (nur Strong). `closeTabSet` rief pro Tab `handleCloseTab`
+auf, das gegen die Tab-Liste des aktuellen Renders prüfte, ob ein anderer Tab das Dokument
+offen hält. Beim gemeinsamen Schließen von Vollansicht und Fokus-Tab eines geänderten Dokuments
+hielt jeder Schritt den jeweils anderen Tab für offen — beide schlossen ohne Nachfrage, die
+Änderungen waren weg (per Test belegt).
+
+1. **`Workspace.planClose(keys)` entscheidet für die ganze Menge auf einmal** gegen den aktuellen
+   Snapshot, welche Dokumente entladen würden und welche davon ungespeichert sind. Das
+   Einzel-Schließen läuft über denselben Weg.
+2. **Ein Dialog für alle betroffenen Dokumente**; vorher brach die Schleife beim ersten
+   geänderten Dokument ab und verwarf den Rest der Auswahl. Abbrechen einer Speichern-unter-Abfrage
+   lässt alle Tabs offen.
+3. **Die schließenden Tabs merkt sich der Dialog als Dokument + Fokus, nicht als Schlüssel**, weil
+   Speichern eines unbenannten Dokuments dessen Pfad und damit jeden Schlüssel ändert.
+

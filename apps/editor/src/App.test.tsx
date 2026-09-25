@@ -2396,6 +2396,40 @@ describe("Ungespeicherte Änderungen beim Schließen", () => {
     expect(screen.getByText("catalog", { selector: ".tree-row__name" })).toBeInTheDocument();
   });
 
+  it("„Alle Tabs schließen“ fragt auch dann, wenn Vollansicht und Fokus-Tab dasselbe geänderte Dokument zeigen", async () => {
+    const user = await openSampleFile();
+    await makeDirty(user);
+    fireEvent.contextMenu(screen.getAllByText("person")[0]!.closest(".tree-row")!);
+    await user.click(screen.getByRole("menuitem", { name: "Fokus ab hier öffnen" }));
+    await screen.findByText("person — sample.xml", { selector: ".tab__label" });
+
+    fireEvent.contextMenu(screen.getByText("sample.xml", { selector: ".tab__label" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Alle Tabs schließen" }));
+
+    expect(await screen.findByText(/„sample.xml“ hat ungespeicherte Änderungen/)).toBeInTheDocument();
+    expect(document.querySelectorAll(".tab__label")).toHaveLength(2); // noch nichts geschlossen
+
+    await user.click(screen.getByRole("button", { name: "Nicht speichern" }));
+    expect(document.querySelectorAll(".tab__label")).toHaveLength(0);
+  });
+
+  it("„Alle Tabs schließen“ fragt einmal für alle geänderten Dokumente statt beim ersten abzubrechen", async () => {
+    const user = await openSampleFile();
+    await makeDirty(user);
+    vi.mocked(open).mockResolvedValueOnce("/fake/second.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("second.xml", { selector: ".tab__label" });
+    await user.click(screen.getByText("inventory"));
+    fireEvent.keyDown(window, { key: "+", ctrlKey: true });
+
+    fireEvent.contextMenu(screen.getByText("second.xml", { selector: ".tab__label" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Alle Tabs schließen" }));
+
+    expect(await screen.findByText(/2 Dokumente haben ungespeicherte Änderungen/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Nicht speichern" }));
+    expect(document.querySelectorAll(".tab__label")).toHaveLength(0);
+  });
+
   it("Fenster schließen mit ungespeicherten Änderungen wird abgefangen; „Nicht speichern“ zerstört das Fenster", async () => {
     const user = await openSampleFile();
     await makeDirty(user);

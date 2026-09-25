@@ -67,7 +67,9 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   „Tabs links/rechts schließen", „Alle außer diesem schließen", „Dateipfad kopieren" und
   „Übergeordneten Ordner öffnen". Tabs lassen sich per Drag&Drop verschieben; der aktive Tab
   wird beim Öffnen einer Datei automatisch aktiviert. Das Schließen-`x` sitzt am rechten Rand
-  des jeweiligen Tabs.
+  des jeweiligen Tabs. Schließen mehrere Tabs auf einmal und haben dabei Dokumente
+  ungespeicherte Änderungen, fragt ein einziger Dialog für alle diese Dokumente nach, bevor
+  irgendein Tab geschlossen wird.
 - **Öffnen über Dateiverknüpfung**: Ist Jaxel das Standardprogramm für XML-/JSON-/`.ext`-Dateien, wird
   das Fenster beim Öffnen einer Datei automatisch sichtbar gemacht und in den Vordergrund geholt.
   Das gilt auch, wenn Jaxel bereits läuft oder zuvor minimiert war.

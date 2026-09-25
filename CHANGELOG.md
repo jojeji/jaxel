@@ -13,6 +13,10 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- „Alle Tabs schließen“ (und „Alle anderen“, „links/rechts schließen“) verwarf ungespeicherte
+  Änderungen ohne Nachfrage, wenn ein Dokument zugleich in Vollansicht und Fokus-Tab offen war.
+  Mehrere geänderte Dokumente werden jetzt in einem Dialog abgefragt, statt beim ersten
+  abzubrechen.
 - Einfügen (`Strg+V`) in einen auskommentierten Bereich und das Anlegen eines Kindes unter einem
   Kommentar sind gesperrt. Bisher gingen die eingefügten Knoten beim nächsten Speichern verloren.
 - Das Attribute-Panel zeigt Knoten in einem auskommentierten Bereich schreibgeschützt an, statt

@@ -319,6 +319,28 @@ export class Workspace {
     this.update({ docs, tabs, activeKey });
   };
 
+  /**
+   * What closing all of `keys` together would do: which documents it unloads (no tab would
+   * reference them any more) and which of those have unsaved changes. Computed against the live
+   * snapshot as ONE step, so a full view and a focus tab of the same document closing together
+   * count as unloading it — the question a close prompt must ask before anything closes.
+   */
+  planClose = (keys: string[]): { unloads: OpenDocumentState[]; dirty: OpenDocumentState[] } => {
+    const closing = new Set(keys);
+    const remaining = this.snapshot.tabs.filter((t) => !closing.has(t.key));
+    const unloads = this.snapshot.docs.filter(
+      (d) =>
+        this.snapshot.tabs.some((t) => closing.has(t.key) && t.filePath === d.filePath) &&
+        !remaining.some((t) => t.filePath === d.filePath),
+    );
+    return { unloads, dirty: unloads.filter((d) => d.isDirty) };
+  };
+
+  /** Closes several tabs, one after another against the live state (see `closeTab`). */
+  closeTabs = (keys: string[]): void => {
+    for (const key of keys) this.closeTab(key);
+  };
+
   reorderTabs = (key: string, targetIndex: number): void => {
     const current = this.snapshot;
     const sourceIndex = current.tabs.findIndex((tab) => tab.key === key);
