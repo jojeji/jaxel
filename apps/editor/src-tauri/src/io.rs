@@ -1,5 +1,6 @@
 // Datei-I/O mit Encoding-Erkennung (docs/entscheidungen.md #9): BOM zuerst,
-// sonst die `encoding="..."`-Angabe in einer XML-Deklaration, sonst UTF-8.
+// sonst die `encoding="..."`-Angabe in einer XML-Deklaration, sonst UTF-8 — oder windows-1252,
+// wenn die Bytes kein gültiges UTF-8 sind.
 
 use encoding_rs::Encoding;
 use std::fs;
@@ -68,7 +69,18 @@ fn detect_encoding(bytes: &[u8]) -> &'static Encoding {
     if let Some((encoding, _bom_len)) = Encoding::for_bom(bytes) {
         return encoding;
     }
-    sniff_xml_declared_encoding(bytes).unwrap_or(encoding_rs::UTF_8)
+    if let Some(declared) = sniff_xml_declared_encoding(bytes) {
+        return declared;
+    }
+    // Nothing declared: UTF-8 if the bytes are valid UTF-8. Otherwise the file is almost surely
+    // in the Windows code page (Latin-1 and friends, as older Windows tools write XML and JSON
+    // without a declaration). Decoding it as UTF-8 would replace every umlaut with U+FFFD — in
+    // the whole file, untouched nodes included, the moment it is saved.
+    if std::str::from_utf8(bytes).is_ok() {
+        encoding_rs::UTF_8
+    } else {
+        encoding_rs::WINDOWS_1252
+    }
 }
 
 /// Text → bytes in `encoding`, with a BOM if `bom`. encoding_rs cannot do this alone: its
@@ -130,6 +142,21 @@ mod tests {
     fn detects_utf16le_bom() {
         let bytes = [0xFF, 0xFE, b'<', 0, b'a', 0];
         assert_eq!(detect_encoding(&bytes).name(), "UTF-16LE");
+    }
+
+    #[test]
+    fn reads_undeclared_latin1_as_windows_1252_and_keeps_umlauts_on_save() {
+        let bytes = b"<a><b>M\xFCller</b><c>x</c></a>";
+        assert_eq!(detect_encoding(bytes).name(), "windows-1252");
+        let (content, _, _) = detect_encoding(bytes).decode(bytes);
+        assert_eq!(content, "<a><b>M\u{fc}ller</b><c>x</c></a>");
+        let edited = content.replace("<c>x</c>", "<c>y</c>");
+        assert_eq!(encode(&edited, detect_encoding(bytes), false), b"<a><b>M\xFCller</b><c>y</c></a>".to_vec());
+    }
+
+    #[test]
+    fn keeps_undeclared_valid_utf8_as_utf8() {
+        assert_eq!(detect_encoding("<a>Müller</a>".as_bytes()).name(), "UTF-8");
     }
 
     #[test]
