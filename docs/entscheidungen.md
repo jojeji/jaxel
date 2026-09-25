@@ -1026,3 +1026,18 @@ Ersatzzeichen für die ganze Datei.
    (Obermenge von Latin-1 im druckbaren Bereich, so schreiben ältere Windows-Werkzeuge XML und
    JSON). Eine Deklaration geht weiterhin vor.
 
+
+## 2026-09-16 — Portable Windows-Erkennung über EXE-Suffix
+
+Der portable Windows-Build wird wie beim XDP-Designer durch den Dateinamen `*-portable.exe`
+erkannt. Die Release-ZIP heißt weiterhin `Jaxel_<Version>_x64-portable.zip`, enthält aber
+`jaxel-portable.exe`; installierte Builds behalten `jaxel.exe`. Eine separate `jaxel.portable`
+Markerdatei wird nicht mehr erzeugt oder ausgewertet. Damit ist das Artefakt selbstbeschreibend
+und benötigt keine zusätzliche Datei neben der EXE.
+
+Bei einem beschreibbaren EXE-Verzeichnis liegen Einstellungen, WebView-Daten und Logdatei dort.
+Jaxel prüft die Schreibbarkeit einmal beim Start; bei fehlender Berechtigung nutzt die gesamte
+Sitzung den normalen AppData-Datenpfad und informiert den Benutzer. Ein späterer Wechsel während
+der Sitzung ist ausgeschlossen, damit kein geteilter WebView-Einstellungsstand entsteht. Die
+Änderung betrifft nur die portable Windows-ZIP; Linux-Pakete und der eingebettete VS-Code-Modus
+bleiben unverändert.

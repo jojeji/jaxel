@@ -1,45 +1,54 @@
 /*
- * Jaxel — minimal-utilitaristisches Theme (AP7b): helle, warm-neutrale Flächen im
- * Dokument-Stil, feine 1px-Trennlinien, EIN Akzent (Petrol aus dem profiforms-CI).
- * Hell ist der Default (:root); Dunkel via `data-theme="dark"` auf <html>
- * (gesetzt von App.tsx nach den Einstellungen).
+ * Jaxel — minimal-utilitaristisches Theme (AP7b), feine 1px-Trennlinien, EIN Akzent
+ * (Petrol aus dem profiforms-CI). Hell ist der Default (:root); Dunkel via
+ * `data-theme="dark"` auf <html> (gesetzt von App.tsx nach den Einstellungen).
+ *
+ * Farben seit 2026-09-18 (Markenaudit, portiert aus dem Schwesterprojekt
+ * xdp-designer) bit-genau aus dem Profiforms-Design-System-Artifact
+ * (project/tokens.json, Quelle: Corporate-Design-PDF) statt der bisherigen
+ * Annäherung (Petrol war #00807F, spürbar grüner/dunkler als die echte
+ * CI-Farbe #00A3A3). weiss #F8F8F8 und anthrazit #222222 sind die
+ * CI-Grundfarben; die bisherige warm-neutrale Papierfläche ist damit einem
+ * neutralen Grund gewichen. `--warn`/`--comment`/`--danger`/`--danger-dim`/
+ * `--shadow` kennt das CI nicht — bewusst unverändert gelassen (funktionale
+ * Farben ohne Markenbezug, chirurgische statt vollständige Umfärbung).
  */
 
 :root {
   color-scheme: light;
-  --bg-0: #f7f6f3; /* Canvas */
-  --bg-1: #fdfdfc; /* Flächen: Titelleiste, Panels, Dialoge */
-  --bg-2: #f0efeb; /* Hover */
-  --bg-3: #e7e5e0; /* Active / gedrückt */
-  --border: #e4e2dd;
-  --text-0: #2f3437;
-  --text-1: #6f6e69;
-  --text-2: #9b9a94;
-  --accent: #00807f; /* Petrol — einziger Akzent */
-  --accent-strong: #016968;
-  --accent-dim: #e0edec; /* Auswahl-/Treffer-Hintergrund */
+  --bg-0: #f8f8f8; /* Canvas — weiss (CI) */
+  --bg-1: #ffffff; /* Flächen: Titelleiste, Panels, Dialoge */
+  --bg-2: #eef0f0; /* Hover */
+  --bg-3: #e3e6e6; /* Active / gedrückt */
+  --border: #d9dcdc;
+  --text-0: #222222; /* anthrazit (CI) */
+  --text-1: #5a5a5a;
+  --text-2: #8a8a8a;
+  --accent: #00a3a3; /* petrol (CI) — einziger Akzent */
+  --accent-strong: #007b7b;
+  --accent-dim: #d9f1f1; /* Auswahl-/Treffer-Hintergrund */
   --warn: #8a6116;
   --comment: #4e7a3e; /* XML-Kommentare (Standard hell) */
   --danger: #b3392b;
   --danger-dim: #f7e5e2;
   --shadow: 0 2px 8px rgb(0 0 0 / 0.05);
-  --font: 13px/1.45 system-ui, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font: 13px/1.45 'Halvar', system-ui, 'Segoe UI', 'Helvetica Neue', sans-serif;
   --mono: 12px/1.5 'Cascadia Code', 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg-0: #14181d;
-  --bg-1: #191e24;
-  --bg-2: #20262e;
-  --bg-3: #29303a;
-  --border: #2c333d;
-  --text-0: #e6e9ed;
-  --text-1: #9aa4b1;
-  --text-2: #67707d;
-  --accent: #2cb5b3;
-  --accent-strong: #45c5c3;
-  --accent-dim: #15393c;
+  --bg-0: #161616; /* von anthrazit abgeleitetes neutrales Dunkelgrau, kein Fremdton */
+  --bg-1: #1e1e1e;
+  --bg-2: #272727;
+  --bg-3: #313131;
+  --border: #3a3a3a;
+  --text-0: #f8f8f8; /* weiss (CI) als Textfarbe auf dunklem Grund */
+  --text-1: #b3b3b3;
+  --text-2: #808080;
+  --accent: #1fc9c8; /* petrol (CI), für Kontrast auf dunklem Grund aufgehellt */
+  --accent-strong: #3ed9d8;
+  --accent-dim: #123434;
   --warn: #d0a24f;
   --comment: #7aa86a; /* XML-Kommentare (dunkel) */
   --danger: #e06c5b;
@@ -171,6 +180,8 @@ body {
   color: var(--text-0);
   font: var(--font);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 :focus-visible {

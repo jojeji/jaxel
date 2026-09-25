@@ -1,24 +1,66 @@
 mod io;
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::ipc::InvokeError;
 use tauri::{Emitter, Manager, UserAttentionType};
 
-const PORTABLE_MARKER: &str = "jaxel.portable";
-
-/// The portable ZIP contains a marker next to `jaxel.exe`. The marker is needed
-/// because the portable and installed builds currently use the same executable
-/// name. Its directory is also the WebView data directory in portable mode.
+/// The published portable ZIP contains `jaxel-portable.exe`. Its directory is
+/// also the WebView data directory in portable mode.
 fn portable_data_directory(executable: &Path) -> Option<PathBuf> {
     let parent = executable.parent()?;
     let file_name = executable.file_name()?.to_str()?.to_ascii_lowercase();
-    (file_name.ends_with("-portable.exe") || parent.join(PORTABLE_MARKER).is_file())
+    file_name
+        .ends_with("-portable.exe")
         .then(|| parent.to_path_buf())
 }
 
-fn current_portable_data_directory() -> Option<PathBuf> {
-    std::env::current_exe().ok().and_then(|path| portable_data_directory(&path))
+fn portable_directory_is_writable(directory: &Path) -> bool {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let probe = directory.join(format!(".jaxel-write-test-{}-{stamp}", std::process::id()));
+    let result = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+        .and_then(|mut file| file.write_all(b"jaxel"));
+    let writable = result.is_ok();
+    let _ = std::fs::remove_file(probe);
+    writable
+}
+
+#[derive(Clone)]
+struct PortableStorage {
+    data_directory: Option<PathBuf>,
+    warning_path: Option<String>,
+}
+
+fn resolve_portable_storage() -> PortableStorage {
+    let detected_directory = std::env::current_exe()
+        .ok()
+        .and_then(|path| portable_data_directory(&path));
+    match detected_directory {
+        Some(directory) if portable_directory_is_writable(&directory) => PortableStorage {
+            data_directory: Some(directory),
+            warning_path: None,
+        },
+        Some(directory) => PortableStorage {
+            data_directory: None,
+            warning_path: Some(directory.to_string_lossy().into_owned()),
+        },
+        None => PortableStorage {
+            data_directory: None,
+            warning_path: None,
+        },
+    }
+}
+
+#[tauri::command]
+fn portable_storage_warning(storage: tauri::State<PortableStorage>) -> Option<String> {
+    storage.warning_path.clone()
 }
 
 #[derive(serde::Serialize)]
@@ -172,9 +214,12 @@ fn open_decoded_file(data_base64: String, extension: String) -> Result<String, I
 /// LogDir target (default file name = app name) in the OS default application; falls back
 /// to opening the log directory if the file does not exist yet.
 #[tauri::command]
-fn open_log(app: tauri::AppHandle) -> Result<String, InvokeError> {
-    let dir = if let Some(portable_directory) = current_portable_data_directory() {
-        portable_directory
+fn open_log(
+    app: tauri::AppHandle,
+    storage: tauri::State<PortableStorage>,
+) -> Result<String, InvokeError> {
+    let dir = if let Some(portable_directory) = &storage.data_directory {
+        portable_directory.clone()
     } else {
         app.path().app_log_dir().map_err(|e| {
             log::error!("open_log: Log-Verzeichnis unbekannt: {e}");
@@ -237,7 +282,8 @@ pub fn run() {
         .filter(|arg| PathBuf::from(arg).is_file())
         .collect();
     let activate_on_start = !startup_paths.is_empty();
-    let portable_directory = current_portable_data_directory();
+    let portable_storage = resolve_portable_storage();
+    let portable_directory = portable_storage.data_directory.clone();
     let portable_log_directory = portable_directory.clone();
 
     let mut log_builder = tauri_plugin_log::Builder::new()
@@ -300,9 +346,11 @@ pub fn run() {
             take_pending_open_paths,
             open_decoded_file,
             open_log,
-            log_frontend
+            log_frontend,
+            portable_storage_warning
         ])
         .setup(move |app| {
+            app.manage(portable_storage);
             app.manage(PendingOpenPaths(Mutex::new(startup_paths)));
             let window_config = app
                 .config()
@@ -335,18 +383,26 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     #[test]
-    fn detects_portable_marker_next_to_executable() {
-        let root = std::env::temp_dir().join(format!("jaxel-portable-test-{}", std::process::id()));
-        fs::create_dir_all(&root).unwrap();
-        fs::write(root.join("jaxel.portable"), "portable").unwrap();
-
-        assert_eq!(portable_data_directory(&root.join("jaxel.exe")), Some(root.clone()));
-        fs::remove_dir_all(root).unwrap();
+    fn detects_published_portable_executable_by_name() {
+        assert_eq!(
+            portable_data_directory(Path::new("tools/Jaxel_0.8.0_x64-portable.exe")),
+            Some(PathBuf::from("tools")),
+        );
     }
 
     #[test]
-    fn installed_executable_without_marker_is_not_portable() {
-        let executable = Path::new(r"C:\Program Files\Jaxel\jaxel.exe");
-        assert_eq!(portable_data_directory(executable), None::<PathBuf>);
+    fn marker_file_does_not_activate_portable_mode() {
+        let root = std::env::temp_dir().join(format!(
+            "jaxel-marker-test-{}",
+            std::process::id(),
+        ));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("jaxel.portable"), "portable").unwrap();
+
+        assert_eq!(
+            portable_data_directory(&root.join("jaxel.exe")),
+            None::<PathBuf>,
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 }

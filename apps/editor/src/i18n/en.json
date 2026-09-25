@@ -89,6 +89,7 @@
   "clipboard.readFailed": "Could not read the clipboard",
   "clipboard.invalidFragment": "Clipboard does not contain a valid named fragment",
   "toast.close": "Dismiss notification",
+  "portable.storageFallback": "The portable directory “{path}” is not writable. Settings will use AppData for this session.",
   "settings.search": "Search",
   "settings.filterSubtree": "Filter also shows the subtree of matches",
   "settings.searchShowNamespaces": "Show namespace prefixes in the result list",

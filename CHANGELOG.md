@@ -93,6 +93,9 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 - Kommentare lassen sich per Drag&Drop verschieben. Beim Ziehen erscheint über auskommentierten
   Bereichen keine Ablagemarkierung mehr.
+- Die portable Windows-ZIP enthält eine `jaxel-portable.exe`; dadurch werden Einstellungen,
+  WebView-Daten und Logdatei ohne zusätzliche Markerdatei neben der EXE abgelegt. Ist das
+  Verzeichnis nicht beschreibbar, verwendet Jaxel für diese Sitzung den normalen AppData-Pfad.
 
 ## [0.8.0] - 2026-09-15
 

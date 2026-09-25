@@ -2021,3 +2021,15 @@ Elements verändert; JSON→XML kann Steuerzeichen/Entity-förmigen Text nicht w
 Parser akzeptiert Inhalt nach dem Wurzelelement und doppelte Attribute; relativer Startpfad beim
 ersten Start (`lib.rs`); Schließen-Dialog + Konvertieren-Dialog gleichzeitig mit Erfolgsmeldung
 ohne Schreiben.
+
+## Nachtrag 2026-09-16 — Portable-Erkennung wie beim XDP-Designer
+
+Die portable Windows-ZIP enthält jetzt `jaxel-portable.exe` statt `jaxel.exe` plus
+`jaxel.portable`. Der `-portable.exe`-Suffix ist damit die alleinige Kennzeichnung des
+Portable-Modus; die bisherige Markerdatei wird nicht mehr unterstützt. Einstellungen,
+WebView-Daten und Logdatei bleiben bei einem beschreibbaren EXE-Verzeichnis weiterhin dort.
+
+Beim Start prüft Jaxel die Schreibbarkeit des EXE-Verzeichnisses. Bei einem schreibgeschützten
+Verzeichnis fällt die Sitzung vollständig auf den normalen AppData-Datenpfad zurück und zeigt
+eine Statusmeldung an. Ein Wechsel des WebView-Datenpfads während einer laufenden Sitzung findet
+nicht statt. Linux-Pakete und der VS-Code-Modus bleiben unverändert.

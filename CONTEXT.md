@@ -106,3 +106,9 @@ Die Diagnoseaktion, die die Jaxel-Logdatei mit dem Betriebssystem-Standardprogra
 Existiert die Datei noch nicht, wird stattdessen ihr Ordner geöffnet; ein Öffnungsfehler wird
 dem Benutzer sichtbar gemeldet.
 _Avoid_: Debugmodus, Konsole öffnen.
+
+**Portable-Modus**:
+Der Windows-Ausführungsmodus eines `-portable.exe`-Artefakts, in dem Einstellungen, WebView-Daten
+und die Logdatei grundsätzlich neben der EXE liegen. Ist dieses Verzeichnis beim Start nicht
+beschreibbar, verwendet die Sitzung stattdessen den normalen Benutzer-Datenpfad.
+_Avoid_: Markerdatei, portable Einstellung.

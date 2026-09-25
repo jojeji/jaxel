@@ -89,6 +89,7 @@
   "clipboard.readFailed": "Zwischenablage konnte nicht gelesen werden",
   "clipboard.invalidFragment": "Zwischenablage enthält kein gültiges, benanntes Fragment",
   "toast.close": "Meldung schließen",
+  "portable.storageFallback": "Das portable Verzeichnis „{path}“ ist nicht beschreibbar. Einstellungen werden für diese Sitzung in AppData gespeichert.",
   "settings.search": "Suche",
   "settings.filterSubtree": "Filter zeigt auch den Unterbaum der Treffer",
   "settings.searchShowNamespaces": "Namespace-Präfixe in der Trefferliste anzeigen",

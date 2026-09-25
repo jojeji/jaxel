@@ -245,6 +245,19 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     void host.getVersion().then(setAppVersion);
   }, [host]);
 
+  // A portable executable whose directory is read-only uses the normal WebView/AppData
+  // location for this session. Tell the user why the settings are not beside the EXE.
+  useEffect(() => {
+    void host
+      .getPortableStorageWarning()
+      .then((path) => {
+        if (path) setStatus(t("portable.storageFallback").replace("{path}", path));
+      })
+      .catch(() => {
+        // Older embedded/native hosts may not expose this optional diagnostic command.
+      });
+  }, [host, t]);
+
   // VS Code supplies exactly one document to an embedded Jaxel instance. The
   // provider remains responsible for the CustomDocument and disk writes.
   const [hostDocPath, setHostDocPath] = useState<string | null>(null);

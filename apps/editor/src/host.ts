@@ -27,6 +27,7 @@ export interface JaxelHost {
   pickOpenFile(defaultPath?: string | null): Promise<string | null>;
   pickSaveFile(defaultPath: string, extensions: string[]): Promise<string | null>;
   getVersion(): Promise<string | null>;
+  getPortableStorageWarning(): Promise<string | null>;
   takePendingOpenPaths(): Promise<string[]>;
   onPendingOpenPaths(handler: () => void): () => void;
   onCloseRequested(handler: (event: { preventDefault: () => void }) => void): () => void;
@@ -99,6 +100,9 @@ function createTauriHost(): JaxelHost {
       } catch {
         return null;
       }
+    },
+    async getPortableStorageWarning() {
+      return invoke<string | null>("portable_storage_warning");
     },
     takePendingOpenPaths: async () => {
       return invoke<string[]>("take_pending_open_paths");
@@ -255,6 +259,7 @@ function createVscodeHost(): JaxelHost {
     pickOpenFile: (defaultPath) => request<string | null>({ type: "pickOpenFile", defaultPath: defaultPath ?? undefined }, "pickOpenFileResponse"),
     pickSaveFile: (defaultPath, extensions) => request<string | null>({ type: "pickSaveFile", defaultPath, extensions }, "pickSaveFileResponse"),
     getVersion: async () => null,
+    getPortableStorageWarning: async () => null,
     takePendingOpenPaths: async () => [],
     onPendingOpenPaths: () => () => {},
     onCloseRequested: () => () => {},

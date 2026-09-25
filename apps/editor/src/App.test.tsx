@@ -131,6 +131,7 @@ beforeEach(() => {
     }
     if (cmd === "write_text_file") return { mtimeMs: 1000, size: 100 };
     if (cmd === "stat_file") return { mtimeMs: 1000, size: 100 };
+    if (cmd === "portable_storage_warning") return null;
     if (cmd === "open_decoded_file") {
       const ext = (args as { extension?: string } | undefined)?.extension ?? "bin";
       return `/tmp/jaxel-decoded-1.${ext}`;
@@ -1641,6 +1642,15 @@ describe("Absturz- und Fehler-Logging (AP15)", () => {
 });
 
 describe("Schwebende Status- und Fehlermeldungen", () => {
+  it("zeigt den Fallback auf AppData an, wenn das portable Verzeichnis nicht beschreibbar ist", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce("/fake/portable");
+    renderApp();
+
+    expect(
+      await screen.findByText(/Das portable Verzeichnis „\/fake\/portable“ ist nicht beschreibbar/),
+    ).toBeInTheDocument();
+  });
+
   it("stapelt Fehler und Status neueste zuerst und lässt beide getrennt schließen", async () => {
     const user = await openSampleFile();
     stubClipboard();

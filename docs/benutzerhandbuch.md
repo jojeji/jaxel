@@ -310,6 +310,11 @@ Menü „Hilfe" → „Über Jaxel": Versionsnummer und die Entwickler des Proje
 **„Logdatei öffnen"** — auch direkt über Menü „Extras" erreichbar — nützlich für
 Fehlerberichte: Die Datei enthält das technische Protokoll der laufenden Sitzung.
 
+Die portable Windows-App ist an der `-portable.exe`-Datei erkennbar. Einstellungen, WebView-Daten
+und Logdatei liegen dann neben der EXE; eine zusätzliche Markerdatei ist nicht erforderlich. Wird
+das Verzeichnis beim Start nicht beschreibbar erkannt, verwendet Jaxel für diese Sitzung den
+normalen AppData-Pfad und zeigt eine Meldung an.
+
 In der portablen Windows-App wird die vorhandene Logdatei direkt mit dem Standardprogramm geöffnet.
 Falls noch keine Datei existiert, öffnet Jaxel den Logordner; ein Öffnungsfehler wird mit dem
 Zielpfad angezeigt.
