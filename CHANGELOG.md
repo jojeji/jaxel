@@ -13,6 +13,21 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ### Behoben
 
+- Ein Kommentartext, der auf „-“ endet, wird abgelehnt (beim Bearbeiten und bei „Alle ersetzen“).
+  Bisher entstand `<!--text--->`, was kein gültiges XML ist.
+- XML-Dateien, die `encoding="utf-16"` angeben, tatsächlich aber UTF-8 sind (so schreibt sie z. B.
+  .NET), öffnen wieder korrekt statt als Zeichensalat.
+- „Speichern unter“ als JSON schreibt immer UTF-8. Bisher übernahm die JSON-Datei die Kodierung
+  der XML-Quelle (z. B. ISO-8859-1); beim Wiederöffnen wurden Umlaute zu „�“.
+- XML: Ungültige Element- oder Attributnamen (z. B. mit Leerzeichen oder einer Ziffer am Anfang)
+  werden beim Umbenennen, beim Anlegen von Attributen und bei „Alle ersetzen“ abgelehnt. Bisher
+  entstand eine Datei, die sich nicht mehr öffnen ließ.
+- JSON: Wer in einen Zahlen-, Wahrheits- oder null-Wert Text eintippt (oder ihn per „Alle
+  ersetzen“ ändert), bekommt einen String. Bisher wurde der Text unverändert als Zahl geschrieben
+  (`"n": 42 items`), und die Datei ließ sich nicht wieder öffnen.
+- Unbekannte Entity-Referenzen (z. B. `&nbsp;` oder DTD-Entities) wurden beim Speichern zu
+  `&amp;nbsp;` und verloren damit ihre Bedeutung — auch wenn nur ein benachbarter Knoten
+  bearbeitet wurde. Sie bleiben jetzt erhalten.
 - Auf Englisch erscheinen keine deutschen Texte mehr: neue Dokumente heißen „Untitled-1“,
   Fehlermeldungen aus dem Programmkern (Ordner öffnen, Base64, Logdatei) und aus dem
   VS-Code-Modus sind übersetzt.

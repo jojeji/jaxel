@@ -180,7 +180,7 @@
   "menu.uncomment": "Einkommentieren",
   "menu.commentOut.containsComment": "Enthält einen Kommentar — XML erlaubt keine verschachtelten Kommentare.",
   "menu.commentOut.containsDoubleHyphen": "Enthält „--“ — das ist innerhalb eines XML-Kommentars nicht erlaubt.",
-  "comment.doubleHyphenRejected": "Ein XML-Kommentar darf kein „--“ enthalten — die Änderung wurde verworfen.",
+  "comment.invalidText": "Ein XML-Kommentar darf kein „--“ enthalten und nicht auf „-“ enden — die Änderung wurde verworfen.",
   "search.skippedInComments": "{n} Treffer in auskommentierten Bereichen übersprungen.",
   "menu.addComment": "Kommentar einfügen",
   "menu.addCommentChild": "Kommentar als Kind einfügen",
@@ -193,5 +193,7 @@
   "vscode.pdfOnly": "Nur PDF-Inhalte können an VS Code übergeben werden.",
   "vscode.noLog": "Das Öffnen der Logdatei ist im VS-Code-Modus nicht verfügbar.",
   "base64.handedToVscode": "PDF an VS Code übergeben.",
-  "document.untitled": "Unbenannt-{n}"
+  "document.untitled": "Unbenannt-{n}",
+  "edit.invalidXmlName": "„{name}“ ist kein gültiger XML-Name (z. B. keine Leerzeichen, nicht mit einer Ziffer beginnen) — die Änderung wurde verworfen.",
+  "search.skippedInvalidNames": "{n} Namen übersprungen: Das Ergebnis wäre kein gültiger XML-Name."
 }

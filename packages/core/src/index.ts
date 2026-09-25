@@ -24,7 +24,7 @@ export { createCompositeCommand } from "./commands/composite.js";
 // helper callers (document-store.ts) still need directly, after a save completes.
 export { syncByteRangesAfterSave } from "./commands/byte-range.js";
 export { createRenameCommand } from "./commands/rename.js";
-export { createSetValueCommand } from "./commands/set-value.js";
+export { createSetValueCommand, jsonTypeAfterEdit } from "./commands/set-value.js";
 export { createSetAttributeCommand } from "./commands/set-attribute.js";
 export { createRenameAttributeCommand } from "./commands/rename-attribute.js";
 export { createInsertNodeCommand } from "./commands/insert-node.js";
@@ -34,6 +34,7 @@ export {
   commentOutBlocker,
   createCommentOutCommand,
   createUncommentCommand,
+  isValidCommentText,
 } from "./commands/comment.js";
 export type { DropPosition, MovePlan } from "./commands/move-node.js";
 export { createMoveNodeCommand, planMove } from "./commands/move-node.js";

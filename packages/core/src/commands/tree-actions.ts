@@ -19,10 +19,15 @@ import type { Command } from "./command.js";
 import { createCompositeCommand } from "./composite.js";
 import { createInsertNodeCommand } from "./insert-node.js";
 import { createRenameCommand } from "./rename.js";
-import { createSetValueCommand } from "./set-value.js";
+import { createSetValueCommand, jsonTypeAfterEdit } from "./set-value.js";
 import { createSetAttributeCommand } from "./set-attribute.js";
 import { createRenameAttributeCommand } from "./rename-attribute.js";
-import { commentOutBlocker, createCommentOutCommand, createUncommentCommand } from "./comment.js";
+import {
+  commentOutBlocker,
+  createCommentOutCommand,
+  createUncommentCommand,
+  isValidCommentText,
+} from "./comment.js";
 import { findSiblingSlot, planInsertRelativeToRow } from "./sibling-slot.js";
 import {
   createBulkDuplicateCommand,
@@ -33,6 +38,7 @@ import {
   type BulkRow,
 } from "./bulk.js";
 import type { DropPosition } from "./move-node.js";
+import { isValidXmlName } from "../format/convert.js";
 
 export type TreeAction =
   | { kind: "add-child" }
@@ -66,6 +72,8 @@ export type TreeActionBlocker =
   | "contains-comment"
   /** Comment-out, or a comment text edit: `--` is illegal inside an XML comment. */
   | "contains-double-hyphen"
+  /** Comment text edit: "--" inside, or "-" at the end — not well-formed XML (see isValidCommentText). */
+  | "invalid-comment-text"
   /** Uncomment: not every row is a commented-out subtree. */
   | "not-commented-subtree"
   /** Paste: nothing to insert, or a bare JSON array/primitive without a name. */
@@ -73,7 +81,10 @@ export type TreeActionBlocker =
   /** Move: into itself, into its own subtree, or beside the root. */
   | "invalid-target"
   /** An edit that would not change anything (same text, empty name). */
-  | "no-change";
+  | "no-change"
+  /** XML only: the new element or attribute name is not a valid XML name ("my item", "1st") —
+   * saved, it would make a file no XML parser, Jaxel included, can open again. */
+  | "invalid-name";
 
 export interface TreeActionContext {
   format: DocFormat;
@@ -273,20 +284,25 @@ function buildPlan(
     }
     case "rename":
       if (action.name === sole.node.name || action.name.trim() === "") return { blocker: "no-change" };
+      if (context.format === "xml" && !isValidXmlName(action.name)) return { blocker: "invalid-name" };
       return { command: createRenameCommand(sole.node, action.name, sole.ancestors) };
     case "set-value":
       if (action.value === (sole.node.value ?? "")) return { blocker: "no-change" };
       // A comment's text becomes `<!--…-->` verbatim, so "--" in it would produce a file that no
       // longer parses. Rejected rather than escaped: XML resolves no entities in comments.
-      if (sole.node.kind === "comment" && action.value.includes("--")) return { blocker: "contains-double-hyphen" };
+      if (sole.node.kind === "comment" && !isValidCommentText(action.value)) return { blocker: "invalid-comment-text" };
       return {
-        command: createSetValueCommand(sole.node, action.value, sole.node.jsonType, sole.ancestors),
+        command: createSetValueCommand(sole.node, action.value, jsonTypeAfterEdit(sole.node.jsonType, action.value), sole.ancestors),
       };
-    case "set-attribute":
+    case "set-attribute": {
+      const isNew = !sole.node.attributes.some((attribute) => attribute.name === action.name);
+      if (isNew && context.format === "xml" && !isValidXmlName(action.name)) return { blocker: "invalid-name" };
       return {
         command: createSetAttributeCommand(sole.node, action.name, action.value, sole.ancestors, action.coalesceKey),
       };
+    }
     case "rename-attribute":
+      if (context.format === "xml" && !isValidXmlName(action.name)) return { blocker: "invalid-name" };
       return {
         command: createRenameAttributeCommand(sole.node, action.index, action.name, sole.ancestors, action.coalesceKey),
       };

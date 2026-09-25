@@ -180,7 +180,7 @@
   "menu.uncomment": "Uncomment",
   "menu.commentOut.containsComment": "Contains a comment — XML does not allow nested comments.",
   "menu.commentOut.containsDoubleHyphen": "Contains “--”, which is not allowed inside an XML comment.",
-  "comment.doubleHyphenRejected": "An XML comment may not contain “--” — the change was discarded.",
+  "comment.invalidText": "An XML comment must not contain “--” or end with “-” — the change was discarded.",
   "search.skippedInComments": "{n} match(es) skipped inside commented-out sections.",
   "menu.addComment": "Insert comment",
   "menu.addCommentChild": "Insert comment as child",
@@ -193,5 +193,7 @@
   "vscode.pdfOnly": "Only PDF content can be handed to VS Code.",
   "vscode.noLog": "Opening the log file is not available in VS Code mode.",
   "base64.handedToVscode": "PDF handed to VS Code.",
-  "document.untitled": "Untitled-{n}"
+  "document.untitled": "Untitled-{n}",
+  "edit.invalidXmlName": "“{name}” is not a valid XML name (e.g. no spaces, must not start with a digit) — the change was discarded.",
+  "search.skippedInvalidNames": "{n} name(s) skipped: the result would not be a valid XML name."
 }

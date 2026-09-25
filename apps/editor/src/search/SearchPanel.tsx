@@ -42,7 +42,7 @@ interface SearchPanelProps {
     options: SearchOptions,
     replacement: string,
     subtreeOnly: boolean,
-  ) => { replaced: number; skippedInComments: number };
+  ) => { replaced: number; skippedInComments: number; skippedInvalidNames: number };
   /** null = filter off; otherwise the matches the tree should be reduced to. */
   onFilterChange: (matches: SearchMatch[] | null) => void;
   /** Renderable path segments (root dropped) for one match — SearchPanel formats these
@@ -248,16 +248,20 @@ export function SearchPanel({
   function handleReplaceAll(): void {
     setMessage(null);
     try {
-      const { replaced, skippedInComments } = onReplaceAll(options, replacement, subtreeOnly && hasSelection);
+      const { replaced, skippedInComments, skippedInvalidNames } = onReplaceAll(
+        options,
+        replacement,
+        subtreeOnly && hasSelection,
+      );
       setMatches([]);
       setCurrentIndex(-1);
       onFilterChange(null);
-      const done = t("search.replacedCount").replace("{n}", String(replaced));
-      setMessage(
-        skippedInComments > 0
-          ? `${done} ${t("search.skippedInComments").replace("{n}", String(skippedInComments))}`
-          : done,
-      );
+      const parts = [t("search.replacedCount").replace("{n}", String(replaced))];
+      if (skippedInComments > 0) parts.push(t("search.skippedInComments").replace("{n}", String(skippedInComments)));
+      if (skippedInvalidNames > 0) {
+        parts.push(t("search.skippedInvalidNames").replace("{n}", String(skippedInvalidNames)));
+      }
+      setMessage(parts.join(" "));
     } catch (err) {
       setMessage(toErrorMessage(err));
     }

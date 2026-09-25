@@ -18,6 +18,16 @@ import type { Command } from "./command.js";
  */
 export type CommentOutBlocker = "contains-comment" | "contains-double-hyphen";
 
+/**
+ * Whether `text` may stand between `<!--` and `-->` as it is — the one rule for every way a
+ * comment's text changes (inline edit, "Alle ersetzen"). XML forbids "--" inside a comment and a
+ * "-" right before the closing "-->" (that would read "--->"); neither can be escaped, since XML
+ * resolves no entities inside comments. A leading "-" is fine ("<!---x-->" is well-formed).
+ */
+export function isValidCommentText(text: string): boolean {
+  return !text.includes("--") && !text.endsWith("-");
+}
+
 export function commentOutBlocker(node: DocNode): CommentOutBlocker | null {
   if (containsComment(node)) return "contains-comment";
   if (containsDoubleHyphen(node)) return "contains-double-hyphen";

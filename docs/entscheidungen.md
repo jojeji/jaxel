@@ -904,3 +904,87 @@ Anzeigename und Erkennungsmerkmal war (`TabBar.tsx` prüfte per Regex).
    Übersicht, Titelzeile, Schließen-/Konvertieren-Dialog, Vorschlag bei „Speichern unter“).
    `TabBar` erfährt „unbenannt“ über `untitledNames` statt über das Pfadformat.
 
+## 2026-09-25 — Ein Codec für XML-Zeichendaten
+
+Aus dem fünften Architektur-Review (nur Strong). Der Import ließ unbekannte Entity-Referenzen
+(`&nbsp;`, DTD-Entities) wörtlich im Modell stehen, der Export maskierte aber jedes `&` — wurde
+das Element neu geschrieben (schon wenn nur ein Kind bearbeitet wurde), stand im Attribut
+`a="&amp;c;"` statt `a="&c;"`: stille Bedeutungsänderung (per Test belegt).
+
+1. **`packages/core/src/format/xml-chars.ts` besitzt beide Richtungen** (`decodeCharData`,
+   `encodeText`, `encodeAttribute`); `xml-import.ts`/`xml-export.ts` nutzen nur noch das.
+2. **Regel, symmetrisch:** Ein `&`, das wie eine Entity-Referenz aussieht (`&name;`), bleibt in
+   beide Richtungen stehen; jedes andere `&` ist das Zeichen „&“. Ein maskiertes `&amp;` direkt vor
+   `name;` wird beim Lesen deshalb NICHT dekodiert (bleibt `&amp;`), sonst würde aus dem Klartext
+   „&nbsp;“ beim Schreiben eine echte Referenz. Folge: Dieser seltene Klartext erscheint im Baum
+   als `&amp;nbsp;`.
+3. **Bewusst in Kauf genommen:** Tippt ein Nutzer etwas, das wie eine Entity-Referenz aussieht
+   („&x;“), wird es als solche geschrieben. Zeichenreferenzen („&#65;“) als getippter Text bleiben
+   Text.
+
+## 2026-09-25 — JSON-Werttyp folgt dem bearbeiteten Text
+
+Aus dem fünften Architektur-Review (nur Strong). Bearbeiten und „Alle ersetzen“ behielten den
+JSON-Typ eines Werts unverändert bei; der Export schreibt Zahlen, Wahrheitswerte und null ohne
+Anführungszeichen. „42 items“ in einem Zahlenfeld ergab `"n": 42 items` — ungültiges JSON, das
+Jaxel selbst nicht mehr öffnen konnte (per Test belegt).
+
+1. **`jsonTypeAfterEdit` (neben `createSetValueCommand`) ist die eine Regel**, die Baumaktionen
+   und „Alle ersetzen“ benutzen: number/boolean/null bleiben es nur, solange der Text ein gültiges
+   Literal dieses Typs ist (Zahl nach JSON-Grammatik, `true`/`false`, `null`), sonst String.
+2. **Ein String bleibt ein String**, auch wenn Ziffern hineingetippt werden — das ist, was der
+   Nutzer geschrieben hat. Einen Typwechsel String → Zahl gibt es bewusst nicht implizit.
+
+## 2026-09-25 — Die XML-Namensregel gilt auch beim Bearbeiten
+
+Aus dem fünften Architektur-Review (nur Strong). `isValidXmlName` prüfte nur die Konvertierung
+JSON→XML. Umbenennen, Attribute anlegen/umbenennen und „Alle ersetzen“ auf Namen nahmen alles an;
+`<my item>` machte die Datei für jeden XML-Parser, auch Jaxel, unlesbar (per Test belegt).
+
+1. **Baumaktionen kennen den Sperrgrund `invalid-name`** (nur XML): Umbenennen, neues Attribut,
+   Attribut umbenennen. Umbenennen im Baum und neues Attribut melden ihn; das Umbenennen eines
+   bestehenden Attributs übernimmt einen ungültigen Zwischenstand einfach nicht (wie bisher bei
+   Duplikaten) — eine Meldung pro Tastendruck wäre zu laut.
+2. **„Alle ersetzen“ überspringt Namen, die ungültig würden**, zählt sie
+   (`skippedInvalidNames`) und meldet sie wie übersprungene Treffer in Kommentaren.
+3. **JSON-Schlüssel bleiben frei** — JSON kennt keine Namensregel.
+
+## 2026-09-25 — Zielkodierung einer Konvertierung folgt dem Zielformat
+
+Aus dem fünften Architektur-Review (nur Strong). Beim Konvertieren übernahm die neue Datei die
+Kodierung der Quelle. JSON hat keine Kodierungsangabe und wird (von Jaxel wie von jedem
+JSON-Leser) als UTF-8 gelesen: Aus einer ISO-8859-1-XML-Datei wurde JSON in windows-1252, und
+beim Wiederöffnen wurde jedes „ä“ zu „�“ (per Rust-Test belegt).
+
+1. **`conversionEncoding` im Workspace ist die eine Regel:** Ziel JSON → immer UTF-8 (RFC 8259);
+   ein BOM bleibt nur, wenn die Quelle schon UTF-8 mit BOM war. Ziel XML → Kodierung und BOM der
+   Quelle.
+2. **Die XML-Deklaration nennt UTF-16 als „UTF-16“**, nicht „UTF-16LE“/„-BE“ — diese Namen
+   bedeuten per Definition „ohne BOM“, `io.rs` schreibt UTF-16 aber immer mit BOM.
+3. Entscheidung #9 (Ursprungskodierung bleibt) gilt weiter für das Speichern im selben Format; eine
+   Konvertierung erzeugt eine neue Datei in einem anderen Format mit dessen Regeln.
+
+## 2026-09-25 — „UTF-16“ auf ASCII-lesbaren Bytes ist UTF-8
+
+Aus dem fünften Architektur-Review (nur Strong). Eine Datei, deren Deklaration sich als ASCII
+lesen lässt, kann nicht UTF-16 sein. Jaxel folgte trotzdem dem Label und las sie als UTF-16LE —
+Zeichensalat, die Datei war nicht zu öffnen (per Rust-Test belegt). Solche Dateien erzeugt z. B.
+.NET (`XmlSerializer` mit `StringWriter`) häufig.
+
+1. **`sniff_xml_declared_encoding` ordnet ein UTF-16-Label als UTF-8 ein**, wie der
+   WHATWG-Encoding-Standard. Echte UTF-16-Dateien tragen einen BOM und werden daran erkannt,
+   bevor die Deklaration überhaupt gelesen wird.
+2. Beim Speichern bleibt die Datei, wie sie war: UTF-8-Bytes, Deklaration unverändert.
+
+## 2026-09-25 — Eine Regel für gültigen Kommentartext
+
+Offener Punkt aus dem fünften Architektur-Review, auf Wunsch des PO umgesetzt. XML verbietet in
+Kommentaren „--“ und ein „-“ direkt vor dem schließenden „-->“. Geprüft wurde nur „--“, und das an
+drei Stellen einzeln; ein Kommentar, der auf „-“ endete, wurde als `<!--text--->` geschrieben.
+
+1. **`isValidCommentText` (`commands/comment.ts`) ist die eine Regel** für Textänderungen an
+   Kommentaren; Bearbeiten (Sperrgrund `invalid-comment-text`, Meldung `comment.invalidText`) und
+   „Alle ersetzen“ (Treffer werden übersprungen und gemeldet) nutzen sie.
+2. Auskommentieren prüft weiter den Inhalt des Knotens auf „--“ (`commentOutBlocker`); sein
+   Kommentartext ist von Leerzeichen umgeben und kann nie auf „-“ enden.
+

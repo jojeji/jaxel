@@ -1933,3 +1933,42 @@ Entscheidungen berührt): `open_log`-Rückfall auf eine beliebige `.log`-Datei (
 hinaus, PO-Frage), manuelles Neuladen ohne `canCommit`, „Meine Version behalten“ merkt ggf. einen
 neueren Dateistand, Fokus-Prüfung kurz vor dem eigenen Speichern, Core-Parsefehler nur Englisch.
 
+## Nachtrag 2026-09-25 — Codec für XML-Zeichendaten (Review 5, Kandidat 2)
+
+Neues Modul `xml-chars.ts`; `decodeEntities`/`escapeText`/`escapeAttr` ersetzt. Tests:
+`tests/xml-chars.test.ts` (fünf Fälle, zwei vorher rot; der Klartext-Fall sichert, dass der neue
+Schreiber nichts zur Referenz macht).
+
+## Nachtrag 2026-09-25 — JSON-Werttyp (Review 5, Kandidat 1)
+
+`jsonTypeAfterEdit` in `commands/set-value.ts`, genutzt von `tree-actions.ts` und
+`replace-all.ts`. Tests: `tests/json-value-type.test.ts` (sieben Fälle, fünf vorher rot).
+
+## Nachtrag 2026-09-25 — XML-Namensregel beim Bearbeiten (Review 5, Kandidat 3)
+
+`invalid-name` in `tree-actions.ts`, `format`-Parameter + `skippedInvalidNames` in
+`createReplaceAllCommand`, Meldungen `edit.invalidXmlName`/`search.skippedInvalidNames`. Tests:
+`tests/xml-names-on-edit.test.ts` (fünf Fälle, drei vorher rot), ein UI-Test (vorher rot).
+
+## Nachtrag 2026-09-25 — Kodierung beim Konvertieren (Review 5, Kandidat 4)
+
+`conversionEncoding` in `workspace.ts`. Tests: zwei Workspace-Fälle (beide vorher rot); der
+`InMemoryHost` merkt sich jetzt auch die geschriebene Kodierung.
+
+## Nachtrag 2026-09-25 — Deklariertes UTF-16 ohne BOM (Review 5, Kandidat 5)
+
+`io.rs`: UTF-16-Label aus der Deklaration → UTF-8. Test: ein Rust-Test (vorher rot), gelaufen über
+das Hilfsprojekt wie bei Review 4 (Tauri-Crate hier nicht baubar).
+
+Offen aus Review 5 (unter der Latte): Kommentartext mit „-“ am Ende ergibt `<!--x--->`; die
+„--“-Regel steht dreimal im Code. Nicht darstellbare Zeichen in Ein-Byte-Kodierungen landen als
+`&#NNNN;` auch in Kommentaren/Namen. `&#10;` in Attributen wird als echter Zeilenumbruch
+geschrieben. Lese-/Schreibfehler beim Speichern erscheinen als rohe Betriebssystem-Meldung.
+
+## Nachtrag 2026-09-25 — Kommentartext wohlgeformt
+
+`isValidCommentText` in `comment.ts`, genutzt von `tree-actions.ts` (neuer Sperrgrund
+`invalid-comment-text`, ersetzt beim Bearbeiten `contains-double-hyphen`) und `replace-all.ts`;
+i18n-Schlüssel `comment.doubleHyphenRejected` → `comment.invalidText`. Tests:
+`tests/comment-text.test.ts` (drei Fälle, vorher rot).
+
