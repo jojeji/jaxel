@@ -11,6 +11,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-02
+
 ### Hinzugefügt
 
 - „Aus Zwischenablage“ (Menü Datei, Startscreen, `Strg+Shift+V`; ohne offenes Dokument auch
