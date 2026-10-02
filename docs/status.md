@@ -2099,3 +2099,13 @@ Per Grilling abgestimmt (`docs/entscheidungen.md` 2026-10-02), beides umgesetzt.
   Zeilenumbruch. Kürzel sind fest (es gibt keine Kürzel-Einstellungen).
 - Offen (Stufe 2): Suche im Quelltext, Zeile anklicken → Knoten auswählen.
 
+
+## Nachtrag 2026-10-02 — README auf die Desktop-App ausgerichtet, Understand entfernt
+
+Auf Wunsch des PO: Die README beschreibt Jaxel als XML-Editor für den Desktop. Die VS-Code-Einbettung
+und die Links auf Architektur, Entscheidungen, Status und CLAUDE.md sind raus; verlinkt bleibt das
+Benutzerhandbuch. Neu sind vier Screenshots unter `docs/bilder/` (Baum mit Attributen,
+Quelltextansicht, Suche im dunklen Farbschema, Startscreen). Aufgenommen mit Playwright gegen den
+Vite-Dev-Server und ein nachgebildetes Tauri-Backend, Beispieldateien erfunden (Bestellung). Der Text
+folgt dem Skill „stop-slop“. Der Ordner `.ua` (Understand) und der Hinweis darauf in AGENTS.md sind
+entfernt.
