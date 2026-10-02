@@ -1894,6 +1894,62 @@ describe("Baum-Änderungsmarker (Settings: default aus)", () => {
   });
 });
 
+describe("Quelltextansicht", () => {
+  const sourceLines = (): string[] =>
+    Array.from(document.querySelectorAll<HTMLElement>(".source-row .source-row__text")).map((el) => el.textContent ?? "");
+
+  it("Strg+U schaltet zwischen Baum und Quelltext um", async () => {
+    await openSampleFile();
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+
+    await screen.findByRole("region", { name: "Quelltext" });
+    expect(sourceLines()[1]).toBe("<catalog>");
+    expect(sourceLines()[3]).toBe("    <name>Anna</name>");
+    expect(document.querySelector(".tree-row")).toBeNull();
+
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    expect(await screen.findByText("catalog", { selector: ".tree-row__name" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Quelltext" })).not.toBeInTheDocument();
+  });
+
+  it("springt zur Zeile des im Baum ausgewählten Knotens", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[1]!);
+    await user.click(screen.getByRole("menuitem", { name: "Ansicht" }));
+    await user.click(screen.getByRole("menuitem", { name: /Quelltext anzeigen/ }));
+
+    await screen.findByRole("region", { name: "Quelltext" });
+    expect(document.querySelector(".source-row--target")?.getAttribute("data-line")).toBe("7");
+  });
+
+  it("zeigt den aktuellen, noch nicht gespeicherten Stand und folgt Rückgängig", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "d", ctrlKey: true }); // duplizieren
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    await screen.findByRole("region", { name: "Quelltext" });
+    await waitFor(() => expect(sourceLines().filter((line) => line.includes('id="P-1"'))).toHaveLength(2));
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(sourceLines().filter((line) => line.includes('id="P-1"'))).toHaveLength(1));
+  });
+
+  it("sperrt Baumaktionen, solange der Quelltext angezeigt wird", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    await screen.findByRole("region", { name: "Quelltext" });
+
+    fireEvent.keyDown(window, { key: "Delete" });
+    await user.click(screen.getByRole("menuitem", { name: "Bearbeiten" }));
+    expect(screen.getByRole("menuitem", { name: /Löschen/ })).toBeDisabled();
+    await user.keyboard("{Escape}");
+
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    expect(await screen.findAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+});
+
 describe("Neu aus Zwischenablage", () => {
   /** Outside a Tauri window the plugin cannot run and host.readClipboardText falls back to the
    * WebView's clipboard — stubbed here. Call after userEvent.setup() (see stubClipboard). */

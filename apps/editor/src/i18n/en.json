@@ -202,5 +202,11 @@
   "base64.handedToVscode": "PDF handed to VS Code.",
   "document.untitled": "Untitled-{n}",
   "edit.invalidXmlName": "“{name}” is not a valid XML name (e.g. no spaces, must not start with a digit) — the change was discarded.",
-  "search.skippedInvalidNames": "{n} name(s) skipped: the result would not be a valid XML name."
+  "search.skippedInvalidNames": "{n} name(s) skipped: the result would not be a valid XML name.",
+  "menuBar.sourceView": "Show source",
+  "source.label": "Source",
+  "source.lines": "{count} lines · read-only",
+  "source.copyAll": "Copy source",
+  "source.copied": "Source copied",
+  "source.generating": "Generating source…"
 }

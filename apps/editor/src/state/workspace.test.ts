@@ -6,7 +6,7 @@ import {
   type PathSegment,
 } from "@jaxel/core";
 import type { HostFileContent, HostFileStat } from "../host.js";
-import { NotXmlOrJsonError, Workspace, type WorkspaceHost, type WorkspaceSnapshot } from "./workspace.js";
+import { NotXmlOrJsonError, sourceTextOf, Workspace, type WorkspaceHost, type WorkspaceSnapshot } from "./workspace.js";
 
 /** Second adapter at the workspace's host seam: files live in a Map, writes bump the mtime. */
 class InMemoryHost implements WorkspaceHost {
@@ -574,6 +574,21 @@ describe("Neu aus Zwischenablage", () => {
     const workspace = new Workspace(new InMemoryHost());
     workspace.newDocument("xml");
     expect(active(workspace).doc.isDirty).toBe(false);
+  });
+});
+
+describe("Text der Quelltextansicht", () => {
+  it("zeigt den ungespeicherten Stand, unveränderte Teile wörtlich wie in der Datei", async () => {
+    const { workspace } = await openCatalog();
+    setName(workspace, 1, "Benedikt");
+    const text = sourceTextOf(active(workspace).doc, null);
+    expect(text).toBe(CATALOG.replace("<name>Ben</name>", "<name>Benedikt</name>"));
+  });
+
+  it("zeigt in einem Fokus-Tab nur den fokussierten Teilbaum", async () => {
+    const { workspace } = await openCatalog();
+    const person = active(workspace).doc.document.root.children[2]!;
+    expect(sourceTextOf(active(workspace).doc, person)).toBe('<person id="P-3"><name>Cleo</name></person>');
   });
 });
 

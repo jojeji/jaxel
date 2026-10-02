@@ -15,6 +15,7 @@ function context(overrides: Partial<ActionContext> = {}): ActionContext {
     canRedo: true,
     modalOpen: false,
     treeActionBlocked: () => false,
+    sourceView: false,
     ...overrides,
   };
 }
@@ -82,5 +83,16 @@ describe("Aktionstabelle", () => {
     expect(isActionEnabled("pasteNode", partly)).toBe(false);
     expect(isActionEnabled("duplicate", partly)).toBe(true);
     expect(isActionEnabled("addChild", partly)).toBe(true);
+  });
+});
+
+describe("Quelltextansicht", () => {
+  it("sperrt Aufklappen und Suche, Speichern und Rückgängig bleiben", () => {
+    const source = context({ sourceView: true });
+    expect(isActionEnabled("expandAll", source)).toBe(false);
+    expect(isActionEnabled("search", source)).toBe(false);
+    expect(isActionEnabled("save", source)).toBe(true);
+    expect(isActionEnabled("undo", source)).toBe(true);
+    expect(isActionEnabled("toggleSourceView", source)).toBe(true);
   });
 });

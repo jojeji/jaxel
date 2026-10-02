@@ -167,6 +167,15 @@ function detectFormat(path: string, content: string): DocFormat {
   return formatOfExtension(path) ?? (content.trimStart().startsWith("<") ? "xml" : "json");
 }
 
+/** The text the source view (Quelltextansicht, CONTEXT.md) shows: what saving would write now,
+ * or — in a focus tab — the same for the focused subtree alone. */
+export function sourceTextOf(target: OpenDocumentState, focusNode: DocNode | null): string {
+  if (!focusNode) return serializeForSave(target);
+  return target.format === "xml"
+    ? serializeXmlMinimal(target.sourceText, { root: focusNode, indent: target.document.indent, epilog: "" })
+    : serializeJson({ root: focusNode, indent: target.document.indent });
+}
+
 export function serializeForSave(target: OpenDocumentState): string {
   return target.format === "xml"
     ? serializeXmlMinimal(target.sourceText, {

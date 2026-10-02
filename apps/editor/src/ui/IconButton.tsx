@@ -9,6 +9,8 @@ interface IconButtonProps {
   shortcut?: string;
   disabled?: boolean;
   primary?: boolean;
+  /** A toggle: shown pressed (aria-pressed) while its mode is on. */
+  pressed?: boolean;
   onClick: () => void;
 }
 
@@ -19,12 +21,14 @@ export function IconButton({
   shortcut,
   disabled,
   primary,
+  pressed,
   onClick,
 }: IconButtonProps): React.ReactElement {
   return (
     <button
       type="button"
-      className={`icon-btn${primary ? " icon-btn--primary" : ""}`}
+      className={`icon-btn${primary ? " icon-btn--primary" : ""}${pressed ? " icon-btn--pressed" : ""}`}
+      aria-pressed={pressed}
       aria-label={label}
       title={shortcut ? `${label} (${shortcut})` : label}
       disabled={disabled}
