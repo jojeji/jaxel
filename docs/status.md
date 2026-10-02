@@ -2034,6 +2034,16 @@ Verzeichnis fällt die Sitzung vollständig auf den normalen AppData-Datenpfad z
 eine Statusmeldung an. Ein Wechsel des WebView-Datenpfads während einer laufenden Sitzung findet
 nicht statt. Linux-Pakete und der VS-Code-Modus bleiben unverändert.
 
+## Nachtrag 2026-09-25 — README als Projektseite
+
+Auf Wunsch des PO: `README.md` beschreibt jetzt, was Jaxel ist, die Funktionen, die Varianten
+(AppImage, deb, rpm, Windows-Installer, Windows-portable, VS-Code-Einbettung) mit den Dateinamen
+aus den GitHub-Releases, die Installation je Variante, Entwicklung, lokales Bauen und das
+Veröffentlichen eines Releases. Die Dateinamen sind gegen das Release v0.8.0 geprüft. Offen:
+Es gibt keine Lizenz (auch `Cargo.toml` hat `license = ""`); die README sagt das ausdrücklich.
+Die Bilder unter `assets/screenshots/` zeigen den Easy XML Editor, nicht Jaxel, und wurden deshalb
+nicht eingebunden; ein echter Jaxel-Screenshot fehlt noch.
+
 ## Nachtrag 2026-09-25 — UI-Wünsche umgesetzt
 
 Per Grilling wurden das Wertefeld mit Kopieraktion im rechten Panel, blockweises Duplizieren
