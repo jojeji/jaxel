@@ -11,6 +11,19 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- „Aus Zwischenablage“ (Menü Datei, Startscreen, `Strg+Shift+V`; ohne offenes Dokument auch
+  `Strg+V`) öffnet ein XML- oder JSON-Dokument aus der Zwischenablage als neuen Tab.
+- Quelltextansicht: `Strg+U` (oder Toolbar, Menü Ansicht) zeigt den aktuellen Stand eines Tabs als
+  Text, mit Zeilennummern und Färbung, schreibgeschützt; sie springt zum ausgewählten Knoten.
+
+### Geändert
+
+- Ein Dokument aus der Zwischenablage oder aus der Base64-Vorschau gilt bis zum ersten Speichern
+  als ungespeichert, damit es beim Schließen nicht ohne Nachfrage verloren geht.
+- Die Zwischenablage wird über das Tauri-Plugin gelesen (zuverlässiger unter Linux).
+
 ## [0.9.0] - 2026-09-25
 
 ### Hinzugefügt

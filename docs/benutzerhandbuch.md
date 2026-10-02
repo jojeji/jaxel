@@ -30,6 +30,14 @@ punktuell bearbeiten und Knotenpfade kopieren müssen.
   Dialog fragt XML oder JSON ab. Das neue Dokument startet minimal (leerer `<root></root>` bzw.
   ein leeres JSON-Objekt) und heißt bis zum ersten Speichern „Unbenannt-1" (fortlaufend
   nummeriert); `Strg+S` öffnet dafür automatisch „Speichern unter".
+- **Aus der Zwischenablage**: Menü „Datei" → „Aus Zwischenablage", der gleichnamige Button auf dem
+  Startscreen oder `Strg+Shift+V` (ohne offenes Dokument auch einfach `Strg+V`). Ein komplettes
+  XML- oder JSON-Dokument aus der Zwischenablage wird zu einem neuen Tab „Unbenannt-N"; ob XML
+  oder JSON, erkennt Jaxel am ersten Zeichen (`<` bzw. `{`/`[`). Ist der Text kein gültiges
+  XML/JSON, meldet Jaxel das (mit dem Hinweis des Parsers) und öffnet nichts. Das Dokument gilt
+  bis zum ersten Speichern als ungespeichert — auch nach „Rückgängig" —, damit der Inhalt beim
+  Schließen nicht ohne Nachfrage verloren geht. `Strg+V` in einem offenen Dokument fügt dagegen
+  wie bisher Knoten unter der Auswahl ein. Im VS-Code-Modus gibt es diese Funktion nicht.
 - **Speichern**: Toolbar-Button oder `Strg+S`. XML wird minimal-invasiv gespeichert: unveränderte
   Bereiche der Datei bleiben byte-genau erhalten.
 - **Speichern unter**: Menü „Datei" → „Speichern unter…" oder `Strg+Shift+S` — legt eine Kopie
@@ -122,6 +130,22 @@ eigenen Datei- und Fensteraktionen.
 Wird in einem eingebetteten Dokument ein Base64-PDF erkannt, übergibt Jaxel die dekodierten Bytes
 an die Extension; diese öffnet sie im vorhandenen PDF-Viewer. Standalone schreibt Jaxel den
 dekodierten Inhalt weiterhin temporär und öffnet ihn mit dem Standardprogramm des Betriebssystems.
+
+## Quelltext anzeigen
+
+`Strg+U`, der Toolbar-Button `</>` oder Menü „Ansicht" → „Quelltext anzeigen" schaltet den Tab
+zwischen Baum und Quelltext um; jeder Tab merkt sich seine Ansicht, bis Jaxel beendet wird.
+
+- Gezeigt wird der **aktuelle Stand**, genau so, wie „Speichern" ihn jetzt schreiben würde —
+  auch mit ungespeicherten Änderungen. In einer Fokus-Ansicht nur der fokussierte Teilbaum.
+- Beim Umschalten springt die Ansicht zur Zeile des im Baum ausgewählten Knotens und hebt sie
+  hervor.
+- Nur lesen: Text lässt sich markieren und mit `Strg+C` kopieren, „Quelltext kopieren" kopiert
+  alles. Speichern, Rückgängig und Wiederholen funktionieren weiter (die Ansicht folgt);
+  Baumaktionen, Pfad kopieren und die Suche sind bis zum Zurückschalten ausgegraut.
+- Auch sehr große Dateien bleiben flüssig: Es werden nur die sichtbaren Zeilen gezeichnet. Nur das
+  erste Umschalten nach einer Änderung an einer sehr großen Datei kann einen Moment dauern
+  („Quelltext wird erzeugt…").
 
 ## Baumansicht und Navigation
 
@@ -343,6 +367,8 @@ Dateipfade, Fehlermeldungen und technische Metadaten.
 | Kürzel | Aktion |
 | --- | --- |
 | `Strg+N` | Neues Dokument |
+| `Strg+Shift+V` | Neues Dokument aus der Zwischenablage (ohne offenes Dokument auch `Strg+V`) |
+| `Strg+U` | Quelltext anzeigen / zurück zum Baum |
 | `Strg+O` | Datei öffnen |
 | `Strg+S` | Speichern |
 | `Strg+Shift+S` | Speichern unter (mit der Endung des anderen Formats: umwandeln) |
