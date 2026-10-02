@@ -1069,3 +1069,42 @@ Umgesetzt in `AttributesPanel.tsx`, `TreeView.tsx`, `tree-actions.ts` und `bulk.
 ist bei normalen Containern ausgeblendet; `set-value` sperrt solche Knoten zusätzlich im Core,
 damit Wert und Kinder nicht gleichzeitig entstehen können. Kommentare behalten ihre eigene
 Texteingabe.
+
+## 2026-10-02 — Grilling: Neu aus Zwischenablage und Quelltextansicht
+
+Zwei Wünsche aus dem Team: ein ganzes XML/JSON aus der Zwischenablage „einfach in Jaxel holen“ und
+auf den Quelltext umschalten (nur ansehen). Begriffe in `CONTEXT.md` („Neu aus Zwischenablage“,
+„Quelltextansicht“, ergänzt „Baseline“).
+
+**Neu aus Zwischenablage**
+
+1. **Eigene App-Aktion statt „schlauem“ Strg+V.** Menü Datei, Startscreen, `Strg+Shift+V`; `Strg+V`
+   nur ohne offenes Dokument. Im Dokument bleibt `Strg+V` das Einfügen von Fragmenten — ein ganzes
+   XML ist auch ein gültiges Fragment, eine Unterscheidung am Inhalt wäre unvorhersehbar.
+2. **Format am Inhalt** (`<` → XML, `{`/`[` → JSON), keine Rückfrage. Ungültiger Inhalt: Meldung mit
+   Parserhinweis, es wird nichts geöffnet.
+3. **Keine Baseline bis zum ersten Speichern.** Der Inhalt existiert nirgends sonst; „Rückgängig“
+   darf ihn nicht wieder verlierbar machen (CommandBus-Option `hasBaseline: false`). Gilt auch für
+   „Als neuen Tab öffnen“ der Base64-Vorschau; ein leeres neues Dokument startet weiter sauber.
+4. **Lesen über `tauri-plugin-clipboard-manager`** (nur `allow-read-text`), Rückfall auf die
+   WebView-Schnittstelle. Die WebView-Schnittstelle war unter WebKitGTK nie real geprüft (AP7).
+5. Nicht im VS-Code-Modus. Text wörtlich aufs Fenster ziehen bleibt ausgeklammert: Tauris
+   Drop-Ereignis liefert nur Dateipfade.
+
+**Quelltextansicht**
+
+1. **Zeigt, was Speichern jetzt schreiben würde**, nicht den Plattenstand; im Fokus-Tab nur den
+   Teilbaum. Nur lesen — Bearbeiten im Quelltext ist nicht vorgesehen.
+2. **Umschalter pro Tab** (`Strg+U`, Toolbar, Menü Ansicht), nicht gespeichert über einen Neustart.
+3. **Virtualisiert mit Puffer**: Text einmal je Dokumentstand erzeugen (bei unverändertem XML ist er
+   der Dateitext), Zeilen-/Abschnittsindex in typisierten Arrays, gezeichnet werden nur die Zeilen
+   um den sichtbaren Bereich (etwa eine Bildschirmhöhe darüber und darunter). Lange Zeilen werden
+   in Anzeigezeilen zu 2000 Zeichen geteilt, sehr hohe Inhalte auf eine begrenzte Scrollhöhe
+   abgebildet. Kein fertiger Code-Editor (CodeMirror): bringt nichts, solange nicht bearbeitet wird.
+4. **Sprung zum ausgewählten Knoten** über `sourceLineOf` (Core): der erzeugte Text wird neu
+   eingelesen und der Knoten über denselben Kindindex-Pfad gefunden. Bei unverändertem XML werden
+   die vorhandenen Byte-Bereiche genutzt, ohne neu zu parsen.
+5. In der Ansicht wirken Speichern, Speichern unter, Rückgängig/Wiederholen; Baumaktionen, Pfad
+   kopieren, Suche und das Eigenschaften-Panel sind aus.
+6. Stufe 2 (offen): Suche im Quelltext, Rückweg „Zeile anklicken → Knoten auswählen“.
+

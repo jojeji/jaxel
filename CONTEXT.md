@@ -18,7 +18,10 @@ _Avoid_: ungespeichert (als Adjektiv für den Code-State — im UI-Text weiterhi
 **Baseline**:
 Die Position im Undo-Stack eines Dokuments, die dem zuletzt gespeicherten Stand entspricht.
 Dirty = aktuelle Stack-Position weicht von der Baseline ab. Undo zurück bis exakt zur Baseline
-macht ein Dokument wieder sauber (nicht dirty), auch ohne erneutes Speichern.
+macht ein Dokument wieder sauber (nicht dirty), auch ohne erneutes Speichern. Ein Dokument, dessen
+Inhalt nirgends gespeichert ist (aus der Zwischenablage oder einer Base64-Vorschau), hat bis zum
+ersten Speichern keine Baseline und ist deshalb immer dirty; ein leeres neues Dokument dagegen
+startet sauber.
 _Avoid_: Speicherpunkt, Save-Marker.
 
 **Änderungsmarker**:
@@ -122,3 +125,16 @@ Der Windows-Ausführungsmodus eines `-portable.exe`-Artefakts, in dem Einstellun
 und die Logdatei grundsätzlich neben der EXE liegen. Ist dieses Verzeichnis beim Start nicht
 beschreibbar, verwendet die Sitzung stattdessen den normalen Benutzer-Datenpfad.
 _Avoid_: Markerdatei, portable Einstellung.
+
+**Quelltextansicht**:
+Die schreibgeschützte Textdarstellung eines Tabs, auf die anstelle des Baums umgeschaltet werden
+kann. Sie zeigt den aktuellen Stand genau so, wie Speichern ihn schreiben würde (also inklusive
+ungespeicherter Änderungen); in einem Fokus-Tab nur den fokussierten Teilbaum. Text lässt sich
+markieren und kopieren, aber nicht bearbeiten.
+_Avoid_: Rohansicht, Texteditor, Dateiansicht (sie zeigt nicht zwingend den Plattenstand).
+
+**Neu aus Zwischenablage**:
+Legt aus dem Text in der Zwischenablage ein neues, unbenanntes Dokument an; XML oder JSON wird am
+Inhalt erkannt. Ergänzt das Einfügen in ein offenes Dokument, das Fragmente als Knoten einsetzt,
+und ersetzt es nicht.
+_Avoid_: Einfügen (das ist das Einsetzen von Fragmenten in ein offenes Dokument), Import.

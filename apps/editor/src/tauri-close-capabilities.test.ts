@@ -39,3 +39,13 @@ describe('Tauri-Capabilities: Fenster schließen', () => {
     expect(ids).toContain('core:window:allow-destroy');
   });
 });
+
+// Same failure mode as above: without the permission, reading the clipboard through the plugin
+// is rejected silently by the ACL ("Neu aus Zwischenablage", Strg+V).
+describe('Tauri-Capabilities: Zwischenablage lesen', () => {
+  const ids = permissionIds(JSON.parse(readFileSync(CAP_PATH, 'utf8')) as Capability);
+
+  it('erlaubt das Lesen von Text aus der Zwischenablage (clipboard-manager:allow-read-text)', () => {
+    expect(ids).toContain('clipboard-manager:allow-read-text');
+  });
+});

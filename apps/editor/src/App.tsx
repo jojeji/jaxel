@@ -9,6 +9,7 @@ import {
   findNodeById,
   getPathSegments,
   parseFragments,
+  sourceLineOf,
   pathSegmentsOf,
   planTreeAction,
   serializeFragments,
@@ -33,15 +34,23 @@ import {
   Gear,
   MagnifyingGlass,
   SidebarSimple,
+  Code,
 } from "@phosphor-icons/react";
 import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
 import { getJaxelHost, type JaxelHost } from "./host.js";
 import { conversionErrorMessage, hostErrorMessage, toErrorMessage } from "./errors.js";
-import { resolveShortcut } from "./shortcuts.js";
+import { resolveShortcut, type ShortcutAction } from "./shortcuts.js";
 import { ACTIONS, isActionEnabled, type ActionContext, type AppActionId } from "./actions.js";
 import { useJaxelDocuments } from "./state/document-store.js";
-import { formatOfExtension, serializeForSave, tabKey, type OpenDocumentState } from "./state/workspace.js";
+import {
+  formatOfExtension,
+  NotXmlOrJsonError,
+  serializeForSave,
+  sourceTextOf,
+  tabKey,
+  type OpenDocumentState,
+} from "./state/workspace.js";
 import { useSettings } from "./state/settings-store.js";
 import {
   getLastDir,
@@ -55,6 +64,8 @@ import {
   type SearchDockSide,
 } from "./state/local-prefs.js";
 import { TreeView, type DropPosition, type EditingField } from "./tree/TreeView.js";
+import { SourceView } from "./source/SourceView.js";
+import { pathFrom } from "./source/source-rows.js";
 import { FocusBreadcrumb } from "./tree/FocusBreadcrumb.js";
 import { flattenTree, type TreeRow } from "./tree/flatten.js";
 import { walkTree } from "./tree/walk.js";
@@ -111,6 +122,9 @@ interface ToastEntry {
   message: string;
 }
 
+/** Shortcuts that act on the whole document and therefore also work in the source view. */
+const SOURCE_VIEW_SHORTCUTS: ReadonlySet<ShortcutAction> = new Set(["save", "saveAs", "undo", "redo"]);
+
 const STATUS_TOAST_DURATION_MS = 4_000;
 const ERROR_TOAST_DURATION_MS = 8_000;
 
@@ -130,6 +144,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     saveFileAs,
     convertSaveAs,
     newDocument,
+    newDocumentFromClipboard,
     closeTabs,
     planClose,
     reorderTabs,
@@ -147,6 +162,17 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingField, setEditingField] = useState<EditingField | null>(null);
+  /** Tabs (by stable id) showing their Quelltextansicht instead of the tree — kept per tab while
+   * the app runs, not restored after a restart. */
+  const [sourceTabIds, setSourceTabIds] = useState<ReadonlySet<string>>(() => new Set());
+  /** The text the source view shows, generated once per tab and document revision. */
+  const [sourceState, setSourceState] = useState<{
+    tabId: string;
+    revision: number;
+    text: string;
+    /** Line to jump to: set when the view opens, null when it only follows an edit. */
+    jumpLine: number | null;
+  } | null>(null);
   /** Per-tab memory of the `expanded` set, keyed by the tab's stable `id` (not its key, which
    * "Speichern unter", conversion and reload change) — so returning to a tab shows it exactly as
    * it was left, instead of collapsing back to just the root every time. */
@@ -540,6 +566,43 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
   /** All selected rows in visible order — what the bulk actions (delete, duplicate, copy, drag)
    * operate on. Single selection is just its one-element case. */
   const selectedRows = useMemo<TreeRow[]>(() => selectedRowsInOrder(selection, rows), [selection, rows]);
+  const sourceView = activeTab !== null && sourceTabIds.has(activeTab.id);
+
+  // Generates the source view's text — on opening it (then also the line of the selected node to
+  // jump to) and after every change while it is open. Deferred by a tick so a large document
+  // shows the "generating" notice instead of a frozen window first.
+  useEffect(() => {
+    if (!sourceView || !activeDoc || !activeTab || !root) return;
+    if (sourceState?.tabId === activeTab.id && sourceState.revision === activeDoc.document.revision) return;
+    const opening = sourceState?.tabId !== activeTab.id;
+    const doc = activeDoc;
+    const tabId = activeTab.id;
+    const focusNode = focus?.node ?? null;
+    const visibleRoot = root;
+    const chain = selectedRow ? [...selectedRow.ancestors, selectedRow.node] : [visibleRoot];
+    const timer = window.setTimeout(() => {
+      const text = sourceTextOf(doc, focusNode);
+      const jumpLine = opening
+        ? sourceLineOf({
+            format: doc.format,
+            text,
+            path: pathFrom(visibleRoot, chain) ?? [],
+            // An unchanged document's text is its file text, whose offsets its tree still holds.
+            rangesFrom: !focusNode && doc.format === "xml" && text === doc.sourceText ? doc.document.root : undefined,
+          })
+        : null;
+      setSourceState({ tabId, revision: doc.document.revision, text, jumpLine });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  });
+
+  function handleCopySource(): void {
+    if (!sourceState) return;
+    void navigator.clipboard.writeText(sourceState.text).then(
+      () => setStatus(t("source.copied")),
+      (err) => setError(toErrorMessage(err)),
+    );
+  }
 
   /**
    * The node "Nur im ausgewählten Unterbaum" searches in: the last single node the USER selected
@@ -580,11 +643,12 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
   const actionContext: ActionContext = {
     hasDocument: activeDoc !== null,
     embedded,
-    selectionCount: selectedRows.length,
+    selectionCount: sourceView ? 0 : selectedRows.length,
     canUndo,
     canRedo,
     modalOpen: visibleDialog !== null,
-    treeActionBlocked: actionBlocked,
+    treeActionBlocked: sourceView ? () => true : actionBlocked,
+    sourceView,
   };
 
   /** Label, shortcut hint and enabled state of an App-Aktion from the one table in actions.ts —
@@ -962,6 +1026,28 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     newDocument(format);
   }
 
+  /** "Neu aus Zwischenablage" (CONTEXT.md): the clipboard text becomes a new untitled document;
+   * nothing opens when it is not well-formed XML or JSON. */
+  async function handleNewFromClipboard(): Promise<void> {
+    setError(null);
+    let text: string;
+    try {
+      text = await host.readClipboardText();
+    } catch {
+      setError(t("clipboard.readFailed"));
+      return;
+    }
+    try {
+      newDocumentFromClipboard(text);
+    } catch (err) {
+      setError(
+        err instanceof NotXmlOrJsonError
+          ? t("clipboard.notXmlOrJson")
+          : t("clipboard.invalidDocument").replace("{detail}", toErrorMessage(err)),
+      );
+    }
+  }
+
   /**
    * Plans a Baumaktion in @jaxel/core, executes it as one undo step and applies the follow-up
    * the plan asks for (select/reveal the new nodes, expand their parent, open the editor).
@@ -1076,7 +1162,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     setError(null);
     let text: string;
     try {
-      text = await navigator.clipboard.readText();
+      text = await host.readClipboardText();
     } catch {
       setError(t("clipboard.readFailed"));
       return;
@@ -1158,6 +1244,20 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       case "newDocument":
         setNewDocOpen(true);
         break;
+      case "newFromClipboard":
+        void handleNewFromClipboard();
+        break;
+      case "toggleSourceView":
+        if (!activeTab) break;
+        setSourceState(null);
+        setEditingField(null);
+        setContextMenu(null);
+        setSourceTabIds((current) => {
+          const next = new Set(current);
+          if (!next.delete(activeTab.id)) next.add(activeTab.id);
+          return next;
+        });
+        break;
       case "openFile":
         void handleOpen();
         break;
@@ -1230,6 +1330,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       if (ctrl && event.key.toLowerCase() === "f") {
         if (!activeDoc) return;
         event.preventDefault();
+        if (!isActionEnabled("search", actionContext)) return; // e.g. while the source is shown
         if (searchDockSide === "right") {
           setSidebarTab("search");
         } else {
@@ -1246,6 +1347,11 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       if (isTextInput(event.target)) return; // let native text-field undo/typing behave normally
 
       // Only claimed while enabled: embedded in VS Code, Ctrl+O/N stay VS Code's own shortcuts.
+      if (ctrl && !event.shiftKey && event.key.toLowerCase() === "u" && isActionEnabled("toggleSourceView", actionContext)) {
+        event.preventDefault();
+        runAction("toggleSourceView");
+        return;
+      }
       if (ctrl && event.key.toLowerCase() === "o" && isActionEnabled("openFile", actionContext)) {
         event.preventDefault();
         runAction("openFile");
@@ -1254,6 +1360,13 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       if (ctrl && event.key.toLowerCase() === "n" && isActionEnabled("newDocument", actionContext)) {
         event.preventDefault();
         runAction("newDocument");
+        return;
+      }
+      // Strg+Shift+V always, Strg+V only where it would paste nothing: without an open document.
+      const pasteKey = ctrl && event.key.toLowerCase() === "v";
+      if (pasteKey && (event.shiftKey || !activeDoc) && isActionEnabled("newFromClipboard", actionContext)) {
+        event.preventDefault();
+        runAction("newFromClipboard");
         return;
       }
       if (!activeDoc) return;
@@ -1265,6 +1378,9 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         selectionHasChildren: selectedRow?.hasChildren ?? false,
       });
       if (!action) return;
+      // The source view has no rows: only what works on the whole document passes; everything
+      // else (arrow keys, Strg+C, …) is left to the browser — scrolling, copying selected text.
+      if (sourceView && !SOURCE_VIEW_SHORTCUTS.has(action)) return;
       event.preventDefault();
       switch (action) {
         case "renameStart":
@@ -1643,6 +1759,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         label: t("menuBar.file"),
         items: [
           actionProps("newDocument"),
+          actionProps("newFromClipboard"),
           actionProps("openFile"),
           ...recentEntries,
           "separator",
@@ -1671,7 +1788,13 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       },
       {
         label: t("menuBar.view"),
-        items: [actionProps("expandAll"), actionProps("collapseAll"), "separator", actionProps("search")],
+        items: [
+          actionProps("expandAll"),
+          actionProps("collapseAll"),
+          "separator",
+          actionProps("toggleSourceView"),
+          actionProps("search"),
+        ],
       },
       {
         label: t("menuBar.tools"),
@@ -1746,6 +1869,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
           <IconButton icon={ArrowClockwise} {...actionProps("redo")} />
           <span className="app-toolbar__sep" />
           <IconButton icon={MagnifyingGlass} {...actionProps("search")} />
+          <IconButton icon={Code} pressed={sourceView} {...actionProps("toggleSourceView")} />
           {(["addSibling", "addChild"] as const).map((id) => {
             const { label, shortcut, disabled, onClick } = actionProps(id);
             return (
@@ -1814,33 +1938,48 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
                   onNavigate={handleBreadcrumbNavigate}
                 />
               )}
-              <TreeView
-                rows={rows}
-                expanded={expanded}
-                selectedIds={selection.ids}
-                onToggle={toggleRow}
-                onSelect={selectRow}
-                editingField={editingField}
-                onStartEditName={(row) => setEditingField({ nodeId: row.node.id, field: "name" })}
-                onStartEditValue={(row) => setEditingField({ nodeId: row.node.id, field: "value" })}
-                onCommitEdit={handleCommitEdit}
-                onCancelEdit={() => setEditingField(null)}
-                onRowContextMenu={(row, x, y) => {
-                  // Right-clicking inside the multi-selection keeps it (the menu then acts on
-                  // all of it); right-clicking anywhere else collapses to that one row first.
-                  setSelection((current) => selectionForActionOn(current, row.node.id));
-                  setContextMenu({ x, y });
-                }}
-                onMoveNode={handleMoveNode}
-                onDecodeBase64={(row) => {
-                  if (row.node.value) handleDecodeBase64(row.node.value);
-                }}
-                revealNodeId={revealNodeId}
-                changes={changes}
-              />
-              {changes?.truncated && <div className="tree-changes-hint">{t("tree.changesTruncated")}</div>}
+              {sourceView ? (
+                sourceState && sourceState.tabId === activeTab?.id ? (
+                  <SourceView
+                    text={sourceState.text}
+                    format={activeDoc.format}
+                    jumpToLine={sourceState.jumpLine}
+                    onCopyAll={handleCopySource}
+                  />
+                ) : (
+                  <div className="source-view__generating">{t("source.generating")}</div>
+                )
+              ) : (
+                <>
+                <TreeView
+                  rows={rows}
+                  expanded={expanded}
+                  selectedIds={selection.ids}
+                  onToggle={toggleRow}
+                  onSelect={selectRow}
+                  editingField={editingField}
+                  onStartEditName={(row) => setEditingField({ nodeId: row.node.id, field: "name" })}
+                  onStartEditValue={(row) => setEditingField({ nodeId: row.node.id, field: "value" })}
+                  onCommitEdit={handleCommitEdit}
+                  onCancelEdit={() => setEditingField(null)}
+                  onRowContextMenu={(row, x, y) => {
+                    // Right-clicking inside the multi-selection keeps it (the menu then acts on
+                    // all of it); right-clicking anywhere else collapses to that one row first.
+                    setSelection((current) => selectionForActionOn(current, row.node.id));
+                    setContextMenu({ x, y });
+                  }}
+                  onMoveNode={handleMoveNode}
+                  onDecodeBase64={(row) => {
+                    if (row.node.value) handleDecodeBase64(row.node.value);
+                  }}
+                  revealNodeId={revealNodeId}
+                  changes={changes}
+                />
+                {changes?.truncated && <div className="tree-changes-hint">{t("tree.changesTruncated")}</div>}
+                </>
+              )}
             </div>
-            {searchDockSide === "right" ? (
+            {sourceView ? null : searchDockSide === "right" ? (
               <RightSidebar
                 activeTab={sidebarTab}
                 onTabChange={setSidebarTab}
@@ -1858,6 +1997,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
             onOpen={() => void handleOpen()}
             onOpenPath={(path) => void openPath(path)}
             onNew={() => setNewDocOpen(true)}
+            onNewFromClipboard={() => runAction("newFromClipboard")}
             recentFilesLimit={settings.recentFilesLimit}
           />
         )}
@@ -1871,7 +2011,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
           onClose={() => setContextMenu(null)}
         />
       )}
-      {searchDockSide === "bottom" && searchOpen && activeDoc && activeTab && searchPanelEl("bottom")}
+      {searchDockSide === "bottom" && searchOpen && !sourceView && activeDoc && activeTab && searchPanelEl("bottom")}
       {settingsOpen && (
         <SettingsDialog settings={settings} onChange={setSettings} onClose={() => setSettingsOpen(false)} />
       )}

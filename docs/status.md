@@ -2060,3 +2060,32 @@ Zeilenbreite lagen Attributtext und Wert 170 px auseinander. Ursache war `flex-g
 grün (Abstand unter 24 px). `npm test` (345 Core- und 350 Editor-Tests), Typecheck und Root-Dev-Start
 waren erfolgreich. Die separate Theme-Screenshot-Suite meldet weiter Abweichungen bei den
 Kommentar-Randmarkierungen; ihre Referenzbilder zeigen diese bereits vorhandenen Streifen nicht.
+
+## Nachtrag 2026-10-02 — Neu aus Zwischenablage und Quelltextansicht (Stufe 1)
+
+Per Grilling abgestimmt (`docs/entscheidungen.md` 2026-10-02), beides umgesetzt.
+
+- **Neu aus Zwischenablage**: `Workspace.newDocumentFromClipboard` (Format am ersten Zeichen,
+  `NotXmlOrJsonError`), App-Aktion `newFromClipboard`, Startscreen-Button, `Strg+Shift+V` und
+  `Strg+V` ohne Dokument. `CommandBus` hat die Option `hasBaseline: false`; `newDocument` mit
+  übergebenem Inhalt nutzt sie (auch die Base64-Vorschau). `host.readClipboardText` liest über
+  `@tauri-apps/plugin-clipboard-manager` (JS ~2.3.3 passend zu `@tauri-apps/api` 2.11, Rust
+  `tauri-plugin-clipboard-manager` ~2.3), Capability `clipboard-manager:allow-read-text`;
+  Rückfall auf `navigator.clipboard`. Auch `Strg+V` im Dokument nutzt jetzt diesen Weg.
+- **Quelltextansicht**: `source/source-rows.ts` (Zeilenindex, Scrollgeometrie, Färbung, Pfad),
+  `source/SourceView.tsx`, `sourceTextOf` in `workspace.ts`, `sourceLineOf` im Core
+  (`format/source-line.ts`; `json-import` kann Startpositionen melden, `jsonSourceOffsets`).
+  Aktion `toggleSourceView` (`Strg+U`), `ActionContext.sourceView`, `IconButton.pressed`.
+- Tests: Core `no-baseline`, `source-line`; Editor Workspace-, Aktions-, Host-, SourceView- und
+  App-UI-Tests. Core 352, Editor 382, Typecheck und `vite build` grün. Der Zeilenindex braucht für
+  rund 300 MB / 3,5 Mio. Zeilen deutlich unter einer Sekunde (gemessen samt Aufbau des Testtexts).
+- **Nicht geprüft**: `lib.rs` mit dem neuen Plugin ist hier nicht kompilierbar (kein WebKitGTK) —
+  `cargo check` lokal nötig; ebenso der reale Klick in Tauri (Zwischenablage unter Linux/Windows,
+  Scrollen in großen Dateien), weil `npm run dev` hier kein Fenster hat.
+- **Bewusste Vereinfachungen**: Die Färbung arbeitet zeilenweise (ein Kommentar über mehr als
+  100 000 Zeichen wird ab dort als Text gefärbt; Tags über mehrere Zeilen als Text). Markieren
+  reicht nur über die gezeichneten Zeilen (plus Puffer) — für alles gibt es „Quelltext kopieren“.
+  Beim Kopieren über eine geteilte lange Zeile hinweg entsteht an der Teilungsstelle ein
+  Zeilenumbruch. Kürzel sind fest (es gibt keine Kürzel-Einstellungen).
+- Offen (Stufe 2): Suche im Quelltext, Zeile anklicken → Knoten auswählen.
+

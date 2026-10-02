@@ -7,6 +7,7 @@ interface WelcomeScreenProps {
   onOpen: () => void;
   onOpenPath: (path: string) => void;
   onNew: () => void;
+  onNewFromClipboard: () => void;
   recentFilesLimit: number;
 }
 
@@ -20,7 +21,7 @@ function fileName(path: string): string {
  * list and the keyboard-shortcut overview. Drag&drop onto the window is handled
  * globally in App (Tauri drag-drop event), the hint here just advertises it.
  */
-export function WelcomeScreen({ onOpen, onOpenPath, onNew, recentFilesLimit }: WelcomeScreenProps): React.ReactElement {
+export function WelcomeScreen({ onOpen, onOpenPath, onNew, onNewFromClipboard, recentFilesLimit }: WelcomeScreenProps): React.ReactElement {
   const { t } = useI18n();
   const recent = getRecentFiles(recentFilesLimit);
   const ctrl = t("key.ctrl");
@@ -28,6 +29,7 @@ export function WelcomeScreen({ onOpen, onOpenPath, onNew, recentFilesLimit }: W
   const shortcuts: Array<[string, string]> = [
     [`${ctrl}+N`, t("shortcut.new")],
     [`${ctrl}+O`, t("shortcut.open")],
+    [`${ctrl}+Shift+V`, t("welcome.newFromClipboard")],
     [`${ctrl}+S`, t("shortcut.save")],
     [`${ctrl}+F`, t("shortcut.search")],
     ["↑ ↓ ← →", t("shortcut.navigate")],
@@ -59,6 +61,7 @@ export function WelcomeScreen({ onOpen, onOpenPath, onNew, recentFilesLimit }: W
             {t("welcome.openFile")}
           </button>
           <button onClick={onNew}>{t("welcome.newDocument")}</button>
+          <button onClick={onNewFromClipboard}>{t("welcome.newFromClipboard")}</button>
           <span className="welcome__drop-hint">{t("welcome.dropHint")}</span>
         </div>
 

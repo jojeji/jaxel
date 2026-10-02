@@ -147,8 +147,33 @@ export function formatOfExtension(path: string): DocFormat | null {
   return null;
 }
 
+/** Clipboard text that is neither XML nor JSON (judged by its first character) — or empty. */
+export class NotXmlOrJsonError extends Error {
+  constructor() {
+    super("Text is neither XML nor JSON");
+    this.name = "NotXmlOrJsonError";
+  }
+}
+
+/** XML or JSON judged by the first non-blank character, or null when it is neither. */
+function formatOfContent(content: string): DocFormat | null {
+  const first = content.replace(/^\uFEFF/, "").trimStart()[0];
+  if (first === "<") return "xml";
+  if (first === "{" || first === "[") return "json";
+  return null;
+}
+
 function detectFormat(path: string, content: string): DocFormat {
   return formatOfExtension(path) ?? (content.trimStart().startsWith("<") ? "xml" : "json");
+}
+
+/** The text the source view (Quelltextansicht, CONTEXT.md) shows: what saving would write now,
+ * or — in a focus tab — the same for the focused subtree alone. */
+export function sourceTextOf(target: OpenDocumentState, focusNode: DocNode | null): string {
+  if (!focusNode) return serializeForSave(target);
+  return target.format === "xml"
+    ? serializeXmlMinimal(target.sourceText, { root: focusNode, indent: target.document.indent, epilog: "" })
+    : serializeJson({ root: focusNode, indent: target.document.indent });
 }
 
 export function serializeForSave(target: OpenDocumentState): string {
@@ -315,7 +340,9 @@ export class Workspace {
 
   /** Creates a brand-new, unsaved document (shown as "Unbenannt-N") and activates its full-view tab.
    * `content` overrides the default skeleton (e.g. a decoded Base64 payload) and must parse in
-   * the given format — the caller handles parse errors. */
+   * the given format — the caller handles parse errors. Such content is stored nowhere, so the
+   * document has no baseline and stays dirty until saved (CONTEXT.md "Baseline"); the empty
+   * skeleton starts clean. */
   newDocument = (format: DocFormat, content?: string): void => {
     const text = content ?? NEW_DOCUMENT_SKELETON[format];
     const parsed = parseDocument(format, text);
@@ -327,12 +354,22 @@ export class Workspace {
       format,
       isUntitled: true,
       untitledNumber,
-      ...this.loadDocument(format, parsed, "UTF-8", false, text, { mtimeMs: 0, size: 0 }),
+      ...this.loadDocument(format, parsed, "UTF-8", false, text, { mtimeMs: 0, size: 0 }, content === undefined),
     };
     this.update(
       { docs: [...current.docs, doc], tabs: [...current.tabs, this.fullViewTab(path)], activeKey: tabKey(path, null) },
       true,
     );
+  };
+
+  /** "Neu aus Zwischenablage" (CONTEXT.md): `text` becomes a new untitled document, XML or JSON
+   * judged by its content. Throws `NotXmlOrJsonError`, or the parser's error for broken
+   * content — nothing is opened then. */
+  newDocumentFromClipboard = (text: string): DocFormat => {
+    const format = formatOfContent(text);
+    if (!format) throw new NotXmlOrJsonError();
+    this.newDocument(format, text.replace(/^\uFEFF/, ""));
+    return format;
   };
 
   /** Closes a single tab. The underlying document is only unloaded once no tab (full view or
@@ -575,9 +612,10 @@ export class Workspace {
     bom: boolean,
     sourceText: string,
     stat: Pick<HostFileContent, "mtimeMs" | "size">,
+    hasBaseline = true,
   ): Omit<OpenDocumentState, "filePath" | "format" | "isUntitled"> {
     const document = createDocument({ ...parsed, format, encoding });
-    const commandBus = new CommandBus(document);
+    const commandBus = new CommandBus(document, { hasBaseline });
     this.unsubscribers.set(
       commandBus,
       commandBus.subscribe(() => {
@@ -598,7 +636,7 @@ export class Workspace {
       sourceText,
       encoding,
       bom,
-      isDirty: false,
+      isDirty: commandBus.isDirty(),
       changeBaseline: captureChangeBaseline(parsed.root),
       lastKnownMtimeMs: stat.mtimeMs,
       lastKnownSize: stat.size,

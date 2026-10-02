@@ -338,6 +338,7 @@ pub fn run() {
             log_builder.build(),
         )
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             read_text_file,
             write_text_file,

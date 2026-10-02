@@ -23,6 +23,7 @@ export function useJaxelDocuments(host: WorkspaceHost = getJaxelHost()): Pick<
   | "retargetFocusTab"
   | "acknowledgeExternalChange"
   | "acknowledgeSaved"
+  | "newDocumentFromClipboard"
   | "reloadFile"
 > & {
   docs: OpenDocumentState[];
@@ -45,6 +46,7 @@ export function useJaxelDocuments(host: WorkspaceHost = getJaxelHost()): Pick<
     saveFileAs: workspace.saveFileAs,
     convertSaveAs: workspace.convertSaveAs,
     newDocument: workspace.newDocument,
+    newDocumentFromClipboard: workspace.newDocumentFromClipboard,
     closeTab: workspace.closeTab,
     closeTabs: workspace.closeTabs,
     planClose: workspace.planClose,

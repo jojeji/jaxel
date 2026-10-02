@@ -14,6 +14,7 @@ import type { TreeActionKind } from "@jaxel/core";
  */
 export type AppActionId =
   | "newDocument"
+  | "newFromClipboard"
   | "openFile"
   | "save"
   | "saveAs"
@@ -31,6 +32,7 @@ export type AppActionId =
   | "expandAll"
   | "collapseAll"
   | "search"
+  | "toggleSourceView"
   | "toggleAttributesPanel"
   | "settings";
 
@@ -47,6 +49,8 @@ export interface ActionContext {
   modalOpen: boolean;
   /** Whether @jaxel/core's tree-actions blocks this Baumaktion on the current selection. */
   treeActionBlocked: (kind: TreeActionKind) => boolean;
+  /** The active tab shows its Quelltextansicht: no rows, so nothing that works on the tree. */
+  sourceView: boolean;
 }
 
 /** The locale-dependent key names a shortcut hint is built from. */
@@ -66,9 +70,16 @@ const always = (): boolean => true;
 const withDocument = (context: ActionContext): boolean => context.hasDocument;
 /** Path copies describe one node; with several selected there is no single path. */
 const oneSelected = (context: ActionContext): boolean => context.selectionCount === 1;
+/** Needs the tree on screen (expanding, searching rows) — not while the source is shown. */
+const treeShown = (context: ActionContext): boolean => context.hasDocument && !context.sourceView;
 
 export const ACTIONS: Record<AppActionId, ActionSpec> = {
   newDocument: { labelKey: "welcome.newDocument", shortcut: (k) => `${k.ctrl}+N`, enabled: (c) => !c.embedded },
+  newFromClipboard: {
+    labelKey: "welcome.newFromClipboard",
+    shortcut: (k) => `${k.ctrl}+Shift+V`,
+    enabled: (c) => !c.embedded,
+  },
   openFile: { labelKey: "welcome.openFile", shortcut: (k) => `${k.ctrl}+O`, enabled: (c) => !c.embedded },
   save: { labelKey: "welcome.save", shortcut: (k) => `${k.ctrl}+S`, enabled: withDocument },
   saveAs: {
@@ -108,9 +119,10 @@ export const ACTIONS: Record<AppActionId, ActionSpec> = {
     shortcut: (k) => `${k.ctrl}+V`,
     enabled: (c) => c.hasDocument && !c.treeActionBlocked("paste"),
   },
-  expandAll: { labelKey: "menuBar.expandAll", shortcut: () => "NumPad *", enabled: withDocument },
-  collapseAll: { labelKey: "menuBar.collapseAll", shortcut: () => "NumPad /", enabled: withDocument },
-  search: { labelKey: "toolbar.search", shortcut: (k) => `${k.ctrl}+F`, enabled: withDocument },
+  expandAll: { labelKey: "menuBar.expandAll", shortcut: () => "NumPad *", enabled: treeShown },
+  collapseAll: { labelKey: "menuBar.collapseAll", shortcut: () => "NumPad /", enabled: treeShown },
+  search: { labelKey: "toolbar.search", shortcut: (k) => `${k.ctrl}+F`, enabled: treeShown },
+  toggleSourceView: { labelKey: "menuBar.sourceView", shortcut: (k) => `${k.ctrl}+U`, enabled: withDocument },
   toggleAttributesPanel: {
     labelKey: "settings.showAttributesPanel",
     shortcut: (k) => `${k.ctrl}+Alt+A`,

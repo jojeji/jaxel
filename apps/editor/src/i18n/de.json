@@ -3,6 +3,7 @@
   "app.tagline": "Ein Baum, zwei Formate",
   "welcome.openFile": "Datei öffnen…",
   "welcome.newDocument": "Neues Dokument",
+  "welcome.newFromClipboard": "Aus Zwischenablage",
   "welcome.save": "Speichern",
   "newDoc.title": "Neues Dokument anlegen",
   "newDoc.xml": "XML",
@@ -90,6 +91,8 @@
   "clipboard.nodeCopied": "Knoten kopiert",
   "clipboard.valueCopied": "Wert kopiert",
   "clipboard.readFailed": "Zwischenablage konnte nicht gelesen werden",
+  "clipboard.notXmlOrJson": "Die Zwischenablage enthält kein XML oder JSON.",
+  "clipboard.invalidDocument": "Die Zwischenablage enthält kein gültiges XML/JSON: {detail}",
   "clipboard.invalidFragment": "Zwischenablage enthält kein gültiges, benanntes Fragment",
   "toast.close": "Meldung schließen",
   "portable.storageFallback": "Das portable Verzeichnis „{path}“ ist nicht beschreibbar. Einstellungen werden für diese Sitzung in AppData gespeichert.",
@@ -199,5 +202,11 @@
   "base64.handedToVscode": "PDF an VS Code übergeben.",
   "document.untitled": "Unbenannt-{n}",
   "edit.invalidXmlName": "„{name}“ ist kein gültiger XML-Name (z. B. keine Leerzeichen, nicht mit einer Ziffer beginnen) — die Änderung wurde verworfen.",
-  "search.skippedInvalidNames": "{n} Namen übersprungen: Das Ergebnis wäre kein gültiger XML-Name."
+  "search.skippedInvalidNames": "{n} Namen übersprungen: Das Ergebnis wäre kein gültiger XML-Name.",
+  "menuBar.sourceView": "Quelltext anzeigen",
+  "source.label": "Quelltext",
+  "source.lines": "{count} Zeilen · nur lesen",
+  "source.copyAll": "Quelltext kopieren",
+  "source.copied": "Quelltext kopiert",
+  "source.generating": "Quelltext wird erzeugt…"
 }

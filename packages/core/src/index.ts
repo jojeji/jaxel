@@ -70,6 +70,8 @@ export type { ConvertParams } from "./format/convert.js";
 export { convertDocument, isValidXmlName, InvalidXmlNameError } from "./format/convert.js";
 export type { DecodedBase64, DecodedContentKind } from "./format/base64.js";
 export { decodeBase64, looksLikeBase64 } from "./format/base64.js";
+export type { SourceLineQuery } from "./format/source-line.js";
+export { sourceLineOf } from "./format/source-line.js";
 export { parseJson } from "./format/json-import.js";
 export type { JsonExportDoc } from "./format/json-export.js";
 export { serializeJson } from "./format/json-export.js";

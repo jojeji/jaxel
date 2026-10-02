@@ -1718,3 +1718,110 @@ kbd {
 .new-doc-dialog__choices button {
   flex: 1;
 }
+
+/* Quelltextansicht (CONTEXT.md): read-only, virtualized — only rows near the viewport exist. */
+.icon-btn--pressed {
+  background: var(--accent-dim);
+  color: var(--accent-strong);
+}
+
+.source-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--bg-0);
+}
+
+.source-view__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  color: var(--text-2);
+}
+
+.source-view__info {
+  flex: 1;
+}
+
+.source-view__scroll {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  font: var(--mono);
+}
+
+.source-view__scroll:focus-visible {
+  outline: none;
+}
+
+.source-view__spacer {
+  position: relative;
+  min-width: 100%;
+}
+
+.source-row {
+  position: absolute;
+  left: 0;
+  height: 20px;
+  line-height: 20px;
+  display: flex;
+  white-space: pre;
+  min-width: 100%;
+}
+
+.source-row--target {
+  background: var(--accent-dim);
+}
+
+.source-row__gutter {
+  flex-shrink: 0;
+  padding-right: 12px;
+  text-align: right;
+  color: var(--text-2);
+  user-select: none;
+  position: sticky;
+  left: 0;
+  background: var(--bg-0);
+}
+
+.source-row--target .source-row__gutter {
+  background: var(--accent-dim);
+}
+
+.source-row__text {
+  padding-right: 16px;
+}
+
+.source-token--tag,
+.source-token--key {
+  color: var(--accent-strong);
+}
+
+.source-token--attr,
+.source-token--number,
+.source-token--literal {
+  color: var(--warn);
+}
+
+.source-token--string {
+  color: var(--accent);
+}
+
+.source-token--comment {
+  color: var(--comment);
+  font-style: italic;
+}
+
+.source-token--punct {
+  color: var(--text-2);
+}
+
+.source-view__generating {
+  padding: 16px;
+  color: var(--text-2);
+}

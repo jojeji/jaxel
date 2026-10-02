@@ -1894,6 +1894,114 @@ describe("Baum-Änderungsmarker (Settings: default aus)", () => {
   });
 });
 
+describe("Quelltextansicht", () => {
+  const sourceLines = (): string[] =>
+    Array.from(document.querySelectorAll<HTMLElement>(".source-row .source-row__text")).map((el) => el.textContent ?? "");
+
+  it("Strg+U schaltet zwischen Baum und Quelltext um", async () => {
+    await openSampleFile();
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+
+    await screen.findByRole("region", { name: "Quelltext" });
+    expect(sourceLines()[1]).toBe("<catalog>");
+    expect(sourceLines()[3]).toBe("    <name>Anna</name>");
+    expect(document.querySelector(".tree-row")).toBeNull();
+
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    expect(await screen.findByText("catalog", { selector: ".tree-row__name" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Quelltext" })).not.toBeInTheDocument();
+  });
+
+  it("springt zur Zeile des im Baum ausgewählten Knotens", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[1]!);
+    await user.click(screen.getByRole("menuitem", { name: "Ansicht" }));
+    await user.click(screen.getByRole("menuitem", { name: /Quelltext anzeigen/ }));
+
+    await screen.findByRole("region", { name: "Quelltext" });
+    expect(document.querySelector(".source-row--target")?.getAttribute("data-line")).toBe("7");
+  });
+
+  it("zeigt den aktuellen, noch nicht gespeicherten Stand und folgt Rückgängig", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "d", ctrlKey: true }); // duplizieren
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    await screen.findByRole("region", { name: "Quelltext" });
+    await waitFor(() => expect(sourceLines().filter((line) => line.includes('id="P-1"'))).toHaveLength(2));
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(sourceLines().filter((line) => line.includes('id="P-1"'))).toHaveLength(1));
+  });
+
+  it("sperrt Baumaktionen, solange der Quelltext angezeigt wird", async () => {
+    const user = await openSampleFile();
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    await screen.findByRole("region", { name: "Quelltext" });
+
+    fireEvent.keyDown(window, { key: "Delete" });
+    await user.click(screen.getByRole("menuitem", { name: "Bearbeiten" }));
+    expect(screen.getByRole("menuitem", { name: /Löschen/ })).toBeDisabled();
+    await user.keyboard("{Escape}");
+
+    fireEvent.keyDown(window, { key: "u", ctrlKey: true });
+    expect(await screen.findAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
+  });
+});
+
+describe("Neu aus Zwischenablage", () => {
+  /** Outside a Tauri window the plugin cannot run and host.readClipboardText falls back to the
+   * WebView's clipboard — stubbed here. Call after userEvent.setup() (see stubClipboard). */
+  function clipboardHolds(text: string): void {
+    stubClipboard();
+    readText.mockResolvedValue(text);
+  }
+
+  it("öffnet XML aus der Zwischenablage über den Startscreen als ungespeichertes Dokument", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    clipboardHolds('<?xml version="1.0"?>\n<auftrag><nr>7</nr></auftrag>');
+    await user.click(screen.getByRole("button", { name: "Aus Zwischenablage" }));
+
+    const tab = (await screen.findByText("Unbenannt-1", { selector: ".tab__label" })).closest(".tab");
+    expect(screen.getByText("auftrag", { selector: ".tree-row__name" })).toBeInTheDocument();
+    expect(tab).toHaveClass("tab--dirty");
+  });
+
+  it("Strg+V ohne offenes Dokument öffnet JSON aus der Zwischenablage", async () => {
+    clipboardHolds('{"kunde": "Anna", "nr": 7}');
+    renderApp();
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+    expect(await screen.findByText("kunde", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+
+  it("Strg+Shift+V öffnet auch bei offenem Dokument einen neuen Tab", async () => {
+    await openSampleFile();
+    clipboardHolds("<neu/>");
+    fireEvent.keyDown(window, { key: "V", ctrlKey: true, shiftKey: true });
+    expect(await screen.findByText("Unbenannt-1", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.getByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+
+  it("meldet Text, der weder XML noch JSON ist, und öffnet nichts", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    clipboardHolds("Hallo Welt");
+    await user.click(screen.getByRole("button", { name: "Aus Zwischenablage" }));
+    expect(await screen.findByText("Die Zwischenablage enthält kein XML oder JSON.")).toBeInTheDocument();
+    expect(screen.queryByText("Unbenannt-1", { selector: ".tab__label" })).not.toBeInTheDocument();
+  });
+
+  it("meldet kaputtes XML mit dem Hinweis des Parsers", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    clipboardHolds("<a><b></a>");
+    await user.click(screen.getByRole("button", { name: "Aus Zwischenablage" }));
+    expect(await screen.findByText(/^Die Zwischenablage enthält kein gültiges XML\/JSON: /)).toBeInTheDocument();
+  });
+});
+
 describe("Neues Dokument anlegen", () => {
   it("legt ein neues XML-Dokument mit leerem <root> an und nennt den Tab 'Unbenannt-1'", async () => {
     const user = userEvent.setup();

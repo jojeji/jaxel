@@ -31,6 +31,7 @@ function createFakeVscodeHost() {
     writeTextFile: async () => ({ mtimeMs: 2000, size: 1 }),
     statFile,
     getPortableStorageWarning: async () => null,
+    readClipboardText: () => navigator.clipboard.readText(),
     pickOpenFile: async () => null,
     pickSaveFile: async () => null,
     getVersion: async () => null,

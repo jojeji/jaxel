@@ -15,12 +15,13 @@
 
 import { createNode, type DocNode, type JsonPrimitiveType } from "../model/node.js";
 
-type JObject = { kind: "object"; entries: Array<[string, JVal]> };
-type JArray = { kind: "array"; items: JVal[] };
-type JString = { kind: "string"; text: string };
-type JNumber = { kind: "number"; raw: string };
-type JBoolean = { kind: "boolean"; value: boolean };
-type JNull = { kind: "null" };
+/** `at`: offset of the value's first character in the source (for `jsonSourceOffsets`). */
+type JObject = { kind: "object"; entries: Array<[key: string, value: JVal, keyAt: number]>; at: number };
+type JArray = { kind: "array"; items: JVal[]; at: number };
+type JString = { kind: "string"; text: string; at: number };
+type JNumber = { kind: "number"; raw: string; at: number };
+type JBoolean = { kind: "boolean"; value: boolean; at: number };
+type JNull = { kind: "null"; at: number };
 type JVal = JObject | JArray | JString | JNumber | JBoolean | JNull;
 
 class JsonSyntaxError extends Error {}
@@ -54,42 +55,45 @@ function parseJsonSource(source: string): JVal {
   function parseValue(): JVal {
     skipWs();
     const c = source[i];
+    const at = i;
     if (c === "{") return parseObject();
     if (c === "[") return parseArray();
-    if (c === '"') return { kind: "string", text: parseStringRaw() };
+    if (c === '"') return { kind: "string", text: parseStringRaw(), at };
     if (c === "t") {
       expectLiteral("true");
-      return { kind: "boolean", value: true };
+      return { kind: "boolean", value: true, at };
     }
     if (c === "f") {
       expectLiteral("false");
-      return { kind: "boolean", value: false };
+      return { kind: "boolean", value: false, at };
     }
     if (c === "n") {
       expectLiteral("null");
-      return { kind: "null" };
+      return { kind: "null", at };
     }
     if (c === "-" || isDigit(c)) return parseNumber();
     fail(`Unexpected token '${c ?? "<eof>"}'`);
   }
 
   function parseObject(): JObject {
+    const at = i;
     i++; // consume '{'
-    const entries: Array<[string, JVal]> = [];
+    const entries: Array<[string, JVal, number]> = [];
     skipWs();
     if (source[i] === "}") {
       i++;
-      return { kind: "object", entries };
+      return { kind: "object", entries, at };
     }
     for (;;) {
       skipWs();
       if (source[i] !== '"') fail("Expected string key");
+      const keyAt = i;
       const key = parseStringRaw();
       skipWs();
       if (source[i] !== ":") fail("Expected ':'");
       i++;
       const value = parseValue();
-      entries.push([key, value]);
+      entries.push([key, value, keyAt]);
       skipWs();
       if (source[i] === ",") {
         i++;
@@ -101,16 +105,17 @@ function parseJsonSource(source: string): JVal {
       }
       fail("Expected ',' or '}'");
     }
-    return { kind: "object", entries };
+    return { kind: "object", entries, at };
   }
 
   function parseArray(): JArray {
+    const at = i;
     i++; // consume '['
     const items: JVal[] = [];
     skipWs();
     if (source[i] === "]") {
       i++;
-      return { kind: "array", items };
+      return { kind: "array", items, at };
     }
     for (;;) {
       items.push(parseValue());
@@ -125,7 +130,7 @@ function parseJsonSource(source: string): JVal {
       }
       fail("Expected ',' or ']'");
     }
-    return { kind: "array", items };
+    return { kind: "array", items, at };
   }
 
   function parseStringRaw(): string {
@@ -213,7 +218,7 @@ function parseJsonSource(source: string): JVal {
       if (!isDigit(source[i])) fail("Invalid number");
       while (isDigit(source[i])) i++;
     }
-    return { kind: "number", raw: source.slice(start, i) };
+    return { kind: "number", raw: source.slice(start, i), at: start };
   }
 
   const result = parseValue();
@@ -248,16 +253,23 @@ function rawTextOf(val: JString | JNumber | JBoolean | JNull): string {
   }
 }
 
-function primitiveNode(name: string, val: JString | JNumber | JBoolean | JNull): DocNode {
-  return createNode({ name, value: rawTextOf(val), jsonType: jsonTypeOf(val) });
+/** Notes where in the source a node starts — a no-op unless `jsonSourceOffsets` asks. */
+type Record = (node: DocNode, at: number) => DocNode;
+const noRecord: Record = (node) => node;
+
+function primitiveNode(name: string, val: JString | JNumber | JBoolean | JNull, at: number, record: Record): DocNode {
+  return record(createNode({ name, value: rawTextOf(val), jsonType: jsonTypeOf(val) }), at);
 }
 
 /** Rule 1: object -> one node with one child per property, in source order. */
-function objectToNode(name: string, entries: Array<[string, JVal]>): DocNode {
-  return createNode({
-    name,
-    children: entries.flatMap(([key, value]) => propertyToNodes(key, value)),
-  });
+function objectToNode(name: string, val: JObject, at: number, record: Record): DocNode {
+  return record(
+    createNode({
+      name,
+      children: val.entries.flatMap(([key, value, keyAt]) => propertyToNodes(key, value, keyAt, record)),
+    }),
+    at,
+  );
 }
 
 /**
@@ -265,23 +277,26 @@ function objectToNode(name: string, entries: Array<[string, JVal]>): DocNode {
  * element that is itself an array -> the name propagates one level further down. Rule 5:
  * primitive element -> a leaf node.
  */
-function arrayElementToNode(name: string, val: JVal): DocNode {
-  if (val.kind === "object") return objectToNode(name, val.entries);
+function arrayElementToNode(name: string, val: JVal, record: Record): DocNode {
+  if (val.kind === "object") return objectToNode(name, val, val.at, record);
   if (val.kind === "array") {
-    return createNode({ name, jsonArray: true, children: val.items.map((item) => arrayElementToNode(name, item)) });
+    return record(
+      createNode({ name, jsonArray: true, children: val.items.map((item) => arrayElementToNode(name, item, record)) }),
+      val.at,
+    );
   }
-  return primitiveNode(name, val);
+  return primitiveNode(name, val, val.at, record);
 }
 
 /**
  * The node(s) a single object property expands to. Rule 2/3: an array value produces several
  * same-named sibling nodes (one per element) instead of a single wrapper node. Rule 1/5: object
- * and primitive values produce exactly one node.
+ * and primitive values produce exactly one node — it starts at its key (`keyAt`).
  */
-function propertyToNodes(name: string, val: JVal): DocNode[] {
-  if (val.kind === "array") return val.items.map((item) => arrayElementToNode(name, item));
-  if (val.kind === "object") return [objectToNode(name, val.entries)];
-  return [primitiveNode(name, val)];
+function propertyToNodes(name: string, val: JVal, keyAt: number, record: Record): DocNode[] {
+  if (val.kind === "array") return val.items.map((item) => arrayElementToNode(name, item, record));
+  if (val.kind === "object") return [objectToNode(name, val, keyAt, record)];
+  return [primitiveNode(name, val, keyAt, record)];
 }
 
 /**
@@ -306,44 +321,55 @@ function propertyToNodes(name: string, val: JVal): DocNode[] {
  *   `$root` node wrapping a single `$root` child.
  */
 export function parseJson(source: string): { root: DocNode } {
-  const rootVal = parseJsonSource(source);
+  return { root: buildRoot(parseJsonSource(source), noRecord) };
+}
 
+/**
+ * Where each node of `parseJson(source)`'s tree starts in `source` (character offset): a
+ * property's node at its key, an array element at its value, an invented root at 0. Used to
+ * find a node in the source view; same tree shape as `parseJson`, built by the same code.
+ */
+export function jsonSourceOffsets(source: string): { root: DocNode; offsets: Map<DocNode, number> } {
+  const offsets = new Map<DocNode, number>();
+  const root = buildRoot(parseJsonSource(source), (node, at) => {
+    offsets.set(node, at);
+    return node;
+  });
+  if (!offsets.has(root)) offsets.set(root, 0);
+  return { root, offsets };
+}
+
+function buildRoot(rootVal: JVal, record: Record): DocNode {
   if (rootVal.kind === "object") {
     if (rootVal.entries.length === 1) {
-      const [key, value] = rootVal.entries[0]!;
-      const nodes = propertyToNodes(key, value);
+      const [key, value, keyAt] = rootVal.entries[0]!;
+      const nodes = propertyToNodes(key, value, keyAt, record);
       if (nodes.length === 1) {
-        return { root: nodes[0]! };
+        return nodes[0]!;
       }
       // `nodes` is not exactly one node only for an array value (empty or several elements).
-      return { root: createNode({ name: key, synthetic: true, jsonArray: true, children: nodes }) };
+      return createNode({ name: key, synthetic: true, jsonArray: true, children: nodes });
     }
-    return {
-      root: createNode({
-        name: "$root",
-        synthetic: true,
-        children: rootVal.entries.flatMap(([key, value]) => propertyToNodes(key, value)),
-      }),
-    };
+    return createNode({
+      name: "$root",
+      synthetic: true,
+      children: rootVal.entries.flatMap(([key, value, keyAt]) => propertyToNodes(key, value, keyAt, record)),
+    });
   }
 
   if (rootVal.kind === "array") {
-    return {
-      root: createNode({
-        name: "$root",
-        synthetic: true,
-        jsonArray: true,
-        children: rootVal.items.map((item) => arrayElementToNode("$root", item)),
-      }),
-    };
-  }
-
-  return {
-    root: createNode({
+    return createNode({
       name: "$root",
       synthetic: true,
-      value: rawTextOf(rootVal),
-      jsonType: jsonTypeOf(rootVal),
-    }),
-  };
+      jsonArray: true,
+      children: rootVal.items.map((item) => arrayElementToNode("$root", item, record)),
+    });
+  }
+
+  return createNode({
+    name: "$root",
+    synthetic: true,
+    value: rawTextOf(rootVal),
+    jsonType: jsonTypeOf(rootVal),
+  });
 }
