@@ -41,7 +41,7 @@ import { conversionErrorMessage, hostErrorMessage, toErrorMessage } from "./erro
 import { resolveShortcut } from "./shortcuts.js";
 import { ACTIONS, isActionEnabled, type ActionContext, type AppActionId } from "./actions.js";
 import { useJaxelDocuments } from "./state/document-store.js";
-import { formatOfExtension, serializeForSave, tabKey, type OpenDocumentState } from "./state/workspace.js";
+import { formatOfExtension, NotXmlOrJsonError, serializeForSave, tabKey, type OpenDocumentState } from "./state/workspace.js";
 import { useSettings } from "./state/settings-store.js";
 import {
   getLastDir,
@@ -130,6 +130,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     saveFileAs,
     convertSaveAs,
     newDocument,
+    newDocumentFromClipboard,
     closeTabs,
     planClose,
     reorderTabs,
@@ -962,6 +963,28 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     newDocument(format);
   }
 
+  /** "Neu aus Zwischenablage" (CONTEXT.md): the clipboard text becomes a new untitled document;
+   * nothing opens when it is not well-formed XML or JSON. */
+  async function handleNewFromClipboard(): Promise<void> {
+    setError(null);
+    let text: string;
+    try {
+      text = await host.readClipboardText();
+    } catch {
+      setError(t("clipboard.readFailed"));
+      return;
+    }
+    try {
+      newDocumentFromClipboard(text);
+    } catch (err) {
+      setError(
+        err instanceof NotXmlOrJsonError
+          ? t("clipboard.notXmlOrJson")
+          : t("clipboard.invalidDocument").replace("{detail}", toErrorMessage(err)),
+      );
+    }
+  }
+
   /**
    * Plans a Baumaktion in @jaxel/core, executes it as one undo step and applies the follow-up
    * the plan asks for (select/reveal the new nodes, expand their parent, open the editor).
@@ -1076,7 +1099,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     setError(null);
     let text: string;
     try {
-      text = await navigator.clipboard.readText();
+      text = await host.readClipboardText();
     } catch {
       setError(t("clipboard.readFailed"));
       return;
@@ -1157,6 +1180,9 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     switch (id) {
       case "newDocument":
         setNewDocOpen(true);
+        break;
+      case "newFromClipboard":
+        void handleNewFromClipboard();
         break;
       case "openFile":
         void handleOpen();
@@ -1254,6 +1280,13 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       if (ctrl && event.key.toLowerCase() === "n" && isActionEnabled("newDocument", actionContext)) {
         event.preventDefault();
         runAction("newDocument");
+        return;
+      }
+      // Strg+Shift+V always, Strg+V only where it would paste nothing: without an open document.
+      const pasteKey = ctrl && event.key.toLowerCase() === "v";
+      if (pasteKey && (event.shiftKey || !activeDoc) && isActionEnabled("newFromClipboard", actionContext)) {
+        event.preventDefault();
+        runAction("newFromClipboard");
         return;
       }
       if (!activeDoc) return;
@@ -1643,6 +1676,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         label: t("menuBar.file"),
         items: [
           actionProps("newDocument"),
+          actionProps("newFromClipboard"),
           actionProps("openFile"),
           ...recentEntries,
           "separator",
@@ -1858,6 +1892,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
             onOpen={() => void handleOpen()}
             onOpenPath={(path) => void openPath(path)}
             onNew={() => setNewDocOpen(true)}
+            onNewFromClipboard={() => runAction("newFromClipboard")}
             recentFilesLimit={settings.recentFilesLimit}
           />
         )}

@@ -33,15 +33,23 @@ export class CommandBus {
   private readonly redoStack: Command[] = [];
   private readonly listeners = new Set<() => void>();
   /** Undo-stack depth at the last save — the dirty baseline (see `isDirty`). Starts at 0, so
-   * a freshly loaded/created document (empty stack) is clean until its first command. */
-  private savedDepth = 0;
+   * a freshly loaded/created document (empty stack) is clean until its first command; null for
+   * content stored nowhere yet (`hasBaseline: false`), which stays dirty until its first save. */
+  private savedDepth: number | null = 0;
   /** Bumped by every `markSaved()`. See the class doc comment ("Save-Epoche"). */
   private saveEpoch = 0;
   private readonly byteRangeSnapshots = new WeakMap<Command, ByteRangeSnapshot>();
   /** `saveEpoch` at the time each command last ran (do, undo or redo). */
   private readonly lastRunEpoch = new WeakMap<Command, number>();
 
-  constructor(private readonly doc: JaxelDocument) {}
+  /** `hasBaseline: false` — the content is stored nowhere yet (pasted from the clipboard, a
+   * Base64 preview), so it is dirty until saved and no undo makes it clean (CONTEXT.md "Baseline"). */
+  constructor(
+    private readonly doc: JaxelDocument,
+    options: { hasBaseline?: boolean } = {},
+  ) {
+    if (options.hasBaseline === false) this.savedDepth = null;
+  }
 
   getDocument(): JaxelDocument {
     return this.doc;
@@ -54,7 +62,7 @@ export class CommandBus {
     const isCoalesce =
       command.coalesceKey !== undefined &&
       previous?.coalesceKey === command.coalesceKey &&
-      this.undoStack.length > this.savedDepth;
+      this.undoStack.length > (this.savedDepth ?? -1);
 
     let stackEntry: Command;
     if (isCoalesce) {
@@ -153,7 +161,7 @@ export class CommandBus {
    * depth could coincidentally match the baseline again despite different content. Same
    * trade-off most editors with undo-based dirty tracking accept. */
   isDirty(): boolean {
-    return this.undoStack.length !== this.savedDepth;
+    return this.savedDepth === null || this.undoStack.length !== this.savedDepth;
   }
 
   /** For React (or any UI) to re-render after a mutation. Returns an unsubscribe function. */

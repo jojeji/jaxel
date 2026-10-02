@@ -28,6 +28,8 @@ export interface JaxelHost {
   pickSaveFile(defaultPath: string, extensions: string[]): Promise<string | null>;
   getVersion(): Promise<string | null>;
   getPortableStorageWarning(): Promise<string | null>;
+  /** Text currently in the system clipboard. Rejects when it cannot be read. */
+  readClipboardText(): Promise<string>;
   takePendingOpenPaths(): Promise<string[]>;
   onPendingOpenPaths(handler: () => void): () => void;
   onCloseRequested(handler: (event: { preventDefault: () => void }) => void): () => void;
@@ -103,6 +105,16 @@ function createTauriHost(): JaxelHost {
     },
     async getPortableStorageWarning() {
       return invoke<string | null>("portable_storage_warning");
+    },
+    async readClipboardText() {
+      // The plugin reads the OS clipboard directly; the WebView's own API may be restricted in
+      // WebKitGTK (docs/status.md, AP7). Its result is the fallback, e.g. outside a Tauri window.
+      try {
+        const { readText } = await import("@tauri-apps/plugin-clipboard-manager");
+        return await readText();
+      } catch {
+        return navigator.clipboard.readText();
+      }
     },
     takePendingOpenPaths: async () => {
       return invoke<string[]>("take_pending_open_paths");
@@ -260,6 +272,7 @@ function createVscodeHost(): JaxelHost {
     pickSaveFile: (defaultPath, extensions) => request<string | null>({ type: "pickSaveFile", defaultPath, extensions }, "pickSaveFileResponse"),
     getVersion: async () => null,
     getPortableStorageWarning: async () => null,
+    readClipboardText: () => navigator.clipboard.readText(),
     takePendingOpenPaths: async () => [],
     onPendingOpenPaths: () => () => {},
     onCloseRequested: () => () => {},

@@ -14,6 +14,7 @@ import type { TreeActionKind } from "@jaxel/core";
  */
 export type AppActionId =
   | "newDocument"
+  | "newFromClipboard"
   | "openFile"
   | "save"
   | "saveAs"
@@ -69,6 +70,11 @@ const oneSelected = (context: ActionContext): boolean => context.selectionCount 
 
 export const ACTIONS: Record<AppActionId, ActionSpec> = {
   newDocument: { labelKey: "welcome.newDocument", shortcut: (k) => `${k.ctrl}+N`, enabled: (c) => !c.embedded },
+  newFromClipboard: {
+    labelKey: "welcome.newFromClipboard",
+    shortcut: (k) => `${k.ctrl}+Shift+V`,
+    enabled: (c) => !c.embedded,
+  },
   openFile: { labelKey: "welcome.openFile", shortcut: (k) => `${k.ctrl}+O`, enabled: (c) => !c.embedded },
   save: { labelKey: "welcome.save", shortcut: (k) => `${k.ctrl}+S`, enabled: withDocument },
   saveAs: {

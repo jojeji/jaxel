@@ -1894,6 +1894,58 @@ describe("Baum-Änderungsmarker (Settings: default aus)", () => {
   });
 });
 
+describe("Neu aus Zwischenablage", () => {
+  /** Outside a Tauri window the plugin cannot run and host.readClipboardText falls back to the
+   * WebView's clipboard — stubbed here. Call after userEvent.setup() (see stubClipboard). */
+  function clipboardHolds(text: string): void {
+    stubClipboard();
+    readText.mockResolvedValue(text);
+  }
+
+  it("öffnet XML aus der Zwischenablage über den Startscreen als ungespeichertes Dokument", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    clipboardHolds('<?xml version="1.0"?>\n<auftrag><nr>7</nr></auftrag>');
+    await user.click(screen.getByRole("button", { name: "Aus Zwischenablage" }));
+
+    const tab = (await screen.findByText("Unbenannt-1", { selector: ".tab__label" })).closest(".tab");
+    expect(screen.getByText("auftrag", { selector: ".tree-row__name" })).toBeInTheDocument();
+    expect(tab).toHaveClass("tab--dirty");
+  });
+
+  it("Strg+V ohne offenes Dokument öffnet JSON aus der Zwischenablage", async () => {
+    clipboardHolds('{"kunde": "Anna", "nr": 7}');
+    renderApp();
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+    expect(await screen.findByText("kunde", { selector: ".tree-row__name" })).toBeInTheDocument();
+  });
+
+  it("Strg+Shift+V öffnet auch bei offenem Dokument einen neuen Tab", async () => {
+    await openSampleFile();
+    clipboardHolds("<neu/>");
+    fireEvent.keyDown(window, { key: "V", ctrlKey: true, shiftKey: true });
+    expect(await screen.findByText("Unbenannt-1", { selector: ".tab__label" })).toBeInTheDocument();
+    expect(screen.getByText("sample.xml", { selector: ".tab__label" })).toBeInTheDocument();
+  });
+
+  it("meldet Text, der weder XML noch JSON ist, und öffnet nichts", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    clipboardHolds("Hallo Welt");
+    await user.click(screen.getByRole("button", { name: "Aus Zwischenablage" }));
+    expect(await screen.findByText("Die Zwischenablage enthält kein XML oder JSON.")).toBeInTheDocument();
+    expect(screen.queryByText("Unbenannt-1", { selector: ".tab__label" })).not.toBeInTheDocument();
+  });
+
+  it("meldet kaputtes XML mit dem Hinweis des Parsers", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    clipboardHolds("<a><b></a>");
+    await user.click(screen.getByRole("button", { name: "Aus Zwischenablage" }));
+    expect(await screen.findByText(/^Die Zwischenablage enthält kein gültiges XML\/JSON: /)).toBeInTheDocument();
+  });
+});
+
 describe("Neues Dokument anlegen", () => {
   it("legt ein neues XML-Dokument mit leerem <root> an und nennt den Tab 'Unbenannt-1'", async () => {
     const user = userEvent.setup();

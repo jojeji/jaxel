@@ -6,7 +6,7 @@ import {
   type PathSegment,
 } from "@jaxel/core";
 import type { HostFileContent, HostFileStat } from "../host.js";
-import { Workspace, type WorkspaceHost, type WorkspaceSnapshot } from "./workspace.js";
+import { NotXmlOrJsonError, Workspace, type WorkspaceHost, type WorkspaceSnapshot } from "./workspace.js";
 
 /** Second adapter at the workspace's host seam: files live in a Map, writes bump the mtime. */
 class InMemoryHost implements WorkspaceHost {
@@ -523,3 +523,57 @@ describe("Neu laden und Konvertieren", () => {
   });
 
 });
+
+describe("Neu aus Zwischenablage", () => {
+  it("erkennt XML am Inhalt und öffnet ein unbenanntes, ungespeichertes Dokument", () => {
+    const workspace = new Workspace(new InMemoryHost());
+    expect(workspace.newDocumentFromClipboard('  <?xml version="1.0"?>\n<r><a>1</a></r>')).toBe("xml");
+    const { doc } = active(workspace);
+    expect(doc.isUntitled).toBe(true);
+    expect(doc.format).toBe("xml");
+    expect(doc.document.root.name).toBe("r");
+    expect(doc.isDirty).toBe(true);
+  });
+
+  it("erkennt JSON (Objekt und Array)", () => {
+    const workspace = new Workspace(new InMemoryHost());
+    expect(workspace.newDocumentFromClipboard('{"a": 1, "b": 2}')).toBe("json");
+    expect(workspace.newDocumentFromClipboard("[1, 2]")).toBe("json");
+    expect(workspace.getSnapshot().docs).toHaveLength(2);
+  });
+
+  it("bleibt nach Bearbeiten und Rückgängig ungespeichert, erst Speichern macht es sauber", async () => {
+    const host = new InMemoryHost();
+    const workspace = new Workspace(host);
+    workspace.newDocumentFromClipboard('{"a": "x", "b": 2}');
+    const { doc } = active(workspace);
+    const a = doc.document.root.children[0]!;
+    doc.commandBus.execute(createSetValueCommand(a, "y", "string", [doc.document.root]));
+    doc.commandBus.undo();
+    expect(active(workspace).doc.isDirty).toBe(true);
+    await workspace.saveFileAs(doc.filePath, "/neu.json");
+    expect(active(workspace).doc.isDirty).toBe(false);
+    expect(JSON.parse(host.files.get("/neu.json")!)).toEqual({ a: "x", b: 2 });
+  });
+
+  it("lehnt Text ab, der weder XML noch JSON ist, und öffnet nichts", () => {
+    const workspace = new Workspace(new InMemoryHost());
+    expect(() => workspace.newDocumentFromClipboard("Hallo Welt")).toThrow(NotXmlOrJsonError);
+    expect(() => workspace.newDocumentFromClipboard("   ")).toThrow(NotXmlOrJsonError);
+    expect(() => workspace.newDocumentFromClipboard("<r><a></r>")).toThrow();
+    expect(workspace.getSnapshot().docs).toHaveLength(0);
+  });
+
+  it("ein Dokument aus übergebenem Text (Base64-Vorschau) ist ebenfalls ungespeichert", () => {
+    const workspace = new Workspace(new InMemoryHost());
+    workspace.newDocument("xml", "<r>dekodiert</r>");
+    expect(active(workspace).doc.isDirty).toBe(true);
+  });
+
+  it("ein leeres neues Dokument startet weiterhin sauber", () => {
+    const workspace = new Workspace(new InMemoryHost());
+    workspace.newDocument("xml");
+    expect(active(workspace).doc.isDirty).toBe(false);
+  });
+});
+
