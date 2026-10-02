@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Copy } from "@phosphor-icons/react";
 import { looksLikeBase64, type DocNode } from "@jaxel/core";
 import { useI18n } from "../i18n/index.js";
 
@@ -10,6 +11,12 @@ interface AttributesPanelProps {
   selectionCount: number;
   /** Value edit / remove (value: null) for the attribute named `name`. */
   onSetAttribute: (name: string, value: string | null, coalesceKey?: string) => void;
+  /** Live edit of the selected node's direct text value. */
+  onSetValue: (value: string, coalesceKey: string) => void;
+  /** Copy the selected node's direct text value. */
+  onCopyValue: (value: string) => void;
+  /** Avoid presenting a second value editor while the tree's inline editor is active. */
+  hideNodeValue?: boolean;
   /** Live rename of the attribute at `index` (position + value untouched). */
   onRenameAttribute: (index: number, newName: string, coalesceKey: string) => void;
   /** Creates a new attribute (empty value) as soon as the user starts typing a name. */
@@ -25,6 +32,9 @@ export function AttributesPanel({
   node,
   selectionCount,
   onSetAttribute,
+  onSetValue,
+  onCopyValue,
+  hideNodeValue = false,
   onRenameAttribute,
   onCreateAttribute,
   onDecodeBase64,
@@ -59,9 +69,35 @@ export function AttributesPanel({
 
   return (
     <aside className="attributes-panel">
-      <h3>{t("attributes.title")}</h3>
       <div className="attributes-panel__node-name">{node.name}</div>
       {readOnly && <p className="attributes-panel__read-only">{t("attributes.readOnly")}</p>}
+      {!hideNodeValue && (node.kind === "comment" || node.children.length === 0) && (
+        <div className="attributes-panel__value">
+          <div className="attributes-panel__value-heading">
+            <label htmlFor="attributes-node-value">{t("attributes.nodeValue")}</label>
+            <button
+              type="button"
+              className="attributes-panel__copy-value"
+              aria-label={t("attributes.copyNodeValue")}
+              title={t("attributes.copyNodeValue")}
+              disabled={!node.value}
+              onClick={() => onCopyValue(node.value ?? "")}
+            >
+              <Copy size={14} weight="regular" aria-hidden />
+            </button>
+          </div>
+          <textarea
+            id="attributes-node-value"
+            className="attributes-panel__value-editor"
+            aria-label={t("attributes.nodeValue")}
+            value={node.value ?? ""}
+            readOnly={readOnly}
+            rows={3}
+            onChange={(event) => onSetValue(event.target.value, `node-value:${node.id}`)}
+          />
+        </div>
+      )}
+      <h3>{t("attributes.title")}</h3>
       <table className="attributes-panel__table">
         <tbody>
           {node.attributes.map((attribute, index) => (

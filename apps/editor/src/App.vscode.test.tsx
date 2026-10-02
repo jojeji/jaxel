@@ -30,6 +30,7 @@ function createFakeVscodeHost() {
     readTextFile: async () => file,
     writeTextFile: async () => ({ mtimeMs: 2000, size: 1 }),
     statFile,
+    getPortableStorageWarning: async () => null,
     pickOpenFile: async () => null,
     pickSaveFile: async () => null,
     getVersion: async () => null,

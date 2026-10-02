@@ -56,6 +56,8 @@ const SECOND_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </item>
 </inventory>`;
 
+const EMPTY_XML = `<catalog><empty/><parent><child/></parent></catalog>`;
+
 // btoa statt Buffer: dieser Test läuft im Browser (siehe vite.config.ts), und alle Payloads
 // hier sind reines ASCII — für die ist btoa ein exakter Ersatz.
 const B64_XML_PAYLOAD = `<hello>${"x".repeat(60)}</hello>`;
@@ -109,6 +111,7 @@ const FILES: Record<string, string> = {
   "/fake/source.ext": SAMPLE_XML,
   "/fake/kommentare.xml": COMMENTED_XML,
   "/fake/second.xml": SECOND_XML,
+  "/fake/empty.xml": EMPTY_XML,
   "/fake/blob.xml": BLOB_XML,
   "/fake/namespaced.xml": NAMESPACED_XML,
   "/fake/sample.json": SAMPLE_JSON,
@@ -199,6 +202,24 @@ async function openSampleFile(path = "/fake/sample.xml") {
   return user;
 }
 
+/** Value text now appears in both the tree row and the right-side editor when its node is
+ * selected; these helpers explicitly target the tree representation. */
+function queryTreeText(text: string): HTMLElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLElement>(".tree-row__name, .tree-row__preview"))
+      .find((element) => element.textContent === text) ?? null
+  );
+}
+
+async function findTreeText(text: string): Promise<HTMLElement> {
+  let element: HTMLElement | null = null;
+  await waitFor(() => {
+    element = queryTreeText(text);
+    expect(element).not.toBeNull();
+  });
+  return element!;
+}
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {
@@ -252,7 +273,7 @@ describe("Datei öffnen und Baumdarstellung", () => {
 });
 
 describe("Auswahl, Auf-/Zuklappen per Klick und Attribute-Panel", () => {
-  it("Klick auf einen Container selektiert UND klappt ihn auf, zweiter Klick zu", async () => {
+  it("Zeilenklick klappt nur auf; zum Zuklappen dient der Pfeil", async () => {
     const user = await openSampleFile();
     await user.click(screen.getAllByText("person")[0]!);
     // person P-1 ist jetzt aufgeklappt: Kinder sichtbar, Attribute-Panel zeigt die Auswahl.
@@ -260,7 +281,54 @@ describe("Auswahl, Auf-/Zuklappen per Klick und Attribute-Panel", () => {
     expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
 
     await user.click(screen.getAllByText("person")[0]!);
+    expect(screen.getByText("Anna")).toBeInTheDocument();
+
+    const row = screen.getAllByText("person", { selector: ".tree-row__name" })[0]!.closest(".tree-row")!;
+    await user.click(row.querySelector(".tree-row__twisty")!);
     expect(screen.queryByText("Anna")).not.toBeInTheDocument();
+  });
+
+  it("zeigt den direkten Knotenwert im Panel, kopiert ihn und bündelt die Eingabe als einen Undo-Schritt", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(screen.getAllByText("person")[0]!);
+    await user.click(screen.getByText("Anna"));
+
+    const value = screen.getByRole("textbox", { name: "Wert" });
+    expect(value).toHaveValue("Anna");
+    await user.click(screen.getByRole("button", { name: "Wert kopieren" }));
+    expect(writeText).toHaveBeenCalledWith("Anna");
+
+    await user.clear(value);
+    await user.type(value, "Lena");
+    expect(within(document.querySelector(".tree-row--selected") as HTMLElement).getByText("Lena")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getByRole("textbox", { name: "Wert" })).toHaveValue("Anna");
+  });
+
+  it("startet den Werteditor per Doppelklick auf die freie Fläche eines leeren Blattelements", async () => {
+    await openSampleFile("/fake/empty.xml");
+    const emptyRow = screen.getByText("empty", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
+    fireEvent.doubleClick(emptyRow);
+    expect(within(emptyRow).getByRole("textbox")).toBeInTheDocument();
+
+    const parentRow = screen.getByText("parent", { selector: ".tree-row__name" }).closest(".tree-row") as HTMLElement;
+    fireEvent.doubleClick(parentRow);
+    expect(within(parentRow).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("bietet die schnellen Einfüge-Buttons an und deaktiviert sie ohne passende Auswahl", async () => {
+    const user = await openSampleFile();
+    const sibling = screen.getByRole("button", { name: "Geschwister anlegen" });
+    const child = screen.getByRole("button", { name: "Kind hinzufügen" });
+    expect(sibling).toBeDisabled();
+    expect(child).toBeDisabled();
+
+    await user.click(screen.getAllByText("person")[0]!);
+    expect(sibling).toBeEnabled();
+    expect(child).toBeEnabled();
+    await user.click(child);
+    expect(screen.getAllByDisplayValue("node")).toHaveLength(1);
   });
 
   it("zeigt 'Kein Knoten ausgewählt' ohne Auswahl", async () => {
@@ -351,8 +419,8 @@ describe("Wert editieren (Doppelklick / Enter) und Undo/Redo", () => {
     await user.clear(input);
     await user.type(input, "München");
     fireEvent.blur(input);
-    expect(await screen.findByText("München")).toBeInTheDocument();
-    expect(screen.queryByText("Berlin")).not.toBeInTheDocument();
+    expect(await findTreeText("München")).toBeInTheDocument();
+    expect(queryTreeText("Berlin")).not.toBeInTheDocument();
   });
 
   it("Enter editiert den Wert des ausgewaehlten Blattknotens", async () => {
@@ -371,22 +439,21 @@ describe("Wert editieren (Doppelklick / Enter) und Undo/Redo", () => {
     await user.clear(input);
     await user.type(input, "München");
     await user.keyboard("{Enter}");
-    await screen.findByText("München");
+    await findTreeText("München");
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
-    expect(await screen.findByText("Berlin")).toBeInTheDocument();
+    expect(await findTreeText("Berlin")).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "y", ctrlKey: true });
-    expect(await screen.findByText("München")).toBeInTheDocument();
+    expect(await findTreeText("München")).toBeInTheDocument();
   });
 });
 
 describe("Pfeiltasten-Navigation", () => {
   it("Auf/Ab bewegt die Auswahl durch sichtbare Zeilen", async () => {
     const user = await openSampleFile();
-    await user.click(screen.getByText("catalog")); // selektiert + klappt zu
-    fireEvent.keyDown(window, { key: "ArrowRight" }); // wieder aufklappen
-    fireEvent.keyDown(window, { key: "ArrowDown" }); // -> person P-1
+    await user.click(screen.getByText("catalog")); // selektiert; der offene Container bleibt offen
+    fireEvent.keyDown(window, { key: "ArrowRight" }); // -> person P-1
     expect(screen.getByText("person", { selector: ".attributes-panel__node-name" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("P-1")).toBeInTheDocument();
 
@@ -532,7 +599,7 @@ describe("Knoten einfuegen/loeschen/duplizieren", () => {
     await user.click(screen.getByText("Anna")); // Blattknoten "name" auswählen
     fireEvent.keyDown(window, { key: "+", ctrlKey: true, shiftKey: true });
     expect(screen.queryByDisplayValue("node")).not.toBeInTheDocument();
-    expect(screen.getByText("Anna")).toBeInTheDocument();
+    expect(queryTreeText("Anna")).toBeInTheDocument();
   });
 
   it("Strg+D dupliziert den ausgewaehlten Knoten samt Unterbaum als naechstes Geschwister", async () => {
@@ -632,6 +699,15 @@ describe("Mehrfachauswahl im Baum", () => {
 
     fireEvent.keyDown(window, { key: "d", ctrlKey: true });
     expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(4);
+    const personRows = Array.from(document.querySelectorAll(".tree-row")).filter(
+      (row) => row.querySelector(".tree-row__name")?.textContent === "person",
+    );
+    expect(personRows.map((row) => row.querySelector(".tree-row__attrs")?.textContent)).toEqual([
+      'id="P-1"',
+      'id="P-2"',
+      'id="P-1"',
+      'id="P-2"',
+    ]);
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     expect(screen.getAllByText("person", { selector: ".tree-row__name" })).toHaveLength(2);
@@ -1764,7 +1840,7 @@ describe("Baum-Änderungsmarker (Settings: default aus)", () => {
     await user.clear(input);
     await user.type(input, "München");
     await user.keyboard("{Enter}");
-    await screen.findByText("München");
+    await findTreeText("München");
 
     expect(document.querySelector(".tree-row__change-marker")).not.toBeInTheDocument();
   });
@@ -1780,7 +1856,7 @@ describe("Baum-Änderungsmarker (Settings: default aus)", () => {
     await user.clear(input);
     await user.type(input, "München");
     await user.keyboard("{Enter}");
-    await screen.findByText("München");
+    await findTreeText("München");
 
     const cityRow = screen.getByText("city", { selector: ".tree-row__name" }).closest(".tree-row")!;
     expect(cityRow.querySelector(".tree-row__change-marker--modified")).toBeInTheDocument();
@@ -2058,7 +2134,7 @@ describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
     await user.clear(input);
     await user.type(input, "München");
     await user.keyboard("{Enter}");
-    await screen.findByText("München");
+    await findTreeText("München");
 
     expect(sampleTab()).toHaveClass("tab--dirty");
 
@@ -2075,22 +2151,22 @@ describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
     await user.clear(input);
     await user.type(input, "München");
     await user.keyboard("{Enter}");
-    await screen.findByText("München");
+    await findTreeText("München");
 
     await user.keyboard("{Control>}s{/Control}");
     await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
 
-    const munich = await screen.findByText("München");
+    const munich = await findTreeText("München");
     await user.dblClick(munich);
     const input2 = screen.getByDisplayValue("München");
     await user.clear(input2);
     await user.type(input2, "Köln");
     await user.keyboard("{Enter}");
-    await screen.findByText("Köln");
+    await findTreeText("Köln");
     expect(sampleTab()).toHaveClass("tab--dirty");
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
-    await screen.findByText("München");
+    await findTreeText("München");
     expect(sampleTab()).not.toHaveClass("tab--dirty");
   });
 
@@ -2105,7 +2181,7 @@ describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
     await user.clear(cityInput);
     await user.type(cityInput, "München");
     await user.keyboard("{Enter}");
-    await screen.findByText("München");
+    await findTreeText("München");
     await user.keyboard("{Control>}s{/Control}");
     await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
 
@@ -2117,7 +2193,7 @@ describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "Bertram");
     await user.keyboard("{Enter}");
-    await screen.findByText("Bertram");
+    await findTreeText("Bertram");
     await user.keyboard("{Control>}s{/Control}");
     await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
 
@@ -2143,12 +2219,12 @@ describe("Tab-Dirty-Anzeige (Punkt bei ungespeicherten Änderungen)", () => {
     await user.clear(cityInput);
     await user.type(cityInput, "München");
     await user.keyboard("{Enter}");
-    await screen.findByText("München");
+    await findTreeText("München");
     await user.keyboard("{Control>}s{/Control}");
     await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true }); // Strg+Z
-    await screen.findByText("Berlin");
+    await findTreeText("Berlin");
     await user.keyboard("{Control>}s{/Control}");
     await waitFor(() => expect(sampleTab()).not.toHaveClass("tab--dirty"));
 
@@ -3039,7 +3115,7 @@ describe("Kommentare im Baum", () => {
 
     expect(await screen.findByText(/„--“|"--"|--/, { selector: ".toast__message" })).toBeInTheDocument();
     // Der Kommentar bleibt unverändert.
-    expect(screen.getByText("die erste Person")).toBeInTheDocument();
+    expect(queryTreeText("die erste Person")).toBeInTheDocument();
   });
 
   it("legt über das Kontextmenü einen neuen Kommentar an", async () => {

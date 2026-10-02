@@ -102,12 +102,12 @@ describe("createBulkRemoveCommand", () => {
 });
 
 describe("createBulkDuplicateCommand", () => {
-  it("inserts a copy after each selected node as one step", () => {
+  it("inserts selected copies as one ordered block after the last selected node", () => {
     const { root, rows } = flatTree("a", "b", "c");
     const result = createBulkDuplicateCommand([rows[0]!, rows[2]!])!;
 
     result.command.do(noDoc);
-    expect(names(root)).toEqual(["a", "a", "b", "c", "c"]);
+    expect(names(root)).toEqual(["a", "b", "c", "a", "c"]);
 
     result.command.undo(noDoc);
     expect(names(root)).toEqual(["a", "b", "c"]);
@@ -123,6 +123,30 @@ describe("createBulkDuplicateCommand", () => {
 
   it("returns null when nothing is duplicable", () => {
     expect(createBulkDuplicateCommand([])).toBeNull();
+  });
+
+  it("returns null for mixed-parent and parent-child selections", () => {
+    const child = createNode({ name: "child" });
+    const parent = createNode({ name: "parent", children: [child] });
+    const other = createNode({ name: "other" });
+    const root = createNode({ name: "root", children: [parent, other] });
+
+    expect(createBulkDuplicateCommand([
+      { node: parent, ancestors: [root] },
+      { node: other, ancestors: [root] },
+    ])).not.toBeNull();
+    expect(createBulkDuplicateCommand([
+      { node: parent, ancestors: [root] },
+      { node: child, ancestors: [root, parent] },
+    ])).toBeNull();
+
+    const elsewhere = createNode({ name: "elsewhere" });
+    const branch = createNode({ name: "branch", children: [elsewhere] });
+    const splitRoot = createNode({ name: "root", children: [other, branch] });
+    expect(createBulkDuplicateCommand([
+      { node: other, ancestors: [splitRoot] },
+      { node: elsewhere, ancestors: [splitRoot, branch] },
+    ])).toBeNull();
   });
 });
 

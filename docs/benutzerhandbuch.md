@@ -125,7 +125,8 @@ dekodierten Inhalt weiterhin temporär und öffnet ihn mit dem Standardprogramm 
 
 ## Baumansicht und Navigation
 
-- **Klick** auf einen Knoten: auswählen und (bei Containern) auf-/zuklappen.
+- **Klick** auf einen Knoten: auswählen; zugeklappte Container klappen auf. Offene Container
+  bleiben offen. Zum Zuklappen den Pfeil links neben dem Knoten anklicken.
 - **Mehrere Knoten auswählen**: `Strg`+Klick wählt einen Knoten zusätzlich aus bzw. wieder ab,
   `Shift`+Klick wählt den ganzen Bereich zwischen dem zuletzt angeklickten und diesem Knoten.
   Mit `Strg`/`Shift` wird nur ausgewählt — der Knoten klappt dabei nicht auf oder zu. Die Auswahl
@@ -147,6 +148,9 @@ dekodierten Inhalt weiterhin temporär und öffnet ihn mit dem Standardprogramm 
   zuklappen" zur Verfügung. `NumPad *` öffnet alle Knoten unter der aktuellen Baumwurzel,
   `NumPad /` schließt sie wieder. In einer Fokus-Ansicht gilt die Aktion nur für den fokussierten
   Unterbaum; die Wurzel bleibt sichtbar.
+- **Leeres Blatt bearbeiten**: Ein Doppelklick auf die freie Fläche rechts neben einem leeren
+  Blattelement (`<x/>`) startet die Werteingabe. Bei Knoten mit Kindern öffnet dieser Doppelklick
+  keinen Editor.
 - **Verschieben per Drag&Drop**: Knoten einfach ziehen. Beim Ziehen ist die Zeile halbtransparent,
   damit die Einfüge-Linie/Als-Kind-Markierung darunter sichtbar bleibt. Eine Linie zwischen den
   Zeilen zeigt die Ziel-Position als Geschwister; landet der Mauszeiger mittig auf einer Zeile,
@@ -162,7 +166,10 @@ dekodierten Inhalt weiterhin temporär und öffnet ihn mit dem Standardprogramm 
   Fokus). Wird der fokussierte Knoten gelöscht, springt der Fokus automatisch eine Ebene höher.
 - Das rechte Seitenpanel zeigt die **Attribute** des ausgewählten Knotens: Namen UND Werte
   direkt ändern, `×` entfernt ein Attribut. Ein neues Attribut entsteht, sobald du im
-  Namensfeld der letzten Zeile zu tippen beginnst — es erscheint sofort im Baum.
+  Namensfeld der letzten Zeile zu tippen beginnst — es erscheint sofort im Baum. Bei Blattknoten
+  zeigt es außerdem den direkten Knotenwert zum Bearbeiten und ein Kopier-Icon. Das Icon kopiert
+  nur den Wert, nicht den Unterbaum; bei leerem Wert ist es deaktiviert. Knoten mit Kindern haben
+  kein Wertefeld, weil Wert und Kinder nicht gleichzeitig gespeichert werden können.
 
 ## Änderungen im Baum markieren (optional)
 
@@ -188,8 +195,12 @@ Standardmäßig ausgeschaltet, in den Einstellungen unter „Baum" aktivierbar:
   Text bzw. JSON-Wert kann keine Kinder bekommen (die Aktion ist ausgegraut, Hineinziehen nicht
   möglich) — beides zusammen lässt sich nicht speichern, eines ginge verloren. Ein leerer Knoten
   (`<a/>`, `"a": ""`) wird durch das erste Kind zum Container.
+- **Schnell hinzufügen**: Die Toolbar bietet `+` für ein Geschwisterelement und `++` für ein
+  Kindelement des ausgewählten Knotens.
 - **Duplizieren**: `Strg+D` oder Menü „Bearbeiten" → „Duplizieren" — kopiert den Knoten samt
-  Unterbaum direkt darunter. Mit mehreren ausgewählten Knoten wird jeder von ihnen dupliziert.
+  Unterbaum direkt darunter. Mit mehreren ausgewählten Geschwistern werden ihre Kopien in
+  Baumreihenfolge als zusammenhängender Block hinter der Auswahl eingefügt. Auswahlen mit
+  unterschiedlichen Eltern lassen sich nicht gemeinsam duplizieren.
 - **Löschen**: `Entf` oder Menü „Bearbeiten" → „Löschen" (die Wurzel ist nicht löschbar). Mit
   mehreren ausgewählten Knoten werden alle auf einmal gelöscht.
 - **Kopieren/Einfügen**: `Strg+C` legt den Knoten als XML-/JSON-Text in die System-Zwischenablage

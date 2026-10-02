@@ -68,6 +68,25 @@ afterEach(() => {
 });
 
 describe("Referenzbilder je Theme", () => {
+  it("hält den Wert nah am kurzen Attribut", () => {
+    const { container } = render(
+      <div className="tree-view" style={{ width: 420, height: ROW_HEIGHT, position: "relative" }}>
+        <div className="tree-row" style={{ top: 0, height: ROW_HEIGHT }}>
+          <span className="tree-row__name">item</span>
+          <span className="tree-row__attrs">id="1"</span>
+          <span className="tree-row__preview">A</span>
+        </div>
+      </div>,
+    );
+    const attributes = container.querySelector(".tree-row__attrs")!;
+    const preview = container.querySelector(".tree-row__preview")!;
+    const text = document.createRange();
+    text.selectNodeContents(attributes);
+
+    const contentGap = preview.getBoundingClientRect().left - text.getBoundingClientRect().right;
+    expect(contentGap).toBeLessThan(24);
+  });
+
   it.each(THEMES)("Theme '%s'", async (theme) => {
     document.documentElement.dataset.theme = theme;
     const { container } = render(<TreeSample />);
