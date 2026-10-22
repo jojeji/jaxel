@@ -2109,3 +2109,25 @@ Quelltextansicht, Suche im dunklen Farbschema, Startscreen). Aufgenommen mit Pla
 Vite-Dev-Server und ein nachgebildetes Tauri-Backend, Beispieldateien erfunden (Bestellung). Der Text
 folgt dem Skill „stop-slop“. Der Ordner `.ua` (Understand) und der Hinweis darauf in AGENTS.md sind
 entfernt.
+
+
+## Nachtrag 2026-10-22 — Portable: WebView2-Runtime neben der EXE
+
+Auslöser: Ein Kollege startete die portable ZIP unter Windows ohne installierte WebView2-Runtime
+(Loader-Dialog „Could not find the WebView2 Runtime“). Kein Jaxel-Fehler, aber die Zielgruppe
+(Firmen-Images) trifft es real. Auf Wunsch des PO soll sich der Nutzer die „Fixed Version“-Runtime
+selbst laden und neben die EXE legen können.
+
+- `lib.rs`: `use_bundled_webview2_runtime()` läuft ganz am Start. Nur bei `*-portable.exe` und nur
+  wenn `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` nicht schon gesetzt ist, sucht
+  `find_fixed_webview2_runtime` im EXE-Ordner nach `msedgewebview2.exe` (direkt oder in einem
+  Unterordner, bei mehreren gewinnt der höchste Ordnername) und setzt die Variable, die der
+  WebView2-Loader selbst auswertet.
+- Die ZIP bleibt klein: Die Runtime (ca. 180 MB) wird nicht mitgeliefert und nicht aus dem Workflow
+  geladen. Sie hat keine Auto-Updates; das steht im Handbuch.
+- Doku: README, Handbuch, Changelog.
+- **Annahme/offen:** Dass der Loader die Variable ohne weitere Tauri-Konfiguration berücksichtigt,
+  folgt aus der Microsoft-Doku und ist **nicht auf einem echten Windows-Rechner ohne Runtime
+  getestet**. Die Suchlogik ist per Unit-Test abgedeckt (isoliert mit `rustc` geprüft, der volle
+  Tauri-Build ging in dieser Linux-Umgebung ohne GTK nicht). Bewusst keine eigene Fehlermeldung
+  vor dem Loader-Dialog.

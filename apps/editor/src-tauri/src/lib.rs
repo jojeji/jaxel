@@ -16,6 +16,38 @@ fn portable_data_directory(executable: &Path) -> Option<PathBuf> {
         .then(|| parent.to_path_buf())
 }
 
+/// A "Fixed Version" WebView2 runtime from Microsoft is extracted next to the portable EXE,
+/// either directly or as the one folder the CAB unpacks into. Returns the folder that holds
+/// `msedgewebview2.exe`; with several candidates the highest folder name (newest version) wins.
+fn find_fixed_webview2_runtime(directory: &Path) -> Option<PathBuf> {
+    let has_runtime = |path: &Path| path.join("msedgewebview2.exe").is_file();
+    if has_runtime(directory) {
+        return Some(directory.to_path_buf());
+    }
+    let mut candidates: Vec<PathBuf> = std::fs::read_dir(directory)
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.is_dir() && has_runtime(path))
+        .collect();
+    candidates.sort();
+    candidates.pop()
+}
+
+/// Lets a portable build run on machines without an installed WebView2 runtime. The loader
+/// reads this variable itself; an explicitly set one is never overridden.
+fn use_bundled_webview2_runtime() {
+    if std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER").is_some() {
+        return;
+    }
+    let runtime = std::env::current_exe()
+        .ok()
+        .and_then(|path| portable_data_directory(&path))
+        .and_then(|directory| find_fixed_webview2_runtime(&directory));
+    if let Some(runtime) = runtime {
+        std::env::set_var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", runtime);
+    }
+}
+
 fn portable_directory_is_writable(directory: &Path) -> bool {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -282,6 +314,7 @@ pub fn run() {
         .filter(|arg| PathBuf::from(arg).is_file())
         .collect();
     let activate_on_start = !startup_paths.is_empty();
+    use_bundled_webview2_runtime();
     let portable_storage = resolve_portable_storage();
     let portable_directory = portable_storage.data_directory.clone();
     let portable_log_directory = portable_directory.clone();
@@ -379,7 +412,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::portable_data_directory;
+    use super::{find_fixed_webview2_runtime, portable_data_directory};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -389,6 +422,28 @@ mod tests {
             portable_data_directory(Path::new("tools/Jaxel_0.8.0_x64-portable.exe")),
             Some(PathBuf::from("tools")),
         );
+    }
+
+    #[test]
+    fn finds_fixed_webview2_runtime_next_to_executable() {
+        let root = std::env::temp_dir().join(format!("jaxel-webview2-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("Microsoft.WebView2.FixedVersionRuntime.130.0.1.x64")).unwrap();
+        fs::create_dir_all(root.join("Microsoft.WebView2.FixedVersionRuntime.131.0.2.x64")).unwrap();
+        fs::create_dir_all(root.join("unrelated")).unwrap();
+        assert_eq!(find_fixed_webview2_runtime(&root), None);
+
+        for name in ["Microsoft.WebView2.FixedVersionRuntime.130.0.1.x64", "Microsoft.WebView2.FixedVersionRuntime.131.0.2.x64"] {
+            fs::write(root.join(name).join("msedgewebview2.exe"), "").unwrap();
+        }
+        assert_eq!(
+            find_fixed_webview2_runtime(&root),
+            Some(root.join("Microsoft.WebView2.FixedVersionRuntime.131.0.2.x64")),
+        );
+
+        fs::write(root.join("msedgewebview2.exe"), "").unwrap();
+        assert_eq!(find_fixed_webview2_runtime(&root), Some(root.clone()));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

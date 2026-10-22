@@ -350,6 +350,14 @@ und Logdatei liegen dann neben der EXE; eine zusätzliche Markerdatei ist nicht 
 das Verzeichnis beim Start nicht beschreibbar erkannt, verwendet Jaxel für diese Sitzung den
 normalen AppData-Pfad und zeigt eine Meldung an.
 
+Fehlt auf einem Rechner die Microsoft-Edge-WebView2-Runtime (Dialog „Could not find the WebView2
+Runtime“), lässt sie sich ohne Installation nachliefern: Die „Fixed Version“-Runtime von
+https://developer.microsoft.com/en-us/microsoft-edge/webview2 laden (CAB, x64), entpacken und den
+entstandenen Ordner `Microsoft.WebView2.FixedVersionRuntime…` neben `jaxel-portable.exe` legen (der
+Inhalt direkt neben der EXE geht auch). Jaxel nutzt sie dann beim Start. Eine bereits gesetzte
+Umgebungsvariable `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` hat Vorrang. Diese Runtime aktualisiert sich
+nicht selbst; für Updates den Ordner durch eine neuere Version ersetzen.
+
 In der portablen Windows-App wird die vorhandene Logdatei direkt mit dem Standardprogramm geöffnet.
 Falls noch keine Datei existiert, öffnet Jaxel den Logordner; ein Öffnungsfehler wird mit dem
 Zielpfad angezeigt.
