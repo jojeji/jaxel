@@ -11,6 +11,8 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-22
+
 ### Hinzugefügt
 
 - Portable Windows-App: Eine neben `jaxel-portable.exe` entpackte WebView2-„Fixed Version“-Runtime
