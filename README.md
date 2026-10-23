@@ -109,6 +109,11 @@ schreibgeschützt, nimmt Jaxel für diese Sitzung den normalen Benutzerordner un
 Jaxel braucht die Microsoft Edge WebView2 Runtime. Aktuelle Windows-10- und -11-Systeme haben
 sie an Bord; der Installer ergänzt sie, wenn sie fehlt. Für die portable Variante muss sie da sein.
 
+Fehlt sie (Dialog „Could not find the WebView2 Runtime“), gibt es zwei Wege: die Runtime von
+[Microsoft](https://developer.microsoft.com/en-us/microsoft-edge/webview2) installieren („Evergreen
+Standalone Installer“), oder ohne Installation die „Fixed Version“-Runtime (CAB) von derselben Seite
+laden, entpacken und den Ordner neben `jaxel-portable.exe` legen. Jaxel findet ihn beim Start selbst.
+
 ## Erste Schritte
 
 <img src="docs/bilder/jaxel-start.png" alt="Startscreen mit zuletzt geöffneten Dateien und Tastenkürzeln" width="560" align="right">
