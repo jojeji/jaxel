@@ -11,6 +11,13 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-23
+
+### Geändert
+
+- Versionssprung auf 0.11.0; enthält den Stand von 0.10.1 (Portable-App mit automatisch
+  erkannter WebView2-Fixed-Version-Runtime). 0.10.1 wurde nie als Release veröffentlicht.
+
 ## [0.10.1] - 2026-10-22
 
 ### Hinzugefügt
