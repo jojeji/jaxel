@@ -43,6 +43,9 @@ export function WelcomeScreen({ onOpen, onOpenPath, onNew, onNewFromClipboard, r
     ["NumPad /", t("shortcut.collapseAll")],
     [t("key.delete"), t("shortcut.delete")],
     [`${ctrl}+Z`, t("shortcut.undo")],
+    [`${ctrl}+Alt+C`, t("menu.copyName")],
+    [`${ctrl}+${t("shortcut.mouseWheel")} / ${ctrl}+0`, t("shortcut.zoom")],
+    ["F11", t("menuBar.fullscreen")],
   ];
 
   return (

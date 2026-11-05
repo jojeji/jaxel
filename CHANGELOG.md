@@ -11,6 +11,15 @@ eine Version wird erst beim PO-Kommando „Release" geschnitten.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-05
+
+### Hinzugefügt
+
+- Einstellung „Fenster maximiert starten“ (Programmstart); `F11` schaltet den Vollbildmodus an/aus.
+- Zoom der Editor-Schrift mit `Strg`+Mausrad, `Strg+0` setzt auf Standard zurück.
+- „Bezeichner kopieren“ (`Strg+Alt+C`, Bearbeiten- und Kontextmenü): kopiert den Namen der
+  ausgewählten Knoten wie im Baum angezeigt (XML inkl. Präfix, JSON-Schlüssel), einen pro Zeile.
+
 ## [0.10.1] - 2026-10-22
 
 ### Hinzugefügt

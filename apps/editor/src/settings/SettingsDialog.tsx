@@ -106,6 +106,14 @@ export function SettingsDialog({ settings, onChange, onClose }: SettingsDialogPr
           <label>
             <input
               type="checkbox"
+              checked={settings.startMaximized}
+              onChange={(event) => onChange({ startMaximized: event.target.checked })}
+            />
+            {t("settings.startMaximized")}
+          </label>
+          <label>
+            <input
+              type="checkbox"
               checked={settings.restoreSession}
               onChange={(event) => onChange({ restoreSession: event.target.checked })}
             />

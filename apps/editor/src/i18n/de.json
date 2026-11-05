@@ -208,5 +208,11 @@
   "source.lines": "{count} Zeilen · nur lesen",
   "source.copyAll": "Quelltext kopieren",
   "source.copied": "Quelltext kopiert",
-  "source.generating": "Quelltext wird erzeugt…"
+  "source.generating": "Quelltext wird erzeugt…",
+  "settings.startMaximized": "Fenster maximiert starten",
+  "menu.copyName": "Bezeichner kopieren",
+  "toolbar.nameCopied": "Bezeichner kopiert",
+  "menuBar.fullscreen": "Vollbild",
+  "shortcut.zoom": "Schriftgröße",
+  "shortcut.mouseWheel": "Mausrad"
 }

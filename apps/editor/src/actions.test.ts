@@ -11,6 +11,7 @@ function context(overrides: Partial<ActionContext> = {}): ActionContext {
     hasDocument: true,
     embedded: false,
     selectionCount: 1,
+    selectionHasName: true,
     canUndo: true,
     canRedo: true,
     modalOpen: false,

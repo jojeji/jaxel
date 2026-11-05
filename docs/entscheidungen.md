@@ -1108,3 +1108,23 @@ auf den Quelltext umschalten (nur ansehen). Begriffe in `CONTEXT.md` („Neu aus
    kopieren, Suche und das Eigenschaften-Panel sind aus.
 6. Stufe 2 (offen): Suche im Quelltext, Rückweg „Zeile anklicken → Knoten auswählen“.
 
+
+## 2026-11-05 — Grilling: Maximiert starten, Vollbild, Zoom, Bezeichner kopieren
+
+Vier Wünsche eines Nutzers (Marcel), vom PO entschieden.
+
+1. **Maximiert starten:** Neue Einstellung „Fenster maximiert starten“ (Abschnitt „Programmstart“,
+   Standard aus). Das Frontend ruft beim Start `maximize()` auf, wenn sie an ist — eine Lösung für
+   installierte und portable EXE, ohne Rust-Änderung. Die Taskleiste bleibt sichtbar. Kurzes
+   Aufblitzen in Normalgröße wird in Kauf genommen. Im VS-Code-Modus ohne Wirkung.
+2. **Vollbild:** `F11` schaltet echten Vollbildmodus (Taskleiste weg), auch Menü Ansicht →
+   „Vollbild“. Nicht im VS-Code-Modus. „Maximieren wie beim Designer“ wurde als Einstellung + F11
+   gedeutet (Designer-Code lag nicht vor).
+3. **Zoom:** `Strg`+Mausrad ändert die vorhandene Einstellung `editorFontSize` (10–20, Schritt 1,
+   Standard 12), kein zweiter Zoom-Mechanismus. `Strg+0` setzt auf 12 zurück. Der Standardzoom der
+   WebView wird unterdrückt. `Strg+Plus/Minus` bleiben unangetastet (Knoten anlegen).
+4. **Bezeichner kopieren:** `Strg+Alt+C`, Menü Bearbeiten, Kontextmenü. Kopiert den im Baum
+   angezeigten Namen (XML mit Präfix, JSON-Schlüssel); Mehrfachauswahl: ein Name pro Zeile in
+   Baumreihenfolge; Kommentare haben keinen Namen und werden übersprungen (bei Einzelauswahl
+   ausgegraut). Attribute sind keine Baumknoten und bleiben außen vor. `Strg+C` und
+   `Strg+Shift+C` matchen nur noch ohne Alt.

@@ -325,6 +325,22 @@ Für den ausgewählten Knoten über Menü „Bearbeiten" oder Kontextmenü:
 - **Indizierter Pfad**: `person[0].name` — mit Positionen, eindeutig referenzierbar.
 - **Statischer Pfad**: `person.name` — ohne Indizes, für Schema-/Struktur-Beschreibungen.
 
+## Bezeichner kopieren
+
+Menü „Bearbeiten“, Kontextmenü oder `Strg+Alt+C` kopieren den **Namen** des ausgewählten Knotens,
+so wie er im Baum steht: bei XML inklusive Namespace-Präfix (`ns:Kunde`), bei JSON den Schlüssel.
+Bei Mehrfachauswahl landet ein Name pro Zeile in der Zwischenablage, in Baumreihenfolge. Knoten
+ohne Namen (Kommentare) werden übersprungen; ist nur ein solcher Knoten ausgewählt, ist die Aktion
+ausgegraut. Attribute sind keine Baumknoten und werden nicht einzeln kopiert.
+
+## Zoom und Vollbild
+
+- **`Strg`+Mausrad** (hoch = größer, runter = kleiner) ändert die Schriftgröße im Editor in
+  1-px-Schritten zwischen 10 und 20 px. Es ist dieselbe Einstellung wie „Schriftgröße im Editor“
+  und wird mit ihr gespeichert. `Strg+0` setzt auf den Standard (12 px) zurück.
+- **`F11`** (oder Menü „Ansicht“ → „Vollbild“) schaltet den echten Vollbildmodus ein und aus; die
+  Taskleiste verschwindet. Im VS-Code-Modus gibt es das nicht.
+
 ## Einstellungen
 
 Zahnrad-Button in der Toolbar oder Menü „Extras" → „Einstellungen": **Theme** (Hell ist
@@ -333,7 +349,9 @@ EIN Akzentton, kontrastgeprüft), **Sprache** (Deutsch/Englisch), Such-Filter-Ve
 (Änderungsmarker im Baum, siehe oben, Standard aus), **externe Änderungen** (automatisches
 Neuladen ein-/ausschalten), **Schriftgröße im Editor** (10–20 px), die **Anzahl zuletzt geöffneter
 Dateien** (0–50, Standard 8; 0 leert und verbirgt die Liste) und ob das **Attribute-Panel**
-angezeigt wird. Lange Werte und Attribute umbrechen im Baum bis zu vier Zeilen; der vollständige
+angezeigt wird. Unter „Programmstart“ startet **„Fenster maximiert starten“** (Standard aus) das
+Fenster maximiert, die Taskleiste bleibt sichtbar. Das Fenster erscheint dabei kurz in
+Normalgröße, bis die Oberfläche geladen ist. Lange Werte und Attribute umbrechen im Baum bis zu vier Zeilen; der vollständige
 Text ist per Tooltip erreichbar; beim Bearbeiten öffnet sich für Werte ebenfalls ein vierzeiliges
 Eingabefeld mit automatischem Umbruch. Außerdem kann das Attribute-Panel über die Toolbar oder mit
 `Strg+Alt+A` ein- und ausgeblendet werden. Der Fenster-Modus („eigene Fenster pro Dokument" ist
@@ -397,6 +415,9 @@ Dateipfade, Fehlermeldungen und technische Metadaten.
 | `Strg+D` | Duplizieren |
 | `Strg+C` / `Strg+V` | Knoten kopieren / einfügen |
 | `Strg+Shift+C` | Vollständigen Pfad kopieren |
+| `Strg+Alt+C` | Bezeichner (Namen) kopieren |
+| `Strg`+Mausrad / `Strg+0` | Schriftgröße ändern / auf Standard zurücksetzen |
+| `F11` | Vollbild ein-/ausschalten |
 | `Entf` | Löschen |
 | `Strg+Z` / `Strg+Y` | Rückgängig / Wiederholen |
 

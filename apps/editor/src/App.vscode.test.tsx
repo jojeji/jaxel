@@ -40,6 +40,8 @@ function createFakeVscodeHost() {
     onCloseRequested: () => () => {},
     onFileDrop: () => () => {},
     destroyWindow: async () => {},
+    maximizeWindow: async () => {},
+    toggleFullscreen: async () => {},
     openParentFolder: async () => "",
     openDecodedFile: async () => "",
     openLog: async () => "",

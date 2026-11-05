@@ -208,5 +208,11 @@
   "source.lines": "{count} lines · read-only",
   "source.copyAll": "Copy source",
   "source.copied": "Source copied",
-  "source.generating": "Generating source…"
+  "source.generating": "Generating source…",
+  "settings.startMaximized": "Start window maximized",
+  "menu.copyName": "Copy name",
+  "toolbar.nameCopied": "Name copied",
+  "menuBar.fullscreen": "Full screen",
+  "shortcut.zoom": "Font size",
+  "shortcut.mouseWheel": "Wheel"
 }

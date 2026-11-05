@@ -40,6 +40,7 @@ import { useI18n } from "./i18n/index.js";
 import { installGlobalErrorLogging, logError } from "./logging.js";
 import { getJaxelHost, type JaxelHost } from "./host.js";
 import { conversionErrorMessage, hostErrorMessage, toErrorMessage } from "./errors.js";
+import { namesToCopy } from "./tree/node-names.js";
 import { resolveShortcut, type ShortcutAction } from "./shortcuts.js";
 import { ACTIONS, isActionEnabled, type ActionContext, type AppActionId } from "./actions.js";
 import { useJaxelDocuments } from "./state/document-store.js";
@@ -51,7 +52,7 @@ import {
   tabKey,
   type OpenDocumentState,
 } from "./state/workspace.js";
-import { useSettings } from "./state/settings-store.js";
+import { EDITOR_FONT_SIZE_DEFAULT, useSettings, zoomEditorFontSize } from "./state/settings-store.js";
 import {
   getLastDir,
   rememberLastDir,
@@ -644,6 +645,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     hasDocument: activeDoc !== null,
     embedded,
     selectionCount: sourceView ? 0 : selectedRows.length,
+    selectionHasName: !sourceView && namesToCopy(selectedRows.map((row) => row.node)) !== null,
     canUndo,
     canRedo,
     modalOpen: visibleDialog !== null,
@@ -1288,6 +1290,9 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
       case "copyPathFull":
         handleCopyPath("full");
         break;
+      case "copyName":
+        handleCopyName();
+        break;
       case "copyPath":
         handleCopyPath("indexed");
         break;
@@ -1311,6 +1316,9 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         break;
       case "toggleAttributesPanel":
         setSettings({ showAttributesPanel: !settings.showAttributesPanel });
+        break;
+      case "toggleFullscreen":
+        void host.toggleFullscreen().catch((err) => setError(toErrorMessage(err)));
         break;
       case "settings":
         setSettingsOpen(true);
@@ -1337,6 +1345,18 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
           setSearchOpen(true);
         }
         setSearchFocusRequest((request) => request + 1);
+        return;
+      }
+      // Fenster-/Ansicht-Kürzel, unabhängig von Dokument und Texteingabe.
+      const global = resolveShortcut(event, { hasSelection: false, selectionHasChildren: false });
+      if (global === "toggleFullscreen") {
+        event.preventDefault();
+        runAction("toggleFullscreen");
+        return;
+      }
+      if (global === "zoomReset") {
+        event.preventDefault();
+        setSettings({ editorFontSize: EDITOR_FONT_SIZE_DEFAULT });
         return;
       }
       if (ctrl && event.altKey && event.key.toLowerCase() === "a") {
@@ -1407,6 +1427,8 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
         case "arrowLeft":
           handleArrowLeft();
           break;
+        case "zoomReset": // already handled before the document guard above
+          break;
         default:
           // Every other shortcut is an App-Aktion from actions.ts, under the same enabled rule as
           // its menu entry.
@@ -1416,6 +1438,31 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
+
+  // Strg+Mausrad zoomt die Editor-Schriftgröße (die vorhandene Einstellung, gleiche Persistenz).
+  // Nicht-passiv, damit der Standardzoom der WebView unterdrückt werden kann.
+  const fontSizeRef = useRef(settings.editorFontSize);
+  fontSizeRef.current = settings.editorFontSize;
+  useEffect(() => {
+    function onWheel(event: WheelEvent): void {
+      if (!(event.ctrlKey || event.metaKey) || event.deltaY === 0) return;
+      event.preventDefault();
+      const next = zoomEditorFontSize(fontSizeRef.current, event.deltaY < 0 ? "in" : "out");
+      if (next === fontSizeRef.current) return;
+      fontSizeRef.current = next; // several wheel ticks can arrive before the next render
+      setSettings({ editorFontSize: next });
+    }
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, [setSettings]);
+
+  // "Fenster maximiert starten": einmal beim Start, nur Standalone. Das Fenster erscheint kurz
+  // in Normalgröße, bevor das Frontend geladen ist (bewusst nicht verhindert).
+  useEffect(() => {
+    if (embedded || !settings.startMaximized) return;
+    void host.maximizeWindow().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only, reads initial setting
+  }, []);
 
   /** "Whole document" defaults to the tab's own visible root — in a focus tab that's the
    * focused subtree, not the real document root (see docs/entscheidungen.md 2026-07-18 #1).
@@ -1504,6 +1551,16 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
     const paths = computePaths(root, node);
     void navigator.clipboard.writeText(paths[kind]).then(
       () => setStatus(t("toolbar.pathCopied")),
+      (err) => setError(toErrorMessage(err)),
+    );
+  }
+
+  /** Strg+Alt+C: the names as shown in the tree, one per line in tree order (see node-names.ts). */
+  function handleCopyName(): void {
+    const text = namesToCopy(selectedRows.map((row) => row.node));
+    if (text === null) return;
+    void navigator.clipboard.writeText(text).then(
+      () => setStatus(t("toolbar.nameCopied")),
       (err) => setError(toErrorMessage(err)),
     );
   }
@@ -1716,6 +1773,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
   function buildContextMenuItems(): ContextMenuItem[] {
     const isVisibleRoot = !selectedRow || (root !== null && selectedRow.node === root);
     return [
+      actionProps("copyName"),
       actionProps("copyPathFull"),
       actionProps("copyPath"),
       actionProps("copyPathStatic"),
@@ -1778,6 +1836,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
           actionProps("duplicate"),
           actionProps("delete"),
           "separator",
+          actionProps("copyName"),
           actionProps("copyPathFull"),
           actionProps("copyPath"),
           actionProps("copyPathStatic"),
@@ -1794,6 +1853,7 @@ export function App({ host = getJaxelHost() }: { host?: JaxelHost } = {}): React
           "separator",
           actionProps("toggleSourceView"),
           actionProps("search"),
+          ...(embedded ? [] : (["separator", actionProps("toggleFullscreen")] as MenuBarEntry[])),
         ],
       },
       {

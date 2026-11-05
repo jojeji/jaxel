@@ -25,6 +25,7 @@ export type AppActionId =
   | "duplicate"
   | "delete"
   | "copyPathFull"
+  | "copyName"
   | "copyPath"
   | "copyPathStatic"
   | "copyNode"
@@ -34,6 +35,7 @@ export type AppActionId =
   | "search"
   | "toggleSourceView"
   | "toggleAttributesPanel"
+  | "toggleFullscreen"
   | "settings";
 
 /** What the enabled rules may look at — plain values, so the table is testable in Node. */
@@ -42,6 +44,8 @@ export interface ActionContext {
   /** Running as a VS Code editor: VS Code owns opening, creating and "save as". */
   embedded: boolean;
   selectionCount: number;
+  /** At least one selected node has a name that "Bezeichner kopieren" can copy (not a comment). */
+  selectionHasName: boolean;
   canUndo: boolean;
   canRedo: boolean;
   /** A modal dialog is on screen: nothing behind it may run (docs/entscheidungen.md 2026-07-21 —
@@ -110,6 +114,8 @@ export const ACTIONS: Record<AppActionId, ActionSpec> = {
     enabled: (c) => c.hasDocument && !c.treeActionBlocked("delete"),
   },
   copyPathFull: { labelKey: "toolbar.copyPathFull", shortcut: (k) => `${k.ctrl}+Shift+C`, enabled: oneSelected },
+  // Names, one per line; nameless nodes (comments) are skipped, so a single one disables it.
+  copyName: { labelKey: "menu.copyName", shortcut: (k) => `${k.ctrl}+Alt+C`, enabled: (c) => c.selectionHasName },
   copyPath: { labelKey: "toolbar.copyPath", enabled: oneSelected },
   copyPathStatic: { labelKey: "toolbar.copyPathStatic", enabled: oneSelected },
   // Copies every selected subtree, one fragment each — works with a multi-selection.
@@ -128,6 +134,8 @@ export const ACTIONS: Record<AppActionId, ActionSpec> = {
     shortcut: (k) => `${k.ctrl}+Alt+A`,
     enabled: always,
   },
+  // Real full screen belongs to the standalone window; VS Code owns its own.
+  toggleFullscreen: { labelKey: "menuBar.fullscreen", shortcut: () => "F11", enabled: (c) => !c.embedded },
   settings: { labelKey: "toolbar.settings", enabled: always },
 };
 
