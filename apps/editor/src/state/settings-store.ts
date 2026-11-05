@@ -28,9 +28,22 @@ export interface Settings {
    * gelöschte Knoten als Tombstone-Zeile (siehe CONTEXT.md "Änderungsmarker"/"Tombstone").
    * Default aus — reine Zusatzanzeige, ändert nichts am Modell/Speichern. */
   showTreeChangeMarkers: boolean;
+  /** Programmstart: Fenster maximiert öffnen (Taskleiste bleibt sichtbar). Wirkt beim Start der
+   * Standalone-App; im VS-Code-Modus ohne Wirkung. */
+  startMaximized: boolean;
   editorFontSize: number;
   showAttributesPanel: boolean;
   recentFilesLimit: number;
+}
+
+export const EDITOR_FONT_SIZE_MIN = 10;
+export const EDITOR_FONT_SIZE_MAX = 20;
+export const EDITOR_FONT_SIZE_DEFAULT = 12;
+
+/** Strg+Mausrad: eine Rasterstufe (1 px) pro Rastung, begrenzt auf den Bereich des Reglers. */
+export function zoomEditorFontSize(current: number, direction: "in" | "out"): number {
+  const next = current + (direction === "in" ? 1 : -1);
+  return Math.min(EDITOR_FONT_SIZE_MAX, Math.max(EDITOR_FONT_SIZE_MIN, next));
 }
 
 const STORAGE_KEY = "jaxel.settings";
@@ -42,7 +55,8 @@ const DEFAULTS: Settings = {
   restoreSession: true,
   searchShowNamespaces: false,
   showTreeChangeMarkers: false,
-  editorFontSize: 12,
+  startMaximized: false,
+  editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
   showAttributesPanel: true,
   recentFilesLimit: RECENT_FILES_LIMIT_DEFAULT,
 };

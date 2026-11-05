@@ -21,6 +21,9 @@ export type ShortcutAction =
   | "arrowLeft"
   | "duplicate"
   | "copyPathFull"
+  | "copyName"
+  | "toggleFullscreen"
+  | "zoomReset"
   | "copyNode"
   | "pasteNode"
   | "addChild"
@@ -41,14 +44,19 @@ export interface ShortcutKeyInfo {
   ctrlKey: boolean;
   metaKey: boolean;
   shiftKey: boolean;
+  /** Optional so existing callers/tests need not set it; treated as false when absent. */
+  altKey?: boolean;
   key: string;
   code: string;
 }
 
 export function resolveShortcut(event: ShortcutKeyInfo, context: ShortcutContext): ShortcutAction {
   const ctrl = event.ctrlKey || event.metaKey;
+  const alt = event.altKey === true;
   const key = event.key.toLowerCase();
 
+  if (event.key === "F11" && !ctrl && !alt && !event.shiftKey) return "toggleFullscreen";
+  if (ctrl && !alt && !event.shiftKey && key === "0") return "zoomReset";
   if (ctrl && key === "s") return event.shiftKey ? "saveAs" : "save";
   if (ctrl && !event.shiftKey && key === "z") return "undo";
   if ((ctrl && event.shiftKey && key === "z") || (ctrl && key === "y")) return "redo";
@@ -66,8 +74,11 @@ export function resolveShortcut(event: ShortcutKeyInfo, context: ShortcutContext
   if (!ctrl && !event.shiftKey && event.code === "NumpadMultiply") return "expandAll";
   if (!ctrl && !event.shiftKey && event.code === "NumpadDivide") return "collapseAll";
   if (ctrl && key === "d") return "duplicate";
-  if (ctrl && event.shiftKey && key === "c" && context.hasSelection) return "copyPathFull";
-  if (ctrl && !event.shiftKey && key === "c" && context.hasSelection) return "copyNode";
+  // Strg+Alt+C (Bezeichner kopieren) kommt vor Strg+C/Strg+Shift+C; diese verlangen `!altKey`.
+  // `code` statt `key`: unter macOS erzeugt Alt+C ein "ç".
+  if (ctrl && alt && (key === "c" || event.code === "KeyC") && context.hasSelection) return "copyName";
+  if (ctrl && !alt && event.shiftKey && key === "c" && context.hasSelection) return "copyPathFull";
+  if (ctrl && !alt && !event.shiftKey && key === "c" && context.hasSelection) return "copyNode";
   if (ctrl && key === "v" && context.hasSelection) return "pasteNode";
   if (ctrl && (event.key === "+" || event.key === "*" || event.code === "NumpadAdd")) {
     // "+" auf Nummernblock ist Shift-unabhängig; auf der Hauptreihe erzeugt Shift+Plus je nach

@@ -2131,3 +2131,21 @@ selbst laden und neben die EXE legen können.
   getestet**. Die Suchlogik ist per Unit-Test abgedeckt (isoliert mit `rustc` geprüft, der volle
   Tauri-Build ging in dieser Linux-Umgebung ohne GTK nicht). Bewusst keine eigene Fehlermeldung
   vor dem Loader-Dialog.
+
+
+## Nachtrag 2026-11-05 — Maximiert starten, Vollbild, Zoom, Bezeichner kopieren
+
+Was: Einstellung „Fenster maximiert starten“ (Frontend ruft beim Start `maximize()`, Capabilities
+`allow-maximize`, `allow-set-fullscreen`, `allow-is-fullscreen` ergänzt); `F11` schaltet Vollbild
+(Host-Methoden `maximizeWindow`/`toggleFullscreen`, im VS-Code-Host No-ops, Aktion
+`toggleFullscreen` nur Standalone); `Strg`+Mausrad (nicht-passiver `wheel`-Listener) und `Strg+0`
+verstellen die bestehende `editorFontSize` (10–20); Aktion `copyName` („Bezeichner kopieren“,
+`Strg+Alt+C`, Menü, Kontextmenü, Startseite) mit reiner Logik in `tree/node-names.ts`.
+Warum: Wünsche von Marcel, Entscheidungen siehe `entscheidungen.md` 2026-11-05.
+Vereinfachungen: Maximieren erst nach dem Laden des Frontends (kurzes Aufblitzen); Einstellung liegt
+wie alle anderen im localStorage der WebView; Attribute sind nicht einzeln kopierbar (keine
+Baumknoten); der synthetische JSON-Wurzelname `$root` wird wie angezeigt kopiert.
+Annahmen: „Maximieren wie beim Designer“ = Einstellung + F11 (Designer-Code nicht einsehbar).
+Offen/nicht geprüft: kein echter Tauri-Lauf (weder Maximieren noch F11 unter Windows/Linux
+getestet); `cargo check` scheitert hier an fehlenden GTK-Systembibliotheken (Rust unverändert,
+nur `capabilities/default.json`). `graphify`-Skill nicht vorhanden, übersprungen.

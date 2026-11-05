@@ -97,4 +97,25 @@ describe("resolveShortcut", () => {
   it("returns null for an unrelated key", () => {
     expect(resolveShortcut(key({ key: "a" }), leafSelected)).toBeNull();
   });
+
+  it("F11 toggles full screen, with or without selection, only without modifiers", () => {
+    expect(resolveShortcut(key({ key: "F11" }), noSelection)).toBe("toggleFullscreen");
+    expect(resolveShortcut(key({ key: "F11" }), leafSelected)).toBe("toggleFullscreen");
+    expect(resolveShortcut(key({ key: "F11", ctrlKey: true }), noSelection)).toBeNull();
+  });
+
+  it("Ctrl+0 resets the zoom; Ctrl+Plus/Minus family is untouched", () => {
+    expect(resolveShortcut(key({ key: "0", ctrlKey: true }), noSelection)).toBe("zoomReset");
+    expect(resolveShortcut(key({ key: "0" }), noSelection)).toBeNull();
+    expect(resolveShortcut(key({ key: "+", ctrlKey: true }), leafSelected)).toBe("addSibling");
+    expect(resolveShortcut(key({ key: "+", ctrlKey: true, shiftKey: true }), leafSelected)).toBe("addChild");
+  });
+
+  it("Ctrl+Alt+C copies the name; Ctrl+C and Ctrl+Shift+C stay unchanged", () => {
+    expect(resolveShortcut(key({ key: "c", code: "KeyC", ctrlKey: true, altKey: true }), leafSelected)).toBe("copyName");
+    expect(resolveShortcut(key({ key: "ç", code: "KeyC", metaKey: true, altKey: true }), leafSelected)).toBe("copyName");
+    expect(resolveShortcut(key({ key: "c", code: "KeyC", ctrlKey: true, altKey: true }), noSelection)).toBeNull();
+    expect(resolveShortcut(key({ key: "c", ctrlKey: true }), leafSelected)).toBe("copyNode");
+    expect(resolveShortcut(key({ key: "C", ctrlKey: true, shiftKey: true }), leafSelected)).toBe("copyPathFull");
+  });
 });

@@ -35,6 +35,10 @@ export interface JaxelHost {
   onCloseRequested(handler: (event: { preventDefault: () => void }) => void): () => void;
   onFileDrop(handler: (event: HostFileDropEvent) => void): () => void;
   destroyWindow(): Promise<void>;
+  /** Maximizes the window (taskbar stays visible). No-op where the host owns the window. */
+  maximizeWindow(): Promise<void>;
+  /** Switches real full screen on/off (taskbar hidden). No-op where the host owns the window. */
+  toggleFullscreen(): Promise<void>;
   openParentFolder(path: string): Promise<string>;
   openDecodedFile(decoded: DecodedBase64): Promise<string>;
   openLog(): Promise<string>;
@@ -168,6 +172,15 @@ function createTauriHost(): JaxelHost {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().destroy();
     },
+    async maximizeWindow() {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().maximize();
+    },
+    async toggleFullscreen() {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const win = getCurrentWindow();
+      await win.setFullscreen(!(await win.isFullscreen()));
+    },
     async openParentFolder(path) {
       return invoke<string>("open_parent_folder", { path });
     },
@@ -278,6 +291,8 @@ function createVscodeHost(): JaxelHost {
     onCloseRequested: () => () => {},
     onFileDrop: () => () => {},
     destroyWindow: async () => {},
+    maximizeWindow: async () => {},
+    toggleFullscreen: async () => {},
     openParentFolder: async () => "",
     async openDecodedFile(decoded) {
       if (decoded.kind !== "pdf") throw new Error("vscode.pdfOnly|"); // translated by hostErrorMessage (errors.ts)

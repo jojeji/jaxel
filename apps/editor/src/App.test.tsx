@@ -16,6 +16,9 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(), save: vi.fn() }));
 const windowMock = vi.hoisted(() => ({
   closeHandlers: [] as Array<(event: { preventDefault: () => void }) => void>,
   destroy: vi.fn(),
+  maximize: vi.fn(async () => {}),
+  setFullscreen: vi.fn(async (_on: boolean) => {}),
+  isFullscreen: vi.fn(async () => false),
 }));
 /** Captures event listeners (z. B. jaxel://pending-open-paths) zum Simulieren im Test. */
 const eventMock = vi.hoisted(() => ({
@@ -34,6 +37,9 @@ vi.mock("@tauri-apps/api/window", () => ({
       return () => {};
     },
     destroy: windowMock.destroy,
+    maximize: windowMock.maximize,
+    setFullscreen: windowMock.setFullscreen,
+    isFullscreen: windowMock.isFullscreen,
   }),
 }));
 
@@ -147,6 +153,10 @@ beforeEach(() => {
   eventMock.listeners.clear();
   windowMock.closeHandlers.length = 0;
   windowMock.destroy.mockClear();
+  windowMock.maximize.mockClear();
+  windowMock.setFullscreen.mockClear();
+  windowMock.isFullscreen.mockReset();
+  windowMock.isFullscreen.mockResolvedValue(false);
   writeText.mockClear();
   readText.mockClear();
   readText.mockResolvedValue("");
@@ -3333,5 +3343,111 @@ describe("Kommentare im Baum", () => {
     await openContextMenuOn(user, proseRow);
 
     expect(screen.getByRole("menuitem", { name: "Einkommentieren" })).toBeDisabled();
+  });
+});
+
+describe("Bezeichner kopieren", () => {
+  it("kopiert den Namen des ausgewählten Knotens über das Bearbeiten-Menü", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(screen.getAllByText("person")[0]!);
+
+    await user.click(screen.getByRole("menuitem", { name: "Bearbeiten" }));
+    await user.click(screen.getByRole("menuitem", { name: /^Bezeichner kopieren/ }));
+    expect(writeText).toHaveBeenCalledWith("person");
+    expect(await screen.findByText("Bezeichner kopiert")).toBeInTheDocument();
+  });
+
+  it("Strg+Alt+C kopiert den Namen, Strg+C weiterhin den Knoten", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(screen.getAllByText("person")[1]!);
+    await user.click(await screen.findByText("Hamburg"));
+
+    fireEvent.keyDown(window, { key: "c", code: "KeyC", ctrlKey: true, altKey: true });
+    expect(writeText).toHaveBeenLastCalledWith("city");
+    fireEvent.keyDown(window, { key: "c", code: "KeyC", ctrlKey: true });
+    expect(writeText).toHaveBeenLastCalledWith("<city>Hamburg</city>");
+  });
+
+  it("Mehrfachauswahl: ein Name pro Zeile in Baumreihenfolge", async () => {
+    const user = await openSampleFile();
+    stubClipboard();
+    await user.click(screen.getAllByText("person")[0]!);
+    fireEvent.click(screen.getAllByText("person")[1]!.closest(".tree-row")!, { ctrlKey: true });
+
+    fireEvent.keyDown(window, { key: "c", code: "KeyC", ctrlKey: true, altKey: true });
+    expect(writeText).toHaveBeenLastCalledWith("person\nperson");
+  });
+
+  it("ist bei einem Kommentar deaktiviert, Kontextmenü bietet den Eintrag an", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    vi.mocked(open).mockResolvedValueOnce("/fake/kommentare.xml");
+    await user.click(screen.getAllByRole("button", { name: "Datei öffnen…" })[0]!);
+    await screen.findByText("catalog");
+    const commentRow = screen.getByText("die erste Person").closest(".tree-row")!;
+    await user.click(commentRow);
+    fireEvent.contextMenu(commentRow);
+    expect(screen.getByRole("menuitem", { name: /Bezeichner kopieren/ })).toBeDisabled();
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    fireEvent.contextMenu(screen.getByText("catalog").closest(".tree-row")!);
+    expect(screen.getByRole("menuitem", { name: /Bezeichner kopieren/ })).toBeEnabled();
+  });
+});
+
+describe("Zoom und Vollbild", () => {
+  function fontSize(): string {
+    return document.querySelector<HTMLElement>(".app-shell")!.style.getPropertyValue("--editor-font-size");
+  }
+
+  it("Strg+Mausrad verstellt die Schriftgröße in 1-px-Schritten, begrenzt auf 10 bis 20", async () => {
+    await openSampleFile();
+    expect(fontSize()).toBe("12px");
+    const up = new WheelEvent("wheel", { deltaY: -100, ctrlKey: true, cancelable: true });
+    window.dispatchEvent(up);
+    await waitFor(() => expect(fontSize()).toBe("13px"));
+    expect(up.defaultPrevented).toBe(true);
+    for (let i = 0; i < 12; i++) {
+      window.dispatchEvent(new WheelEvent("wheel", { deltaY: -100, ctrlKey: true, cancelable: true }));
+    }
+    await waitFor(() => expect(fontSize()).toBe("20px"));
+    for (let i = 0; i < 15; i++) {
+      window.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, ctrlKey: true, cancelable: true }));
+    }
+    await waitFor(() => expect(fontSize()).toBe("10px"));
+    expect(JSON.parse(localStorage.getItem("jaxel.settings")!).editorFontSize).toBe(10);
+  });
+
+  it("Mausrad ohne Strg ändert nichts; Strg+0 setzt auf 12 zurück", async () => {
+    await openSampleFile();
+    const plain = new WheelEvent("wheel", { deltaY: -100, cancelable: true });
+    window.dispatchEvent(plain);
+    expect(plain.defaultPrevented).toBe(false);
+    expect(fontSize()).toBe("12px");
+    window.dispatchEvent(new WheelEvent("wheel", { deltaY: -100, ctrlKey: true, cancelable: true }));
+    await waitFor(() => expect(fontSize()).toBe("13px"));
+    fireEvent.keyDown(window, { key: "0", ctrlKey: true });
+    await waitFor(() => expect(fontSize()).toBe("12px"));
+  });
+
+  it("F11 schaltet den Vollbildmodus um", async () => {
+    await openSampleFile();
+    fireEvent.keyDown(window, { key: "F11" });
+    await waitFor(() => expect(windowMock.setFullscreen).toHaveBeenCalledWith(true));
+    windowMock.isFullscreen.mockResolvedValue(true);
+    fireEvent.keyDown(window, { key: "F11" });
+    await waitFor(() => expect(windowMock.setFullscreen).toHaveBeenCalledWith(false));
+  });
+
+  it("maximiert beim Start nur, wenn die Einstellung an ist", async () => {
+    renderApp();
+    await screen.findAllByRole("button", { name: "Datei öffnen…" });
+    expect(windowMock.maximize).not.toHaveBeenCalled();
+    cleanup();
+    localStorage.setItem("jaxel.settings", JSON.stringify({ startMaximized: true }));
+    renderApp();
+    await waitFor(() => expect(windowMock.maximize).toHaveBeenCalledTimes(1));
   });
 });
