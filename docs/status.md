@@ -2149,3 +2149,11 @@ Annahmen: „Maximieren wie beim Designer“ = Einstellung + F11 (Designer-Code 
 Offen/nicht geprüft: kein echter Tauri-Lauf (weder Maximieren noch F11 unter Windows/Linux
 getestet); `cargo check` scheitert hier an fehlenden GTK-Systembibliotheken (Rust unverändert,
 nur `capabilities/default.json`). `graphify`-Skill nicht vorhanden, übersprungen.
+
+**Release per manuellem Workflow-Start (2026-11-05).** `.github/workflows/release.yml`: neuer Input
+`release` (boolean); Job `check` gibt `release`/`tag` als Outputs aus, prüft bei manuellem Release
+main-Branch, Versionskonsistenz und dass der Tag fehlt, und legt den Tag nach Tests/Typecheck an;
+`build` nutzt diese Outputs statt `github.ref`. Warum: Agent-Sitzungen können keine Tags pushen,
+siehe `entscheidungen.md`. Annahmen: Branch-Schutz/Rulesets blockieren Tag-Pushes des
+`GITHUB_TOKEN` nicht. Offen/nicht geprüft: Workflow lief noch nie real (nur YAML-Syntaxcheck,
+`actionlint` nicht verfügbar); `graphify`-Skill nicht vorhanden, übersprungen.

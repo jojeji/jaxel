@@ -1,14 +1,24 @@
 name: Release
 
 # Baut Jaxel für Linux (AppImage, deb, rpm) und Windows (NSIS-Installer + portable
-# .exe im ZIP) und veröffentlicht bei Tag-Push (v*) ein GitHub-Release. Manueller
-# Start (workflow_dispatch) baut nur und lädt die Installer als Workflow-Artefakte
+# .exe im ZIP) und veröffentlicht ein GitHub-Release, wenn
+#   - ein Tag v* gepusht wird, oder
+#   - der Workflow manuell mit gesetztem Haken "release" gestartet wird
+#     (Actions -> Release -> Run workflow, Branch main). Dann wird der Tag aus der
+#     Version abgeleitet ("v" + version aus apps/editor/src-tauri/tauri.conf.json),
+#     nach grünen Tests auf den gestarteten Commit gesetzt und gepusht.
+# Manueller Start ohne Haken baut nur und lädt die Installer als Workflow-Artefakte
 # hoch — ohne Release.
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release veröffentlichen (Tag v<Version> aus tauri.conf.json wird angelegt; nur auf main)'
+        type: boolean
+        default: false
 
 # Das Standard-GITHUB_TOKEN ist in diesem Repo read-only; zum Anlegen des
 # Releases (tauri-action) sind Schreibrechte auf Contents nötig.
@@ -19,8 +29,51 @@ jobs:
   check:
     name: Tests & Versionscheck
     runs-on: ubuntu-22.04
+    outputs:
+      release: ${{ steps.rel.outputs.release }}
+      tag: ${{ steps.rel.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+      - name: Release-Entscheidung & Versionscheck
+        id: rel
+        env:
+          RELEASE_INPUT: ${{ inputs.release }}
+        run: |
+          CONF="$(node -p "require('./apps/editor/src-tauri/tauri.conf.json').version")"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            RELEASE=true
+            TAG="$GITHUB_REF_NAME"
+          elif [ "$RELEASE_INPUT" = "true" ]; then
+            RELEASE=true
+            TAG="v$CONF"
+          else
+            RELEASE=false
+            TAG=""
+          fi
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE tag=$TAG tauri.conf.json=$CONF package.json=$PKG"
+          if [ "$RELEASE" = "true" ]; then
+            if [ "$CONF" != "$PKG" ]; then
+              echo "::error::Versionen weichen ab (tauri.conf.json=$CONF, package.json=$PKG)"
+              exit 1
+            fi
+            if [ "$TAG" != "v$CONF" ]; then
+              echo "::error::Tag $TAG passt nicht zur Version (tauri.conf.json=$CONF, package.json=$PKG)"
+              exit 1
+            fi
+          fi
+          if [ "$RELEASE" = "true" ] && [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::Manuelles Release nur auf main (gestartet auf $GITHUB_REF)"
+              exit 1
+            fi
+            if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ]; then
+              echo "::error::Tag $TAG existiert bereits - Version in tauri.conf.json/package.json erhöhen"
+              exit 1
+            fi
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -33,17 +86,18 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run typecheck
-      - name: Tag muss zur Version passen
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Manuelles Release: Tag erst nach grünen Tests/Typecheck anlegen. Per GITHUB_TOKEN
+      # gepushte Tags lösen bewusst KEINEN zweiten Workflow-Lauf aus (GitHub-Regel gegen
+      # Endlosschleifen) — deshalb baut und veröffentlicht dieser Lauf selbst.
+      - name: Release-Tag anlegen (manueller Lauf)
+        if: github.event_name == 'workflow_dispatch' && steps.rel.outputs.release == 'true'
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          CONF="$(node -p "require('./apps/editor/src-tauri/tauri.conf.json').version")"
-          PKG="$(node -p "require('./package.json').version")"
-          echo "Tag=$TAG tauri.conf.json=$CONF package.json=$PKG"
-          if [ "$TAG" != "$CONF" ] || [ "$TAG" != "$PKG" ]; then
-            echo "::error::Tag v$TAG passt nicht zur Version (tauri.conf.json=$CONF, package.json=$PKG)"
-            exit 1
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Jaxel $TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
 
   build:
     name: Build ${{ matrix.platform }}
@@ -79,21 +133,21 @@ jobs:
 
       - run: npm ci
 
-      - name: Build & Release (Tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Build & Release
+        if: needs.check.outputs.release == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/editor
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Jaxel ${{ github.ref_name }}'
+          tagName: ${{ needs.check.outputs.tag }}
+          releaseName: 'Jaxel ${{ needs.check.outputs.tag }}'
           releaseBody: 'Details siehe [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).'
           releaseDraft: false
           prerelease: false
 
       - name: Build ohne Release (manueller Lauf)
-        if: "!startsWith(github.ref, 'refs/tags/v')"
+        if: needs.check.outputs.release != 'true'
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: apps/editor
@@ -111,14 +165,14 @@ jobs:
           Remove-Item -Recurse -Force $portableDir
           echo "PORTABLE_ZIP=$zip" >> $env:GITHUB_ENV
 
-      - name: Portable Build zum Release hinzufügen (Tag)
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'windows'
+      - name: Portable Build zum Release hinzufügen (Release)
+        if: needs.check.outputs.release == 'true' && matrix.platform == 'windows'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.ref_name }} "${{ env.PORTABLE_ZIP }}" --clobber --repo ${{ github.repository }}
+        run: gh release upload ${{ needs.check.outputs.tag }} "${{ env.PORTABLE_ZIP }}" --clobber --repo ${{ github.repository }}
 
       - name: Installer als Artefakte hochladen (manueller Lauf)
-        if: "!startsWith(github.ref, 'refs/tags/v')"
+        if: needs.check.outputs.release != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: jaxel-${{ matrix.platform }}
