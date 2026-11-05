@@ -1128,3 +1128,14 @@ Vier Wünsche eines Nutzers (Marcel), vom PO entschieden.
    Baumreihenfolge; Kommentare haben keinen Namen und werden übersprungen (bei Einzelauswahl
    ausgegraut). Attribute sind keine Baumknoten und bleiben außen vor. `Strg+C` und
    `Strg+Shift+C` matchen nur noch ohne Alt.
+
+## 2026-11-05 — Release per manuellem Workflow-Start
+
+Der Release-Workflow lässt sich zusätzlich per `workflow_dispatch` mit Haken „release“ starten.
+Grund: Agent-Sitzungen dürfen nur ihren Branch pushen, keine Tags, können aber Workflows starten.
+Regeln: Der Tag wird aus der Version abgeleitet (`v` + `tauri.conf.json`-Version, kein freier
+Versions-Input); nur auf `refs/heads/main`; existiert der Tag schon, bricht der Lauf ab (kein
+Überschreiben); der annotierte Tag wird erst nach grünen Tests/Typecheck auf den gestarteten Commit
+gesetzt und mit dem `GITHUB_TOKEN` gepusht. Dieser Push löst bewusst keinen zweiten Workflow-Lauf
+aus, daher baut und veröffentlicht derselbe Lauf. Tag-Push `v*` und „Start ohne Haken“ (nur
+Artefakte) bleiben unverändert.

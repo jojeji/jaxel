@@ -160,7 +160,10 @@ npm run tauri -- build --bundles nsis                # Windows, nur auf Windows
 Ein Release veröffentlichst du so: Version in `package.json`, `apps/editor/package.json` und
 `apps/editor/src-tauri/tauri.conf.json` anheben, die Einträge in [CHANGELOG.md](CHANGELOG.md)
 unter die neue Version schieben und den Tag `v<version>` pushen. GitHub Actions testet, baut alle
-Pakete und legt das Release an.
+Pakete und legt das Release an. Alternativ ohne Tag-Push: auf GitHub unter Actions → Release →
+Run workflow (Branch `main`, Haken „release“) starten; der Tag `v<version>` wird dann aus
+`tauri.conf.json` abgeleitet und vom Workflow nach grünen Tests selbst angelegt (nur auf `main`,
+ein bereits vorhandener Tag wird nie überschrieben). Ohne Haken baut der Lauf nur Artefakte.
 
 ## Lizenz
 
